@@ -60,28 +60,28 @@ const RaceAnalyzer = () => {
       // Marknadens chans
       const marketProbability = (1 / odds) * 100;
 
-      // Value ratio
-      const valueRatio = impliedProbability / (streckPercent / 100);
+      // Value ratio - nu som decimal (t.ex. 1.18 istället för 118.27)
+      const valueRatio = impliedProbability / streckPercent;
       
-      // Ranking Score (tidigare value_score)
+      // Ranking Score
       let rankingScore = (impliedProbability * 100) / streckPercent;
       if (odds > 10) rankingScore += 1;
       if (streckPercent < 10) rankingScore += 1;
       if (streckPercent > 40) rankingScore -= 1;
 
-      // Play rekommendation - tre nivåer
+      // Play rekommendation - justerade tröskelvärden
       let play = 'No play';
       if (valueRatio > 1.25) {
         play = 'Stark play';
-      } else if (valueRatio >= 1.05) {
+      } else if (valueRatio >= 1.15) {
         play = 'Möjlig play';
       }
 
-      // Value status
+      // Value status - justerade tröskelvärden
       let valueStatus = 'Neutral';
-      if (valueRatio > 1.1) {
-        valueStatus = 'Underspelad';
-      } else if (valueRatio < 0.95) {
+      if (valueRatio > 1.20) {
+        valueStatus = 'Spelvärd';
+      } else if (valueRatio < 1.05) {
         valueStatus = 'Överspelad';
       }
 

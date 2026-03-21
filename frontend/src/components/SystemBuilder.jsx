@@ -19,33 +19,29 @@ const SystemBuilder = ({ horses }) => {
   }, [horses]);
 
   const generateAutoSuggestion = () => {
-    // Sortera hästar efter ranking score
-    const sorted = [...horses].sort((a, b) => b.rankingScore - a.rankingScore);
+    // Sortera hästar efter value ratio
+    const sortedByValue = [...horses].sort((a, b) => b.valueRatio - a.valueRatio);
+    const sortedByRanking = [...horses].sort((a, b) => b.rankingScore - a.rankingScore);
 
-    // Hitta favoriten (lägst odds)
-    const favorite = [...horses].sort((a, b) => a.odds - b.odds)[0];
-    
-    // Välj spik: högst ranking_score, ELLER favorit om inte överspelad (valueRatio >= 0.95)
-    let spik;
-    if (favorite && favorite.valueRatio >= 0.95) {
-      spik = favorite;
-    } else {
-      spik = sorted[0];
+    // Spik: häst med högst value_ratio om >1.20, annars ingen spik
+    let spik = null;
+    if (sortedByValue[0] && sortedByValue[0].valueRatio > 1.20) {
+      spik = sortedByValue[0];
     }
 
-    // Välj lås: topp 2 ranking_score (exklusive spik)
-    const las = sorted
-      .filter(h => h.number !== spik.number)
+    // Lås: topp 2 value_ratio (exklusive spik)
+    const las = sortedByValue
+      .filter(h => !spik || h.number !== spik.number)
       .slice(0, 2);
 
-    // Välj gardering: alla med value_ratio > 1.1 ELLER streck < 5%
+    // Gardering: value_ratio > 1.10 ELLER streck < 5%
     const gardering = horses
       .filter(h => 
-        h.number !== spik.number && 
+        (!spik || h.number !== spik.number) && 
         !las.find(l => l.number === h.number) &&
-        (h.valueRatio > 1.1 || h.streckPercent < 5)
+        (h.valueRatio > 1.10 || h.streckPercent < 5)
       )
-      .sort((a, b) => b.rankingScore - a.rankingScore)
+      .sort((a, b) => b.valueRatio - a.valueRatio)
       .slice(0, 5);
 
     setAutoSuggestion({ spik, las, gardering });
@@ -94,8 +90,8 @@ const SystemBuilder = ({ horses }) => {
   const currentSelection = mode === 'auto' ? autoSuggestion : manualSelection;
 
   const getValueColor = (valueRatio) => {
-    if (valueRatio > 1.1) return 'bg-green-500/20 text-green-400 border-green-500/40';
-    if (valueRatio < 0.95) return 'bg-red-500/20 text-red-400 border-red-500/40';
+    if (valueRatio > 1.20) return 'bg-green-500/20 text-green-400 border-green-500/40';
+    if (valueRatio < 1.05) return 'bg-red-500/20 text-red-400 border-red-500/40';
     return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40';
   };
 
@@ -165,13 +161,21 @@ const SystemBuilder = ({ horses }) => {
         {mode === 'auto' && autoSuggestion && (
           <>
             <div className="space-y-3">
-              {autoSuggestion.spik && (
+              {autoSuggestion.spik ? (
                 <HorseCard
                   horse={autoSuggestion.spik}
                   icon={Target}
                   label="Spik"
                   color="bg-blue-500/10 border-blue-500/30"
                 />
+              ) : (
+                <div className="p-3 rounded-lg border bg-gray-700/20 border-gray-600/40" data-testid="no-spik-message">
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Target className="w-4 h-4" />
+                    <span className="text-sm font-semibold">Ingen spik</span>
+                    <span className="text-xs opacity-80">• Ingen häst har value ratio över 1.20</span>
+                  </div>
+                </div>
               )}
 
               {autoSuggestion.las.length > 0 && (

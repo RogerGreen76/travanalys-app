@@ -21,8 +21,8 @@ const HorseTable = ({ horses }) => {
     const topStreck = byStreck[0]?.streckPercent || 0;
     const secondStreck = byStreck[1]?.streckPercent || 0;
 
-    // Räkna hästar med bra value
-    const goodValueCount = horses.filter(h => h.valueRatio > 1.1).length;
+    // Räkna hästar med bra value (justerat till >1.20)
+    const goodValueCount = horses.filter(h => h.valueRatio > 1.20).length;
 
     // Favoritlopp: 1-2 hästar dominerar strecket
     if (topStreck > 30 && (topStreck - secondStreck) > 10) {
@@ -95,8 +95,8 @@ const HorseTable = ({ horses }) => {
   }, [horses, sortField, sortDirection, filterValue, showFilter]);
 
   const getValueClass = (valueRatio) => {
-    if (valueRatio > 1.1) return 'value-positive';
-    if (valueRatio < 0.95) return 'value-negative';
+    if (valueRatio > 1.20) return 'value-positive';
+    if (valueRatio < 1.05) return 'value-negative';
     return 'value-neutral';
   };
 
@@ -278,13 +278,13 @@ const HorseTable = ({ horses }) => {
                   <td className="text-right">
                     <div className="flex flex-col items-end gap-1">
                       <span className={`font-bold font-mono ${
-                        horse.valueRatio > 1.1 ? 'text-green-400' :
-                        horse.valueRatio < 0.95 ? 'text-red-400' : 'text-yellow-400'
+                        horse.valueRatio > 1.20 ? 'text-green-400' :
+                        horse.valueRatio < 1.05 ? 'text-red-400' : 'text-yellow-400'
                       }`}>
                         {horse.valueRatio.toFixed(2)}
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded ${
-                        horse.valueStatus === 'Underspelad' ? 'bg-green-500/20 text-green-400' :
+                        horse.valueStatus === 'Spelvärd' ? 'bg-green-500/20 text-green-400' :
                         horse.valueStatus === 'Överspelad' ? 'bg-red-500/20 text-red-400' :
                         'bg-yellow-500/20 text-yellow-400'
                       }`}>
