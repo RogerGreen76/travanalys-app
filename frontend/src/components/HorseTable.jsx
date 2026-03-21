@@ -7,7 +7,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Download, Filter } from 'lucide-react'
 import { toast } from 'sonner';
 
 const HorseTable = ({ horses }) => {
-  const [sortField, setSortField] = useState('valueGap');
+  const [sortField, setSortField] = useState('valueScore');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterValue, setFilterValue] = useState('');
   const [showFilter, setShowFilter] = useState('all'); // all, positive, favorites
@@ -54,9 +54,9 @@ const HorseTable = ({ horses }) => {
     return filtered;
   }, [horses, sortField, sortDirection, filterValue, showFilter]);
 
-  const getValueClass = (valueGap) => {
-    if (valueGap > 0.02) return 'value-positive';
-    if (valueGap < 0) return 'value-negative';
+  const getValueClass = (valueRatio) => {
+    if (valueRatio > 1.2) return 'value-positive';
+    if (valueRatio < 0.9) return 'value-negative';
     return 'value-neutral';
   };
 
@@ -68,14 +68,17 @@ const HorseTable = ({ horses }) => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Implied %', 'Value Gap'];
+    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Implied %', 'Value Gap', 'Value Ratio', 'Value Score', 'Play'];
     const rows = sortedAndFilteredHorses.map(h => [
       h.number,
       h.name,
       h.odds.toFixed(2),
       h.streckPercent.toFixed(1),
       h.impliedProbability.toFixed(2),
-      (h.valueGap * 100).toFixed(2)
+      (h.valueGap * 100).toFixed(2),
+      h.valueRatio.toFixed(2),
+      h.valueScore.toFixed(2),
+      h.play
     ]);
 
     const csvContent = [
@@ -173,10 +176,22 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('impliedProbability')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('valueGap')} className="cursor-pointer text-right">
+                <th onClick={() => handleSort('valueRatio')} className="cursor-pointer text-right">
                   <div className="flex items-center justify-end gap-1">
-                    Value Gap
-                    {getSortIcon('valueGap')}
+                    Value Ratio
+                    {getSortIcon('valueRatio')}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('valueScore')} className="cursor-pointer text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    Value Score
+                    {getSortIcon('valueScore')}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('play')} className="cursor-pointer text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    Play
+                    {getSortIcon('play')}
                   </div>
                 </th>
               </tr>
@@ -185,7 +200,7 @@ const HorseTable = ({ horses }) => {
               {sortedAndFilteredHorses.map((horse) => (
                 <tr
                   key={horse.number}
-                  className={getValueClass(horse.valueGap)}
+                  className={getValueClass(horse.valueRatio)}
                   data-testid={`horse-row-${horse.number}`}
                 >
                   <td className="font-bold text-white">{horse.number}</td>
@@ -204,10 +219,22 @@ const HorseTable = ({ horses }) => {
                   <td className="text-right text-white font-mono">{horse.impliedProbability.toFixed(2)}%</td>
                   <td className="text-right font-bold font-mono">
                     <span className={
-                      horse.valueGap > 0.02 ? 'text-green-400' :
-                      horse.valueGap < 0 ? 'text-red-400' : 'text-yellow-400'
+                      horse.valueRatio > 1.2 ? 'text-green-400' :
+                      horse.valueRatio < 0.9 ? 'text-red-400' : 'text-yellow-400'
                     }>
-                      {(horse.valueGap * 100).toFixed(2)}%
+                      {horse.valueRatio.toFixed(2)}
+                    </span>
+                  </td>
+                  <td className="text-right text-white font-mono font-semibold">
+                    {horse.valueScore.toFixed(1)}
+                  </td>
+                  <td className="text-center">
+                    <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
+                      horse.play === 'YES' 
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/40' 
+                        : 'bg-gray-700/30 text-gray-400 border border-gray-600/30'
+                    }`}>
+                      {horse.play}
                     </span>
                   </td>
                 </tr>

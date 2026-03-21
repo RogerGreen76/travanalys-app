@@ -50,19 +50,34 @@ const RaceAnalyzer = () => {
 
   const analyzeHorses = (horses) => {
     return horses.map(horse => {
-      // Exakta beräkningar enligt specifikation
+      // Grundläggande beräkningar
       const odds = horse.odds / 100; // t.ex. 450 -> 4.50
       const streckPercent = horse.betDistribution / 10; // t.ex. 220 -> 22.0
       const impliedProbability = (1 / odds) * 100; // i procent
       const streckDecimal = streckPercent / 100;
       const valueGap = (impliedProbability / 100) - streckDecimal;
 
+      // Nya value-beräkningar
+      const valueRatio = impliedProbability / (streckPercent / 100);
+      
+      // Value score med justeringar
+      let valueScore = (impliedProbability * 100) / streckPercent;
+      if (odds > 10) valueScore += 1;
+      if (streckPercent < 10) valueScore += 1;
+      if (streckPercent > 40) valueScore -= 1;
+
+      // Play rekommendation
+      const play = (valueRatio > 1.2 && odds > 4) ? 'YES' : 'NO';
+
       return {
         ...horse,
         odds: odds,
         streckPercent: streckPercent,
         impliedProbability: impliedProbability,
-        valueGap: valueGap
+        valueGap: valueGap,
+        valueRatio: valueRatio,
+        valueScore: valueScore,
+        play: play
       };
     });
   };

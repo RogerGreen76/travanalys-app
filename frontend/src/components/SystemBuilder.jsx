@@ -19,25 +19,33 @@ const SystemBuilder = ({ horses }) => {
   }, [horses]);
 
   const generateAutoSuggestion = () => {
-    // Sortera hästar efter value gap
-    const sorted = [...horses].sort((a, b) => b.valueGap - a.valueGap);
+    // Sortera hästar efter value score
+    const sorted = [...horses].sort((a, b) => b.valueScore - a.valueScore);
 
-    // Välj spik: häst med högst value gap OCH rimligt odds (inte för högt)
-    const goodValueHorses = sorted.filter(h => h.valueGap > 0 && h.odds < 20);
-    const spik = goodValueHorses.length > 0 ? goodValueHorses[0] : sorted[0];
+    // Hitta favoriten (lägst odds)
+    const favorite = [...horses].sort((a, b) => a.odds - b.odds)[0];
+    
+    // Välj spik: högst value_score, ELLER favorit om inte överspelad (valueRatio >= 0.9)
+    let spik;
+    if (favorite && favorite.valueRatio >= 0.9) {
+      spik = favorite;
+    } else {
+      spik = sorted[0];
+    }
 
-    // Välj lås: 2 hästar med bra value som inte är spik
+    // Välj lås: topp 2 value_score (exklusive spik)
     const las = sorted
-      .filter(h => h.number !== spik.number && h.valueGap > -0.05)
+      .filter(h => h.number !== spik.number)
       .slice(0, 2);
 
-    // Välj gardering: 3-5 hästar med acceptabelt value
-    const gardering = sorted
+    // Välj gardering: alla med value_ratio > 1.1 ELLER streck < 5%
+    const gardering = horses
       .filter(h => 
         h.number !== spik.number && 
         !las.find(l => l.number === h.number) &&
-        h.valueGap > -0.10
+        (h.valueRatio > 1.1 || h.streckPercent < 5)
       )
+      .sort((a, b) => b.valueScore - a.valueScore)
       .slice(0, 5);
 
     setAutoSuggestion({ spik, las, gardering });
@@ -85,9 +93,9 @@ const SystemBuilder = ({ horses }) => {
 
   const currentSelection = mode === 'auto' ? autoSuggestion : manualSelection;
 
-  const getValueColor = (valueGap) => {
-    if (valueGap > 0.02) return 'bg-green-500/20 text-green-400 border-green-500/40';
-    if (valueGap < 0) return 'bg-red-500/20 text-red-400 border-red-500/40';
+  const getValueColor = (valueRatio) => {
+    if (valueRatio > 1.2) return 'bg-green-500/20 text-green-400 border-green-500/40';
+    if (valueRatio < 0.9) return 'bg-red-500/20 text-red-400 border-red-500/40';
     return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40';
   };
 
@@ -98,16 +106,21 @@ const SystemBuilder = ({ horses }) => {
           <Icon className="w-4 h-4" />
           <span className="text-xs font-semibold uppercase opacity-80">{label}</span>
         </div>
-        <Badge className={getValueColor(horse.valueGap)}>
-          {(horse.valueGap * 100).toFixed(1)}%
-        </Badge>
+        <div className="flex gap-2">
+          <Badge className={getValueColor(horse.valueRatio)}>
+            Ratio: {horse.valueRatio.toFixed(2)}
+          </Badge>
+          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/40">
+            Score: {horse.valueScore.toFixed(1)}
+          </Badge>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <span className="text-2xl font-bold">{horse.number}</span>
         <div className="flex-1">
           <div className="font-semibold text-white">{horse.name}</div>
           <div className="text-xs text-gray-400">
-            Odds: {horse.odds.toFixed(2)} • Streck: {horse.streckPercent.toFixed(1)}%
+            Odds: {horse.odds.toFixed(2)} • Streck: {horse.streckPercent.toFixed(1)}% • Play: {horse.play}
           </div>
         </div>
       </div>
@@ -124,7 +137,7 @@ const SystemBuilder = ({ horses }) => {
               Systemförslag
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Automatiskt förslag baserat på value gap
+              Baserat på value ratio och value score
             </CardDescription>
           </div>
 
