@@ -45,40 +45,55 @@ Klistra in JSON-data för ett lopp eller använd "Ladda exempeldata" för att te
 
 Appen beräknar automatiskt:
 
+**Grundläggande:**
 - **Odds** = `odds / 100`
 - **Streck %** = `betDistribution / 10`
 - **Implied %** = `(1 / odds) × 100`
-- **Value Gap** = `(implied % / 100) - (streck % / 100)`
+
+**Value-analys (nya):**
+- **Value Ratio** = `implied_probability / (streck_procent / 100)`
+- **Value Score** = `(implied_probability × 100) / streck_procent`
+  - +1 om odds > 10
+  - +1 om streck < 10%
+  - -1 om streck > 40%
+- **Play** = YES om value_ratio > 1.2 OCH odds > 4, annars NO
 
 ### 4. Färgkodning
 
-| Färg | Betydelse | Value Gap |
+| Färg | Betydelse | Value Ratio |
 |------|-----------|-----------|
-| 🟢 Grön | **Spelvärd** - Underspelade | > 2% |
-| 🟡 Gul | Neutral | 0% till 2% |
-| 🔴 Röd | **Överspelad** - Undvik | < 0% |
+| 🟢 Grön | **Spelvärd** - Stark value | > 1.2 |
+| 🟡 Gul | Neutral - Acceptabel | 0.9 - 1.2 |
+| 🔴 Röd | **Överspelad** - Undvik | < 0.9 |
 
 ### 5. Funktioner
 
 **Tabell:**
-- ✓ Sortera på alla kolumner
+- ✓ Sortera på alla kolumner (inkl. Value Ratio, Value Score, Play)
 - ✓ Filtrera: Alla hästar / Spelvärda (>2%) / Favoriter (<10)
 - ✓ Sök på hästnamn eller nummer
-- ✓ Exportera till CSV
+- ✓ Exportera till CSV (inkl. alla nya kolumner)
 
 **Systemförslag:**
-- **Automatiskt läge**: Appen väljer automatiskt baserat på value gap
-  - 1 Spik (högsta value, rimligt odds)
-  - 2 Lås (bra value)
-  - 3-5 Gardering (acceptabelt value)
+- **Automatiskt läge**: Appen väljer baserat på value score
+  - 1 Spik (högsta value score, eller favorit om inte överspelad)
+  - 2 Lås (topp 2 value score)
+  - 3-5 Gardering (value ratio > 1.1 eller streck < 5%)
 - **Manuellt läge**: Kopiera och justera förslaget manuellt
+
+**Nya kolumner:**
+- **Value Ratio**: Visar förhållandet mellan implied probability och streck
+- **Value Score**: Poäng-baserad värdering med justeringar
+- **Play**: Tydlig YES/NO rekommendation
 
 ## Tips för användning
 
-1. **Fokusera på value gap** - Positiv value gap betyder att hästen är underspelade
-2. **Kombinera med egen kunskap** - Appen ersätter inte din egen analys
-3. **Var kritisk till höga odds** - Underspelade hästar med mycket höga odds kan vara riskabla
-4. **Testa med exempeldata först** - Lär dig hur appen fungerar innan du använder riktig data
+1. **Fokusera på Value Ratio** - Över 1.2 betyder att hästen är underspelade (grön = bra)
+2. **Använd Value Score** - Högre score = bättre värde relativt streck
+3. **Play-kolumnen** - "YES" betyder rekommenderad spelbar häst
+4. **Kombinera med egen kunskap** - Appen ersätter inte din egen analys
+5. **Var kritisk till extremvärden** - Mycket höga ratios kan indikera risk
+6. **Testa med exempeldata först** - Lär dig hur appen fungerar
 
 ## Teknisk info
 
