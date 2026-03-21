@@ -7,10 +7,50 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Download, Filter } from 'lucide-react'
 import { toast } from 'sonner';
 
 const HorseTable = ({ horses }) => {
-  const [sortField, setSortField] = useState('valueScore');
+  const [sortField, setSortField] = useState('valueRatio');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterValue, setFilterValue] = useState('');
   const [showFilter, setShowFilter] = useState('all'); // all, positive, favorites
+
+  // Loppklassificering
+  const getRaceClassification = () => {
+    if (!horses || horses.length === 0) return null;
+
+    // Sortera efter streck
+    const byStreck = [...horses].sort((a, b) => b.streckPercent - a.streckPercent);
+    const topStreck = byStreck[0]?.streckPercent || 0;
+    const secondStreck = byStreck[1]?.streckPercent || 0;
+
+    // Räkna hästar med bra value
+    const goodValueCount = horses.filter(h => h.valueRatio > 1.1).length;
+
+    // Favoritlopp: 1-2 hästar dominerar strecket
+    if (topStreck > 30 && (topStreck - secondStreck) > 10) {
+      return {
+        type: 'Favoritlopp',
+        description: 'Tydlig favorit eller favoriter',
+        color: 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+      };
+    }
+
+    // Värdelopp: Flera hästar med bra value
+    if (goodValueCount >= 3) {
+      return {
+        type: 'Värdelopp',
+        description: `${goodValueCount} hästar med bra value`,
+        color: 'bg-green-500/20 text-green-400 border-green-500/40'
+      };
+    }
+
+    // Rörigt lopp: Jämnt
+    return {
+      type: 'Rörigt lopp',
+      description: 'Många jämna hästar',
+      color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40'
+    };
+  };
+
+  const raceClassification = getRaceClassification();
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -55,8 +95,8 @@ const HorseTable = ({ horses }) => {
   }, [horses, sortField, sortDirection, filterValue, showFilter]);
 
   const getValueClass = (valueRatio) => {
-    if (valueRatio > 1.2) return 'value-positive';
-    if (valueRatio < 0.9) return 'value-negative';
+    if (valueRatio > 1.1) return 'value-positive';
+    if (valueRatio < 0.95) return 'value-negative';
     return 'value-neutral';
   };
 
@@ -68,16 +108,17 @@ const HorseTable = ({ horses }) => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Implied %', 'Value Gap', 'Value Ratio', 'Value Score', 'Play'];
+    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Market %', 'Implied %', 'Value Ratio', 'Ranking Score', 'Status', 'Play'];
     const rows = sortedAndFilteredHorses.map(h => [
       h.number,
       h.name,
       h.odds.toFixed(2),
       h.streckPercent.toFixed(1),
+      h.marketProbability.toFixed(1),
       h.impliedProbability.toFixed(2),
-      (h.valueGap * 100).toFixed(2),
       h.valueRatio.toFixed(2),
-      h.valueScore.toFixed(2),
+      h.rankingScore.toFixed(2),
+      h.valueStatus,
       h.play
     ]);
 
@@ -142,6 +183,16 @@ const HorseTable = ({ horses }) => {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Loppklassificering */}
+        {raceClassification && (
+          <div className={`mb-4 p-3 rounded-lg border ${raceClassification.color}`} data-testid="race-classification">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-lg">{raceClassification.type}</span>
+              <span className="text-sm opacity-80">• {raceClassification.description}</span>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="value-table w-full text-sm" data-testid="horses-table">
             <thead>
@@ -170,6 +221,12 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('streckPercent')}
                   </div>
                 </th>
+                <th onClick={() => handleSort('marketProbability')} className="cursor-pointer text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    Market %
+                    {getSortIcon('marketProbability')}
+                  </div>
+                </th>
                 <th onClick={() => handleSort('impliedProbability')} className="cursor-pointer text-right">
                   <div className="flex items-center justify-end gap-1">
                     Implied %
@@ -182,10 +239,10 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('valueRatio')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('valueScore')} className="cursor-pointer text-right">
+                <th onClick={() => handleSort('rankingScore')} className="cursor-pointer text-right">
                   <div className="flex items-center justify-end gap-1">
-                    Value Score
-                    {getSortIcon('valueScore')}
+                    Ranking Score
+                    {getSortIcon('rankingScore')}
                   </div>
                 </th>
                 <th onClick={() => handleSort('play')} className="cursor-pointer text-center">
@@ -216,22 +273,34 @@ const HorseTable = ({ horses }) => {
                   </td>
                   <td className="text-right text-white font-mono">{horse.odds.toFixed(2)}</td>
                   <td className="text-right text-white font-mono">{horse.streckPercent.toFixed(1)}%</td>
+                  <td className="text-right text-white font-mono">{horse.marketProbability.toFixed(1)}%</td>
                   <td className="text-right text-white font-mono">{horse.impliedProbability.toFixed(2)}%</td>
-                  <td className="text-right font-bold font-mono">
-                    <span className={
-                      horse.valueRatio > 1.2 ? 'text-green-400' :
-                      horse.valueRatio < 0.9 ? 'text-red-400' : 'text-yellow-400'
-                    }>
-                      {horse.valueRatio.toFixed(2)}
-                    </span>
+                  <td className="text-right">
+                    <div className="flex flex-col items-end gap-1">
+                      <span className={`font-bold font-mono ${
+                        horse.valueRatio > 1.1 ? 'text-green-400' :
+                        horse.valueRatio < 0.95 ? 'text-red-400' : 'text-yellow-400'
+                      }`}>
+                        {horse.valueRatio.toFixed(2)}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        horse.valueStatus === 'Underspelad' ? 'bg-green-500/20 text-green-400' :
+                        horse.valueStatus === 'Överspelad' ? 'bg-red-500/20 text-red-400' :
+                        'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {horse.valueStatus}
+                      </span>
+                    </div>
                   </td>
                   <td className="text-right text-white font-mono font-semibold">
-                    {horse.valueScore.toFixed(1)}
+                    {horse.rankingScore.toFixed(1)}
                   </td>
                   <td className="text-center">
-                    <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
-                      horse.play === 'YES' 
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/40' 
+                    <span className={`inline-block px-3 py-1 rounded text-xs font-bold whitespace-nowrap ${
+                      horse.play === 'Stark play' 
+                        ? 'bg-green-500/30 text-green-300 border border-green-500/50' 
+                        : horse.play === 'Möjlig play'
+                        ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50'
                         : 'bg-gray-700/30 text-gray-400 border border-gray-600/30'
                     }`}>
                       {horse.play}

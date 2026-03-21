@@ -19,21 +19,21 @@ const SystemBuilder = ({ horses }) => {
   }, [horses]);
 
   const generateAutoSuggestion = () => {
-    // Sortera hästar efter value score
-    const sorted = [...horses].sort((a, b) => b.valueScore - a.valueScore);
+    // Sortera hästar efter ranking score
+    const sorted = [...horses].sort((a, b) => b.rankingScore - a.rankingScore);
 
     // Hitta favoriten (lägst odds)
     const favorite = [...horses].sort((a, b) => a.odds - b.odds)[0];
     
-    // Välj spik: högst value_score, ELLER favorit om inte överspelad (valueRatio >= 0.9)
+    // Välj spik: högst ranking_score, ELLER favorit om inte överspelad (valueRatio >= 0.95)
     let spik;
-    if (favorite && favorite.valueRatio >= 0.9) {
+    if (favorite && favorite.valueRatio >= 0.95) {
       spik = favorite;
     } else {
       spik = sorted[0];
     }
 
-    // Välj lås: topp 2 value_score (exklusive spik)
+    // Välj lås: topp 2 ranking_score (exklusive spik)
     const las = sorted
       .filter(h => h.number !== spik.number)
       .slice(0, 2);
@@ -45,7 +45,7 @@ const SystemBuilder = ({ horses }) => {
         !las.find(l => l.number === h.number) &&
         (h.valueRatio > 1.1 || h.streckPercent < 5)
       )
-      .sort((a, b) => b.valueScore - a.valueScore)
+      .sort((a, b) => b.rankingScore - a.rankingScore)
       .slice(0, 5);
 
     setAutoSuggestion({ spik, las, gardering });
@@ -94,8 +94,8 @@ const SystemBuilder = ({ horses }) => {
   const currentSelection = mode === 'auto' ? autoSuggestion : manualSelection;
 
   const getValueColor = (valueRatio) => {
-    if (valueRatio > 1.2) return 'bg-green-500/20 text-green-400 border-green-500/40';
-    if (valueRatio < 0.9) return 'bg-red-500/20 text-red-400 border-red-500/40';
+    if (valueRatio > 1.1) return 'bg-green-500/20 text-green-400 border-green-500/40';
+    if (valueRatio < 0.95) return 'bg-red-500/20 text-red-400 border-red-500/40';
     return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40';
   };
 
@@ -111,7 +111,7 @@ const SystemBuilder = ({ horses }) => {
             Ratio: {horse.valueRatio.toFixed(2)}
           </Badge>
           <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/40">
-            Score: {horse.valueScore.toFixed(1)}
+            Rank: {horse.rankingScore.toFixed(1)}
           </Badge>
         </div>
       </div>
@@ -120,7 +120,7 @@ const SystemBuilder = ({ horses }) => {
         <div className="flex-1">
           <div className="font-semibold text-white">{horse.name}</div>
           <div className="text-xs text-gray-400">
-            Odds: {horse.odds.toFixed(2)} • Streck: {horse.streckPercent.toFixed(1)}% • Play: {horse.play}
+            Odds: {horse.odds.toFixed(2)} • Streck: {horse.streckPercent.toFixed(1)}% • {horse.play}
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ const SystemBuilder = ({ horses }) => {
               Systemförslag
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Baserat på value ratio och value score
+              Baserat på value ratio och ranking score
             </CardDescription>
           </div>
 

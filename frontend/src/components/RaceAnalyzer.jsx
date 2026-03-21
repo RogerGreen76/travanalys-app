@@ -57,27 +57,45 @@ const RaceAnalyzer = () => {
       const streckDecimal = streckPercent / 100;
       const valueGap = (impliedProbability / 100) - streckDecimal;
 
-      // Nya value-beräkningar
+      // Marknadens chans
+      const marketProbability = (1 / odds) * 100;
+
+      // Value ratio
       const valueRatio = impliedProbability / (streckPercent / 100);
       
-      // Value score med justeringar
-      let valueScore = (impliedProbability * 100) / streckPercent;
-      if (odds > 10) valueScore += 1;
-      if (streckPercent < 10) valueScore += 1;
-      if (streckPercent > 40) valueScore -= 1;
+      // Ranking Score (tidigare value_score)
+      let rankingScore = (impliedProbability * 100) / streckPercent;
+      if (odds > 10) rankingScore += 1;
+      if (streckPercent < 10) rankingScore += 1;
+      if (streckPercent > 40) rankingScore -= 1;
 
-      // Play rekommendation
-      const play = (valueRatio > 1.2 && odds > 4) ? 'YES' : 'NO';
+      // Play rekommendation - tre nivåer
+      let play = 'No play';
+      if (valueRatio > 1.25) {
+        play = 'Stark play';
+      } else if (valueRatio >= 1.05) {
+        play = 'Möjlig play';
+      }
+
+      // Value status
+      let valueStatus = 'Neutral';
+      if (valueRatio > 1.1) {
+        valueStatus = 'Underspelad';
+      } else if (valueRatio < 0.95) {
+        valueStatus = 'Överspelad';
+      }
 
       return {
         ...horse,
         odds: odds,
         streckPercent: streckPercent,
         impliedProbability: impliedProbability,
+        marketProbability: marketProbability,
         valueGap: valueGap,
         valueRatio: valueRatio,
-        valueScore: valueScore,
-        play: play
+        rankingScore: rankingScore,
+        play: play,
+        valueStatus: valueStatus
       };
     });
   };
