@@ -530,7 +530,7 @@ const RaceAnalyzer = () => {
               setSelectedGameType(value);
               setShowManualInput(false);
             }}>
-              <TabsList className="bg-[#0a0e1a] w-full justify-start flex-wrap h-auto">
+              <TabsList className="bg-[#0a0e1a] w-full justify-start flex-wrap h-auto game-type-tabs">
                 <TabsTrigger value="V85" className="data-[state=active]:bg-blue-600" data-testid="tab-v85">
                   V85
                 </TabsTrigger>
@@ -575,7 +575,7 @@ const RaceAnalyzer = () => {
             </CardHeader>
             <CardContent>
               <Tabs value={selectedRaceIndex.toString()} onValueChange={(value) => handleRaceChange(value)}>
-                <TabsList className="bg-[#0a0e1a] w-full justify-start flex-wrap h-auto">
+                <TabsList className="bg-[#0a0e1a] w-full justify-start flex-wrap h-auto race-tabs">
                   {allRaces.map((raceItem, index) => (
                     <TabsTrigger
                       key={index}

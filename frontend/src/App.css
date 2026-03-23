@@ -100,31 +100,25 @@ button:active {
   transform: scale(0.97);
 }
 
-/* Tabs hover and transition effects */
+/* Tabs transition effects */
 button[role="tab"] {
   transition: all 0.15s ease;
 }
 
-/* Default hover (för säkerhet) */
-button[role="tab"]:hover {
-  background-color: rgba(59, 130, 246, 0.15);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
-}
-
-/* Spelforms-tabs hover (blå) - första tablist */
-[data-testid^="tab-"]:hover {
-  background-color: rgba(59, 130, 246, 0.15);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
-}
-
-/* Lopp-tabs hover (magenta) - race tabs */
-[data-testid^="race-tab-"]:hover {
-  background-color: rgba(192, 132, 252, 0.15);
-  box-shadow: 0 0 8px rgba(192, 132, 252, 0.25);
-}
-
 button[role="tab"][data-state="active"] {
   transition: all 0.2s ease;
+}
+
+/* Spelforms-väljare (V85, V86, etc.) - BLÅ hover */
+.game-type-tabs button[role="tab"]:hover {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+/* Loppväljare (V85-1, V85-2, etc.) - MAGENTA hover */
+.race-tabs button[role="tab"]:hover {
+  background-color: rgba(192, 132, 252, 0.15) !important;
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.25);
 }
 
 /* Smooth content transitions */
