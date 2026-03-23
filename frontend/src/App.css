@@ -105,7 +105,20 @@ button[role="tab"] {
   transition: all 0.15s ease;
 }
 
+/* Default hover (för säkerhet) */
 button[role="tab"]:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+/* Spelforms-tabs hover (blå) - första tablist */
+[data-testid^="tab-"]:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+/* Lopp-tabs hover (magenta) - race tabs */
+[data-testid^="race-tab-"]:hover {
   background-color: rgba(192, 132, 252, 0.15);
   box-shadow: 0 0 8px rgba(192, 132, 252, 0.25);
 }
