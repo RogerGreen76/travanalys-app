@@ -29,7 +29,8 @@ const RaceAnalyzer = () => {
       'V86': 6,
       'V64': 6,
       'V65': 6,
-      'V5': 5
+      'V5': 5,
+      'DD': 2  // Dagens Dubbel har alltid 2 lopp
     };
 
     const numRaces = loppCount[gameType] || 6;
@@ -505,9 +506,9 @@ const RaceAnalyzer = () => {
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-4xl md:text-5xl font-bold text-white" style={{ fontFamily: 'Manrope, sans-serif' }}>
-            V85 Travanalys
+            Travanalysen
           </h1>
-          <p className="text-gray-400 text-lg">Hitta spelvärda hästar baserat på odds vs streck</p>
+          <p className="text-gray-400 text-lg">Identifiera spelvärda hästar baserat på odds, streck och marknadsedge</p>
         </div>
 
         {/* Game Type Navigation */}
@@ -538,6 +539,9 @@ const RaceAnalyzer = () => {
                 </TabsTrigger>
                 <TabsTrigger value="V5" className="data-[state=active]:bg-blue-600" data-testid="tab-v5">
                   V5
+                </TabsTrigger>
+                <TabsTrigger value="DD" className="data-[state=active]:bg-green-600" data-testid="tab-dd">
+                  DD
                 </TabsTrigger>
                 <Button
                   variant="outline"
@@ -711,7 +715,12 @@ const RaceAnalyzer = () => {
         {analyzedHorses.length > 0 && (
           <>
             <HorseTable horses={analyzedHorses} />
-            <SystemBuilder horses={analyzedHorses} />
+            <SystemBuilder 
+              horses={analyzedHorses} 
+              gameType={selectedGameType}
+              allRaces={allRaces}
+              selectedRaceIndex={selectedRaceIndex}
+            />
           </>
         )}
       </div>

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Sparkles, Target, Lock, Shield } from 'lucide-react';
+import { Sparkles, Target, Lock, Shield, Shuffle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const SystemBuilder = ({ horses }) => {
+const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIndex = 0 }) => {
   const [autoSuggestion, setAutoSuggestion] = useState(null);
   const [manualSelection, setManualSelection] = useState({
     spik: null,
@@ -15,8 +15,70 @@ const SystemBuilder = ({ horses }) => {
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
 
   useEffect(() => {
-    generateAutoSuggestion();
-  }, [horses]);
+    if (gameType === 'DD') {
+      generateDDCombinations();
+    } else {
+      generateAutoSuggestion();
+    }
+  }, [horses, gameType]);
+
+  // Generera DD-kombinationer
+  const generateDDCombinations = () => {
+    if (!allRaces || allRaces.length < 2 || selectedRaceIndex > 1) {
+      setAutoSuggestion(null);
+      return;
+    }
+
+    // Analysera båda loppen
+    const race1Horses = allRaces[0].horses.map(h => ({ ...h, raceNumber: 1 }));
+    const race2Horses = allRaces[1].horses.map(h => ({ ...h, raceNumber: 2 }));
+
+    // Analysera hästar (behöver göra value-beräkningar)
+    const analyzeForDD = (horses) => {
+      return horses.map(horse => {
+        const odds = horse.odds / 100;
+        const streckPercent = horse.betDistribution / 100;
+        const impliedProbability = (1 / odds) * 100;
+        const valueRatio = impliedProbability / streckPercent;
+        let rankingScore = (impliedProbability * 100) / streckPercent;
+        if (odds > 10) rankingScore += 1;
+        if (streckPercent < 10) rankingScore += 1;
+        if (streckPercent > 40) rankingScore -= 1;
+        
+        return { ...horse, valueRatio, rankingScore, odds, streckPercent };
+      }).sort((a, b) => b.rankingScore - a.rankingScore);
+    };
+
+    const analyzed1 = analyzeForDD(race1Horses);
+    const analyzed2 = analyzeForDD(race2Horses);
+
+    // Ta topp 3 från varje lopp
+    const topRace1 = analyzed1.slice(0, 3);
+    const topRace2 = analyzed2.slice(0, 3);
+
+    // Generera kombinationer
+    const combinations = [];
+    topRace1.forEach(h1 => {
+      topRace2.forEach(h2 => {
+        combinations.push({
+          race1Horse: h1,
+          race2Horse: h2,
+          combinedScore: h1.rankingScore + h2.rankingScore,
+          combinedRatio: (h1.valueRatio + h2.valueRatio) / 2
+        });
+      });
+    });
+
+    // Sortera efter combined score
+    combinations.sort((a, b) => b.combinedScore - a.combinedScore);
+
+    setAutoSuggestion({
+      isDDMode: true,
+      topRace1: topRace1,
+      topRace2: topRace2,
+      combinations: combinations.slice(0, 6) // Topp 6 kombinationer
+    });
+  };
 
   const generateAutoSuggestion = () => {
     // Sortera hästar efter value ratio
@@ -160,7 +222,91 @@ const SystemBuilder = ({ horses }) => {
       <CardContent className="space-y-6">
         {mode === 'auto' && autoSuggestion && (
           <>
-            <div className="space-y-3">
+            {/* DD Mode - Visa kombinationer */}
+            {autoSuggestion.isDDMode ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shuffle className="w-5 h-5 text-green-400" />
+                    <h3 className="font-semibold text-green-300">Föreslagna DD-kombinationer</h3>
+                  </div>
+                  <p className="text-sm text-gray-400">
+                    Topp 3 hästar från varje lopp baserat på ranking score
+                  </p>
+                </div>
+
+                {/* Visa topp hästar från varje lopp */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-1</h4>
+                    {autoSuggestion.topRace1.map((horse) => (
+                      <div key={horse.number} className="mb-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
+                          <Badge className="bg-blue-500/20 text-blue-400">
+                            {horse.rankingScore.toFixed(1)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-2</h4>
+                    {autoSuggestion.topRace2.map((horse) => (
+                      <div key={horse.number} className="mb-2 p-2 bg-purple-500/10 border border-purple-500/30 rounded text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
+                          <Badge className="bg-purple-500/20 text-purple-400">
+                            {horse.rankingScore.toFixed(1)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Visa kombinationer */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-400 mb-3">Bästa kombinationer</h4>
+                  <div className="grid gap-2">
+                    {autoSuggestion.combinations.map((combo, index) => (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-lg border ${
+                          index === 0 ? 'bg-green-500/10 border-green-500/40' :
+                          index < 3 ? 'bg-yellow-500/10 border-yellow-500/30' :
+                          'bg-gray-700/20 border-gray-600/30'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-blue-500/30 text-blue-300">
+                              #{combo.race1Horse.number}
+                            </Badge>
+                            <span className="text-white font-mono">×</span>
+                            <Badge className="bg-purple-500/30 text-purple-300">
+                              #{combo.race2Horse.number}
+                            </Badge>
+                            <span className="text-sm text-gray-300">
+                              {combo.race1Horse.name} / {combo.race2Horse.name}
+                            </span>
+                          </div>
+                          <Badge className={
+                            index === 0 ? 'bg-green-500/20 text-green-400' :
+                            index < 3 ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-gray-600/20 text-gray-400'
+                          }>
+                            Score: {combo.combinedScore.toFixed(1)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Normal mode - Spik/Lås/Gardering */
+              <div className="space-y-3">
               {autoSuggestion.spik ? (
                 <HorseCard
                   horse={autoSuggestion.spik}
@@ -214,7 +360,9 @@ const SystemBuilder = ({ horses }) => {
                 </div>
               )}
             </div>
+            )}
 
+            {!autoSuggestion.isDDMode && (
             <Button
               data-testid="copy-to-manual-button"
               onClick={copyToManual}
@@ -223,6 +371,7 @@ const SystemBuilder = ({ horses }) => {
             >
               Kopiera och anpassa manuellt
             </Button>
+            )}
           </>
         )}
 
