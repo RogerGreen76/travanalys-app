@@ -14,36 +14,82 @@ const RaceAnalyzer = () => {
   const [error, setError] = useState(null);
 
   const sampleJSON = {
-    race: {
-      name: 'V85-1',
-      track: 'Solvalla',
-      date: '2024-01-20',
-      distance: 2140
-    },
-    horses: [
+    races: [
       {
-        number: 1,
-        name: 'Staro Broline',
-        odds: 450,
-        betDistribution: 220,
-        driver: 'Örjan Kihlström',
-        trainer: 'Daniel Redén'
-      },
-      {
-        number: 2,
-        name: 'Global Badman',
-        odds: 890,
-        betDistribution: 95,
-        driver: 'Björn Goop',
-        trainer: 'Stefan Melander'
-      },
-      {
-        number: 3,
-        name: 'Donatos',
-        odds: 1250,
-        betDistribution: 68,
-        driver: 'Magnus A Djuse',
-        trainer: 'Jerry Riordan'
+        name: 'V85-1',
+        track: {
+          name: 'Solvalla'
+        },
+        startTime: '2024-01-20T15:20:00',
+        distance: 2140,
+        starts: [
+          {
+            postPosition: 1,
+            horse: {
+              name: 'Staro Broline',
+              trainer: {
+                firstName: 'Daniel',
+                lastName: 'Redén'
+              }
+            },
+            driver: {
+              firstName: 'Örjan',
+              lastName: 'Kihlström'
+            },
+            pools: {
+              vinnare: {
+                odds: 450
+              },
+              V85: {
+                betDistribution: 220
+              }
+            }
+          },
+          {
+            postPosition: 2,
+            horse: {
+              name: 'Global Badman',
+              trainer: {
+                firstName: 'Stefan',
+                lastName: 'Melander'
+              }
+            },
+            driver: {
+              firstName: 'Björn',
+              lastName: 'Goop'
+            },
+            pools: {
+              vinnare: {
+                odds: 890
+              },
+              V85: {
+                betDistribution: 95
+              }
+            }
+          },
+          {
+            postPosition: 3,
+            horse: {
+              name: 'Donatos',
+              trainer: {
+                firstName: 'Jerry',
+                lastName: 'Riordan'
+              }
+            },
+            driver: {
+              firstName: 'Magnus A',
+              lastName: 'Djuse'
+            },
+            pools: {
+              vinnare: {
+                odds: 1250
+              },
+              V85: {
+                betDistribution: 68
+              }
+            }
+          }
+        ]
       }
     ]
   };
@@ -100,122 +146,6 @@ const RaceAnalyzer = () => {
     });
   };
 
-  // Funktion för att hitta arrays i JSON-strukturen
-  const findArrays = (obj, found = [], path = '') => {
-    if (!obj || typeof obj !== 'object') return found;
-
-    if (Array.isArray(obj)) {
-      found.push({ array: obj, path: path });
-    }
-
-    // Leta rekursivt
-    if (Array.isArray(obj)) {
-      obj.forEach((item, index) => {
-        findArrays(item, found, `${path}[${index}]`);
-      });
-    } else {
-      Object.entries(obj).forEach(([key, value]) => {
-        if (typeof value === 'object' && value !== null) {
-          findArrays(value, found, path ? `${path}.${key}` : key);
-        }
-      });
-    }
-
-    return found;
-  };
-
-  // Validera om en array är en startlista
-  const isValidStartsList = (arr) => {
-    if (!Array.isArray(arr) || arr.length === 0) return false;
-
-    // Räkna hur många objekt som har hästdata
-    let validHorses = 0;
-    let hasPosition = 0;
-    let hasHorseName = 0;
-    let hasPools = 0;
-
-    arr.forEach(item => {
-      if (!item || typeof item !== 'object') return;
-
-      if (item.postPosition !== undefined || item.number !== undefined) {
-        hasPosition++;
-      }
-      if (item.horse?.name || item.name) {
-        hasHorseName++;
-      }
-      if (item.pools) {
-        hasPools++;
-      }
-
-      // Ett giltigt hästobjekt har minst position och namn
-      if ((item.postPosition !== undefined || item.number !== undefined) && 
-          (item.horse?.name || item.name)) {
-        validHorses++;
-      }
-    });
-
-    // En giltig startlista ska ha:
-    // - Minst 50% av objekten har position
-    // - Minst 50% av objekten har hästnamn
-    // - Minst 30% av objekten har pools (kan saknas för vissa hästar)
-    const threshold = arr.length * 0.5;
-    return (
-      hasPosition >= threshold &&
-      hasHorseName >= threshold &&
-      hasPools >= arr.length * 0.3
-    );
-  };
-
-  // Hitta den bästa startlistan
-  const findStartsList = (data) => {
-    const arrays = findArrays(data);
-    
-    // Filtrera och sortera arrays
-    const validLists = arrays
-      .filter(({ array }) => isValidStartsList(array))
-      .map(({ array, path }) => ({
-        array,
-        path,
-        score: array.length // Använd längd som score, vanligtvis 8-16 hästar i ett lopp
-      }))
-      .filter(({ score }) => score >= 3 && score <= 20) // Rimligt antal hästar per lopp
-      .sort((a, b) => {
-        // Prioritera arrays med färre hästar (undvik historik med många lopp)
-        return a.score - b.score;
-      });
-
-    if (validLists.length === 0) {
-      return null;
-    }
-
-    return validLists[0].array;
-  };
-
-  // Rekursiv funktion för att hitta race metadata
-  const findRaceMetadata = (obj) => {
-    if (!obj || typeof obj !== 'object') return null;
-
-    // Om detta objekt har race properties, returnera det
-    if (obj.name && (obj.track || obj.startTime)) {
-      return {
-        name: obj.name,
-        track: obj.track?.name || obj.track,
-        startTime: obj.startTime,
-        distance: obj.distance
-      };
-    }
-
-    // Leta rekursivt i properties
-    for (const value of Object.values(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        const found = findRaceMetadata(value);
-        if (found) return found;
-      }
-    }
-
-    return null;
-  };
-
   const parseJSON = (jsonString) => {
     const data = JSON.parse(jsonString);
     
@@ -230,11 +160,22 @@ const RaceAnalyzer = () => {
       };
     }
 
-    // Hitta startlistan
-    const startsList = findStartsList(data);
-    
+    // ATG-format: Använd races[0].starts som enda källa
+    let startsList = null;
+    let raceInfo = null;
+
+    if (data.races && Array.isArray(data.races) && data.races.length > 0) {
+      // Använd första loppet
+      const race = data.races[0];
+      raceInfo = race;
+      
+      if (race.starts && Array.isArray(race.starts)) {
+        startsList = race.starts;
+      }
+    }
+
     if (!startsList) {
-      throw new Error('Ingen giltig startlista hittades i JSON-data. Kontrollera att data innehåller en array med postPosition, horse.name och pools.');
+      throw new Error('Ingen startlista hittades. ATG-format kräver races[0].starts array.');
     }
 
     // Varning om för många hästar
@@ -242,63 +183,80 @@ const RaceAnalyzer = () => {
       console.warn(`Varning: ${startsList.length} hästar hittades. Detta verkar vara fel lista (förväntade max 20).`);
     }
 
-    // Extrahera loppinfo rekursivt
-    const raceMetadata = findRaceMetadata(data);
+    // Extrahera loppinfo
     const race = {
-      name: raceMetadata?.name || data.race?.name || data.name || data.raceName || 'V85-lopp',
-      track: raceMetadata?.track || data.race?.track?.name || data.track?.name || data.track || 'Okänd bana',
-      date: raceMetadata?.startTime || data.race?.startTime || data.startTime || new Date().toISOString().split('T')[0],
-      distance: raceMetadata?.distance || data.race?.distance || data.distance || null
+      name: raceInfo?.name || raceInfo?.displayName || 'V85-lopp',
+      track: raceInfo?.track?.name || raceInfo?.trackName || 'Okänd bana',
+      date: raceInfo?.startTime || new Date().toISOString().split('T')[0],
+      distance: raceInfo?.distance || null
     };
 
-    // Konvertera varje häst i startlistan till standardformat
+    // Mappa varje häst från starts-arrayen
     const horses = startsList
-      .map((horseObj, index) => {
+      .map((start, index) => {
         try {
-          // Extrahera fält med fallbacks
-          const number = horseObj.postPosition || horseObj.number || horseObj.startNumber || (index + 1);
-          const name = horseObj.horse?.name || horseObj.name || horseObj.horseName || `Häst ${number}`;
+          // En giltig häst måste ha postPosition och horse.name
+          if (!start.postPosition && !start.number) {
+            console.warn(`Start på index ${index} saknar postPosition, hoppar över`);
+            return null;
+          }
+
+          if (!start.horse || !start.horse.name) {
+            console.warn(`Start på index ${index} saknar horse.name, hoppar över`);
+            return null;
+          }
+
+          // Extrahera fält
+          const number = start.postPosition || start.number;
+          const name = start.horse.name;
           
-          // Odds - kan finnas på flera platser
+          // Odds - kan finnas i pools.vinnare.odds
           let odds = null;
-          if (horseObj.pools?.vinnare?.odds !== undefined) {
-            odds = horseObj.pools.vinnare.odds;
-          } else if (horseObj.pools?.V86?.odds !== undefined) {
-            odds = horseObj.pools.V86.odds;
-          } else if (horseObj.pools?.V75?.odds !== undefined) {
-            odds = horseObj.pools.V75.odds;
-          } else if (horseObj.odds !== undefined) {
-            odds = horseObj.odds;
-          } else if (horseObj.winnerOdds !== undefined) {
-            odds = horseObj.winnerOdds;
+          if (start.pools?.vinnare?.odds !== undefined) {
+            odds = start.pools.vinnare.odds;
           }
 
-          // BetDistribution - kan finnas på flera platser
+          // BetDistribution - kan finnas i pools.V85.betDistribution
           let betDistribution = null;
-          if (horseObj.pools?.V85?.betDistribution !== undefined) {
-            betDistribution = horseObj.pools.V85.betDistribution;
-          } else if (horseObj.pools?.V86?.betDistribution !== undefined) {
-            betDistribution = horseObj.pools.V86.betDistribution;
-          } else if (horseObj.pools?.V75?.betDistribution !== undefined) {
-            betDistribution = horseObj.pools.V75.betDistribution;
-          } else if (horseObj.betDistribution !== undefined) {
-            betDistribution = horseObj.betDistribution;
-          } else if (horseObj.streck !== undefined) {
-            betDistribution = horseObj.streck * 10; // Om streck finns i procent
+          if (start.pools?.V85?.betDistribution !== undefined) {
+            betDistribution = start.pools.V85.betDistribution;
+          } else if (start.pools?.V86?.betDistribution !== undefined) {
+            betDistribution = start.pools.V86.betDistribution;
+          } else if (start.pools?.V75?.betDistribution !== undefined) {
+            betDistribution = start.pools.V75.betDistribution;
           }
 
-          // Kusk och tränare
-          const driver = horseObj.driver?.firstName && horseObj.driver?.lastName
-            ? `${horseObj.driver.firstName} ${horseObj.driver.lastName}`
-            : horseObj.driver?.name || horseObj.driver || null;
-          
-          const trainer = horseObj.trainer?.firstName && horseObj.trainer?.lastName
-            ? `${horseObj.trainer.firstName} ${horseObj.trainer.lastName}`
-            : horseObj.trainer?.name || horseObj.trainer || null;
+          // Driver - kombinera firstName + lastName
+          let driver = null;
+          if (start.driver?.firstName && start.driver?.lastName) {
+            driver = `${start.driver.firstName} ${start.driver.lastName}`;
+          } else if (start.driver?.name) {
+            driver = start.driver.name;
+          }
 
-          // Validera att vi har minsta nödvändiga data och att de är giltiga nummer
-          if (!odds || !betDistribution || isNaN(odds) || isNaN(betDistribution) || odds <= 0 || betDistribution <= 0) {
-            console.warn(`Häst ${number} (${name}) saknar giltig odds eller streckprocent, hoppar över`);
+          // Trainer - från horse.trainer
+          let trainer = null;
+          if (start.horse.trainer?.firstName && start.horse.trainer?.lastName) {
+            trainer = `${start.horse.trainer.firstName} ${start.horse.trainer.lastName}`;
+          } else if (start.horse.trainer?.name) {
+            trainer = start.horse.trainer.name;
+          }
+
+          // Validera att odds och betDistribution är giltiga (om de finns)
+          if (odds !== null && (isNaN(odds) || odds <= 0)) {
+            console.warn(`Häst ${number} (${name}) har ogiltig odds, sätter till null`);
+            odds = null;
+          }
+
+          if (betDistribution !== null && (isNaN(betDistribution) || betDistribution <= 0)) {
+            console.warn(`Häst ${number} (${name}) har ogiltig betDistribution, sätter till null`);
+            betDistribution = null;
+          }
+
+          // Om odds ELLER betDistribution saknas, hoppa över hästen i analysen
+          // men visa fortfarande i listan
+          if (!odds || !betDistribution) {
+            console.warn(`Häst ${number} (${name}) saknar odds eller streck, hoppar över i analys`);
             return null;
           }
 
@@ -311,7 +269,7 @@ const RaceAnalyzer = () => {
             trainer: trainer
           };
         } catch (err) {
-          console.warn(`Kunde inte parsa häst på index ${index}:`, err);
+          console.warn(`Kunde inte parsa start på index ${index}:`, err);
           return null;
         }
       })
