@@ -142,6 +142,7 @@ const RaceAnalyzer = () => {
   };
 
   // Ladda data när gameType ändras
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (selectedGameType && !showManualInput) {
       handleLoadGameType(selectedGameType);
