@@ -344,6 +344,75 @@ const RaceAnalyzer = () => {
       // Normalisera Horse Score till 0-100
       horseScore = Math.min(100, Math.max(0, horseScore));
 
+      // ===== SPETS & SPURT SCORING =====
+      
+      // SPETS SCORE (0-100)
+      let spetsScore = 0;
+      
+      // Baserat på startspår
+      if (horse.postPosition) {
+        if (horse.postPosition <= 3) {
+          spetsScore = 90; // Innerspår = hög spets-chans
+        } else if (horse.postPosition <= 6) {
+          spetsScore = 60; // Mittenspår = medel
+        } else {
+          spetsScore = 30; // Ytterspår = låg spets-chans
+        }
+        
+        // Justera för stark kusk (enkel heuristik baserat på namnlängd + position)
+        // TODO: Kan ersättas med riktig kusk-rating senare
+        if (horse.driver && horse.driver.length > 12) {
+          spetsScore += 10;
+        }
+      }
+      
+      // Justera för form - bra form ökar spets-chans
+      if (horse.form) {
+        const firstResult = horse.form.split('-')[0];
+        if (firstResult === '1') spetsScore += 10;
+        else if (firstResult === '2') spetsScore += 5;
+      }
+      
+      spetsScore = Math.min(100, Math.max(0, spetsScore));
+
+      // SPURT SCORE (0-100)
+      let spurtScore = 0;
+      
+      // Baserat på rekord - bra rekord = bättre spurt
+      if (horse.record) {
+        const winPercentage = (horse.record.wins / horse.record.starts) * 100;
+        spurtScore += winPercentage * 0.5; // Max 20 poäng från vinstprocent
+      }
+      
+      // Högre odds = mer spurtare (outsiders måste spurta för att vinna)
+      if (odds > 10) {
+        spurtScore += 30;
+      } else if (odds > 5) {
+        spurtScore += 20;
+      } else {
+        spurtScore += 10;
+      }
+      
+      // Sämre startspår = behöver spurta
+      if (horse.postPosition) {
+        if (horse.postPosition >= 7) {
+          spurtScore += 25;
+        } else if (horse.postPosition >= 4) {
+          spurtScore += 15;
+        } else {
+          spurtScore += 5;
+        }
+      }
+      
+      // Form påverkar spurt - bra form = bättre spurt
+      if (horse.form) {
+        const formParts = horse.form.split('-').slice(0, 3);
+        const recentWins = formParts.filter(r => r === '1').length;
+        spurtScore += recentWins * 10;
+      }
+      
+      spurtScore = Math.min(100, Math.max(0, spurtScore));
+
       // ===== FINAL SCORE =====
       // 60% Horse Score (sportslig) + 40% Ranking Score (value)
       const finalScore = (horseScore * 0.6) + (rankingScore * 0.4);
