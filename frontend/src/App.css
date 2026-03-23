@@ -106,8 +106,8 @@ button[role="tab"] {
 }
 
 button[role="tab"]:hover {
-  background-color: rgba(59, 130, 246, 0.15);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+  background-color: rgba(192, 132, 252, 0.15);
+  box-shadow: 0 0 8px rgba(192, 132, 252, 0.25);
 }
 
 button[role="tab"][data-state="active"] {
