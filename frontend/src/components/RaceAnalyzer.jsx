@@ -100,22 +100,128 @@ const RaceAnalyzer = () => {
     });
   };
 
+  const parseJSON = (jsonString) => {
+    const data = JSON.parse(jsonString);
+    
+    // Detektera format-typ
+    const isStandardFormat = data.horses && Array.isArray(data.horses);
+    const isATGFormat = data.race || data.starts || (data.pools && data.name);
+    
+    if (isStandardFormat) {
+      // Standardformat - returnera som det är
+      return {
+        race: data.race || {},
+        horses: data.horses
+      };
+    } else if (isATGFormat) {
+      // ATG-format - extrahera och konvertera
+      return parseATGFormat(data);
+    } else {
+      throw new Error('Okänt JSON-format. Använd standardformat eller ATG-format.');
+    }
+  };
+
+  const parseATGFormat = (data) => {
+    // Extrahera loppinfo
+    const race = {
+      name: data.race?.name || data.name || 'V85-lopp',
+      track: data.race?.track?.name || data.track || 'Okänd bana',
+      date: data.race?.startTime || data.startTime || new Date().toISOString().split('T')[0],
+      distance: data.race?.distance || data.distance || null
+    };
+
+    // Hitta hästar - kan finnas på olika platser i ATG-JSON
+    let startsArray = [];
+    if (data.race && data.race.starts) {
+      startsArray = data.race.starts;
+    } else if (data.starts) {
+      startsArray = data.starts;
+    } else if (data.horses) {
+      startsArray = data.horses;
+    } else if (Array.isArray(data)) {
+      startsArray = data;
+    }
+
+    // Konvertera varje häst till standardformat
+    const horses = startsArray
+      .map((start, index) => {
+        try {
+          // Extrahera fält med fallbacks
+          const number = start.number || start.postPosition || start.startNumber || (index + 1);
+          const name = start.horse?.name || start.name || start.horseName || `Häst ${number}`;
+          
+          // Odds - kan finnas på flera platser
+          let odds = null;
+          if (start.pools?.vinnare?.odds) {
+            odds = start.pools.vinnare.odds;
+          } else if (start.pools?.V86?.odds) {
+            odds = start.pools.V86.odds;
+          } else if (start.odds) {
+            odds = start.odds;
+          } else if (start.winnerOdds) {
+            odds = start.winnerOdds;
+          }
+
+          // BetDistribution - kan finnas på flera platser
+          let betDistribution = null;
+          if (start.pools?.V85?.betDistribution) {
+            betDistribution = start.pools.V85.betDistribution;
+          } else if (start.pools?.V86?.betDistribution) {
+            betDistribution = start.pools.V86.betDistribution;
+          } else if (start.pools?.V75?.betDistribution) {
+            betDistribution = start.pools.V75.betDistribution;
+          } else if (start.betDistribution) {
+            betDistribution = start.betDistribution;
+          } else if (start.streck) {
+            betDistribution = start.streck * 10; // Om streck finns i procent
+          }
+
+          // Kusk och tränare
+          const driver = start.driver?.firstName && start.driver?.lastName
+            ? `${start.driver.firstName} ${start.driver.lastName}`
+            : start.driver?.name || start.driver || null;
+          
+          const trainer = start.trainer?.firstName && start.trainer?.lastName
+            ? `${start.trainer.firstName} ${start.trainer.lastName}`
+            : start.trainer?.name || start.trainer || null;
+
+          // Validera att vi har minsta nödvändiga data
+          if (!odds || !betDistribution) {
+            console.warn(`Häst ${number} (${name}) saknar odds eller streckprocent, hoppar över`);
+            return null;
+          }
+
+          return {
+            number: number,
+            name: name,
+            odds: odds,
+            betDistribution: betDistribution,
+            driver: driver,
+            trainer: trainer
+          };
+        } catch (err) {
+          console.warn(`Kunde inte parsa häst på index ${index}:`, err);
+          return null;
+        }
+      })
+      .filter(horse => horse !== null); // Ta bort null-värden
+
+    if (horses.length === 0) {
+      throw new Error('Inga giltiga hästar hittades i JSON-data. Kontrollera formatet.');
+    }
+
+    return { race, horses };
+  };
+
   const handleParse = () => {
     setError(null);
     try {
-      const parsed = JSON.parse(jsonInput);
+      const parsed = parseJSON(jsonInput);
       
-      // Validera struktur
-      if (!parsed.horses || !Array.isArray(parsed.horses)) {
-        throw new Error('JSON måste innehålla en "horses" array');
+      // Validera att vi har hästar
+      if (!parsed.horses || parsed.horses.length === 0) {
+        throw new Error('Inga hästar hittades i JSON-data');
       }
-
-      // Validera varje häst
-      parsed.horses.forEach((horse, index) => {
-        if (!horse.name || !horse.odds || !horse.betDistribution || !horse.number) {
-          throw new Error(`Häst ${index + 1} saknar obligatoriska fält (name, odds, betDistribution, number)`);
-        }
-      });
 
       setRaceData(parsed.race || {});
       const analyzed = analyzeHorses(parsed.horses);
@@ -165,7 +271,7 @@ const RaceAnalyzer = () => {
               Loppdata (JSON)
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Klistra in JSON-data eller använd exempeldata för att börja
+              Klistra in JSON-data (standardformat eller rå ATG-JSON) eller använd exempeldata
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

@@ -1,0 +1,83 @@
+{
+  "race": {
+    "id": "2024_85_1",
+    "name": "V85-1",
+    "track": {
+      "name": "Solvalla"
+    },
+    "startTime": "2024-01-20T15:20:00",
+    "distance": 2140,
+    "starts": [
+      {
+        "number": 1,
+        "postPosition": 1,
+        "horse": {
+          "name": "Staro Broline",
+          "age": 6
+        },
+        "driver": {
+          "firstName": "Örjan",
+          "lastName": "Kihlström"
+        },
+        "trainer": {
+          "firstName": "Daniel",
+          "lastName": "Redén"
+        },
+        "pools": {
+          "vinnare": {
+            "odds": 450
+          },
+          "V85": {
+            "betDistribution": 220
+          }
+        }
+      },
+      {
+        "number": 2,
+        "postPosition": 2,
+        "horse": {
+          "name": "Global Badman"
+        },
+        "driver": {
+          "firstName": "Björn",
+          "lastName": "Goop"
+        },
+        "trainer": {
+          "firstName": "Stefan",
+          "lastName": "Melander"
+        },
+        "pools": {
+          "vinnare": {
+            "odds": 890
+          },
+          "V85": {
+            "betDistribution": 95
+          }
+        }
+      },
+      {
+        "number": 3,
+        "postPosition": 3,
+        "horse": {
+          "name": "Donatos"
+        },
+        "driver": {
+          "firstName": "Magnus A",
+          "lastName": "Djuse"
+        },
+        "trainer": {
+          "firstName": "Jerry",
+          "lastName": "Riordan"
+        },
+        "pools": {
+          "vinnare": {
+            "odds": 1250
+          },
+          "V85": {
+            "betDistribution": 68
+          }
+        }
+      }
+    ]
+  }
+}
