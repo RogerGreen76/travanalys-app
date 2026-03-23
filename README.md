@@ -16,6 +16,9 @@ Klistra in JSON-data för ett lopp eller använd "Ladda exempeldata" för att te
 
 ### 2. JSON-format
 
+Appen stödjer **två JSON-format**:
+
+#### A) Standardformat (eget format)
 ```json
 {
   "race": {
@@ -40,6 +43,42 @@ Klistra in JSON-data för ett lopp eller använd "Ladda exempeldata" för att te
 **Viktiga fält:**
 - `odds`: Oddset × 100 (t.ex. 4.50 → 450)
 - `betDistribution`: Streckprocent × 10 (t.ex. 22.0% → 220)
+
+#### B) ATG-format (rå JSON från API)
+
+Appen kan läsa **rå JSON direkt från ATG**:
+
+```json
+{
+  "race": {
+    "name": "V85-1",
+    "track": { "name": "Solvalla" },
+    "starts": [
+      {
+        "number": 1,
+        "horse": { "name": "Hästnamn" },
+        "driver": { "firstName": "Förnamn", "lastName": "Efternamn" },
+        "pools": {
+          "vinnare": { "odds": 450 },
+          "V85": { "betDistribution": 220 }
+        }
+      }
+    ]
+  }
+}
+```
+
+**Så här använder du ATG-JSON:**
+1. Öppna ATG:s webbplats
+2. Öppna DevTools (F12) → Network-fliken
+3. Hitta API-anropet med loppdata
+4. Kopiera Response-JSON
+5. Klistra in direkt i appen
+6. Tryck "Analysera"
+
+Parsern känner **automatiskt** av formatet och extraherar rätt data!
+
+Se [JSON_FORMAT.md](/app/JSON_FORMAT.md) för fullständig dokumentation.
 
 ### 3. Beräkningar (exakta formler)
 
