@@ -100,6 +100,52 @@ button:active {
   transform: scale(0.97);
 }
 
+/* Tabs hover and transition effects */
+button[role="tab"] {
+  transition: all 0.15s ease;
+}
+
+button[role="tab"]:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+button[role="tab"][data-state="active"] {
+  transition: all 0.2s ease;
+}
+
+/* Smooth content transitions */
+.fade-slide-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-slide-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+/* Table smooth transition */
+.value-table {
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.table-transition {
+  animation: fadeSlideIn 200ms ease;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Input focus styles */
 textarea:focus,
 input:focus {

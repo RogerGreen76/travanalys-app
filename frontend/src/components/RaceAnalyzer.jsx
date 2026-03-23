@@ -474,13 +474,19 @@ const RaceAnalyzer = () => {
 
   const handleRaceChange = (index) => {
     const raceIndex = parseInt(index);
-    setSelectedRaceIndex(raceIndex);
-    const analyzed = analyzeHorses(allRaces[raceIndex].horses);
-    setAnalyzedHorses(analyzed);
     
-    toast.info(`Visar lopp ${raceIndex + 1}`, {
-      description: allRaces[raceIndex].race.name
-    });
+    // Add fade effect
+    setAnalyzedHorses([]);
+    
+    setTimeout(() => {
+      setSelectedRaceIndex(raceIndex);
+      const analyzed = analyzeHorses(allRaces[raceIndex].horses);
+      setAnalyzedHorses(analyzed);
+      
+      toast.info(`Visar lopp ${raceIndex + 1}`, {
+        description: allRaces[raceIndex].race.name
+      });
+    }, 50);
   };
 
   const loadSample = () => {
@@ -540,7 +546,7 @@ const RaceAnalyzer = () => {
                 <TabsTrigger value="V5" className="data-[state=active]:bg-blue-600" data-testid="tab-v5">
                   V5
                 </TabsTrigger>
-                <TabsTrigger value="DD" className="data-[state=active]:bg-green-600" data-testid="tab-dd">
+                <TabsTrigger value="DD" className="data-[state=active]:bg-blue-600" data-testid="tab-dd">
                   DD
                 </TabsTrigger>
                 <Button
@@ -713,7 +719,7 @@ const RaceAnalyzer = () => {
 
         {/* Horse Table */}
         {analyzedHorses.length > 0 && (
-          <>
+          <div className="table-transition">
             <HorseTable horses={analyzedHorses} />
             <SystemBuilder 
               horses={analyzedHorses} 
@@ -721,7 +727,7 @@ const RaceAnalyzer = () => {
               allRaces={allRaces}
               selectedRaceIndex={selectedRaceIndex}
             />
-          </>
+          </div>
         )}
       </div>
     </div>
