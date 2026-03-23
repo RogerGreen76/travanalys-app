@@ -13,7 +13,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
     gardering: []
   });
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
-
+  
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (gameType === 'DD') {
       generateDDCombinations();
