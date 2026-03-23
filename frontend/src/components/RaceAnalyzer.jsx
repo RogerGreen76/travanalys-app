@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner';
 import HorseTable from './HorseTable';
 import SystemBuilder from './SystemBuilder';
-import { AlertCircle, Upload, FileJson, ChevronRight } from 'lucide-react';
+import { AlertCircle, Upload, FileJson, ChevronRight, TrendingUp } from 'lucide-react';
 
 const RaceAnalyzer = () => {
   const [jsonInput, setJsonInput] = useState('');
@@ -14,6 +15,157 @@ const RaceAnalyzer = () => {
   const [selectedRaceIndex, setSelectedRaceIndex] = useState(0);
   const [analyzedHorses, setAnalyzedHorses] = useState([]);
   const [error, setError] = useState(null);
+  
+  // Navigation state
+  const [selectedGameType, setSelectedGameType] = useState('V85');
+  const [gameData, setGameData] = useState(null);
+  const [showManualInput, setShowManualInput] = useState(false);
+
+  // Mock data funktion - ersätts senare med riktig API
+  const loadGameType = (gameType, date = '2024-01-20') => {
+    // Simulera olika antal lopp per spelform
+    const loppCount = {
+      'V85': 8,
+      'V86': 6,
+      'V64': 6,
+      'V65': 6,
+      'V5': 5
+    };
+
+    const numRaces = loppCount[gameType] || 6;
+    
+    // Generera mockdata för alla lopp
+    const races = [];
+    for (let i = 0; i < numRaces; i++) {
+      races.push({
+        number: i + 1,
+        name: `${gameType}-${i + 1}`,
+        track: {
+          name: i % 2 === 0 ? 'Solvalla' : 'Åby'
+        },
+        startTime: `${date}T15:${20 + i * 10}:00`,
+        distance: 2140 + i * 40,
+        starts: generateMockHorses(i + 1)
+      });
+    }
+
+    return {
+      gameType: gameType,
+      date: date,
+      races: races
+    };
+  };
+
+  // Generera mock-hästar för ett lopp
+  const generateMockHorses = (loppNummer) => {
+    const hästnamn = [
+      ['Staro Broline', 'Global Badman', 'Donatos', 'Perfect Kronos', 'Muscle Hustle'],
+      ['Racing Beauty', 'Super Nova', 'Eagle Eye', 'Thunder Strike', 'Golden Arrow'],
+      ['Mighty Max', 'Quick Silver', 'Star Runner', 'Blue Diamond', 'Red Baron'],
+      ['Speed King', 'Dream Dancer', 'Lucky Star', 'Wild Wind', 'Brave Heart'],
+      ['Royal Flash', 'Silver Bullet', 'Magic Moment', 'Flying Star', 'Bold Eagle'],
+      ['Night Rider', 'Storm Cloud', 'Fire Storm', 'Ice Queen', 'Golden Dream'],
+      ['Power Play', 'Swift Arrow', 'Bright Future', 'Dark Horse', 'True Spirit'],
+      ['Fast Lane', 'High Flyer', 'Noble Knight', 'Pure Gold', 'Sharp Shooter']
+    ];
+
+    const kuskar = [
+      ['Örjan', 'Kihlström'],
+      ['Björn', 'Goop'],
+      ['Magnus A', 'Djuse'],
+      ['Erik', 'Adielsson'],
+      ['Stefan', 'Persson']
+    ];
+
+    const tränare = [
+      ['Daniel', 'Redén'],
+      ['Stefan', 'Melander'],
+      ['Jerry', 'Riordan'],
+      ['Robert', 'Bergh'],
+      ['Timo', 'Nurmos']
+    ];
+
+    const hästSet = hästnamn[(loppNummer - 1) % hästnamn.length];
+    const numHorses = 8 + (loppNummer % 4); // 8-11 hästar per lopp
+
+    return Array.from({ length: Math.min(numHorses, hästSet.length) }, (_, i) => {
+      const baseOdds = 400 + i * 200 + Math.random() * 300;
+      const baseStreck = 800 + i * 200 + Math.random() * 500;
+
+      return {
+        postPosition: i + 1,
+        horse: {
+          name: hästSet[i],
+          trainer: {
+            firstName: tränare[i % tränare.length][0],
+            lastName: tränare[i % tränare.length][1]
+          }
+        },
+        driver: {
+          firstName: kuskar[i % kuskar.length][0],
+          lastName: kuskar[i % kuskar.length][1]
+        },
+        pools: {
+          vinnare: {
+            odds: Math.round(baseOdds)
+          },
+          V85: {
+            betDistribution: Math.round(baseStreck)
+          }
+        }
+      };
+    });
+  };
+
+  // Ladda data när gameType ändras
+  useEffect(() => {
+    if (selectedGameType && !showManualInput) {
+      handleLoadGameType(selectedGameType);
+    }
+  }, [selectedGameType]);
+
+  const handleLoadGameType = (gameType) => {
+    try {
+      const data = loadGameType(gameType);
+      setGameData(data);
+      
+      // Parse alla lopp
+      const parsedRaces = data.races.map((race, index) => ({
+        race: {
+          number: race.number,
+          name: race.name,
+          track: race.track.name,
+          date: race.startTime,
+          distance: race.distance
+        },
+        horses: race.starts.map((start) => ({
+          number: start.postPosition,
+          name: start.horse.name,
+          odds: start.pools.vinnare.odds,
+          betDistribution: start.pools.V85.betDistribution,
+          driver: `${start.driver.firstName} ${start.driver.lastName}`,
+          trainer: `${start.horse.trainer.firstName} ${start.horse.trainer.lastName}`
+        })).filter(h => h.odds && h.betDistribution)
+      }));
+
+      setAllRaces(parsedRaces);
+      setSelectedRaceIndex(0);
+      
+      // Analysera första loppet
+      if (parsedRaces.length > 0) {
+        const analyzed = analyzeHorses(parsedRaces[0].horses);
+        setAnalyzedHorses(analyzed);
+      }
+      
+      toast.success(`${gameType} laddad`, {
+        description: `${parsedRaces.length} lopp tillgängliga`
+      });
+    } catch (err) {
+      toast.error('Kunde inte ladda data', {
+        description: err.message
+      });
+    }
+  };
 
   const sampleJSON = {
     races: [
@@ -358,8 +510,84 @@ const RaceAnalyzer = () => {
           <p className="text-gray-400 text-lg">Hitta spelvärda hästar baserat på odds vs streck</p>
         </div>
 
-        {/* JSON Input Card */}
-        <Card className="bg-[#151923] border-gray-800" data-testid="json-input-card">
+        {/* Game Type Navigation */}
+        <Card className="bg-[#151923] border-gray-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <TrendingUp className="w-5 h-5" />
+              Välj spelform
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={selectedGameType} onValueChange={(value) => {
+              setSelectedGameType(value);
+              setShowManualInput(false);
+            }}>
+              <TabsList className="bg-[#0a0e1a] w-full justify-start flex-wrap h-auto">
+                <TabsTrigger value="V85" className="data-[state=active]:bg-blue-600" data-testid="tab-v85">
+                  V85
+                </TabsTrigger>
+                <TabsTrigger value="V86" className="data-[state=active]:bg-blue-600" data-testid="tab-v86">
+                  V86
+                </TabsTrigger>
+                <TabsTrigger value="V64" className="data-[state=active]:bg-blue-600" data-testid="tab-v64">
+                  V64
+                </TabsTrigger>
+                <TabsTrigger value="V65" className="data-[state=active]:bg-blue-600" data-testid="tab-v65">
+                  V65
+                </TabsTrigger>
+                <TabsTrigger value="V5" className="data-[state=active]:bg-blue-600" data-testid="tab-v5">
+                  V5
+                </TabsTrigger>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowManualInput(!showManualInput)}
+                  className="ml-auto border-gray-700 hover:bg-gray-800"
+                  data-testid="toggle-manual-input"
+                >
+                  <FileJson className="w-4 h-4 mr-2" />
+                  {showManualInput ? 'Dölj' : 'Visa'} Manuell Import
+                </Button>
+              </TabsList>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Race Tabs - visas när lopp finns */}
+        {allRaces.length > 0 && !showManualInput && (
+          <Card className="bg-[#151923] border-gray-800">
+            <CardHeader>
+              <CardTitle className="text-white">Välj lopp att analysera</CardTitle>
+              <CardDescription className="text-gray-400">
+                {allRaces.length} lopp i {selectedGameType}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs value={selectedRaceIndex.toString()} onValueChange={(value) => handleRaceChange(value)}>
+                <TabsList className="bg-[#0a0e1a] w-full justify-start flex-wrap h-auto">
+                  {allRaces.map((raceItem, index) => (
+                    <TabsTrigger
+                      key={index}
+                      value={index.toString()}
+                      className="data-[state=active]:bg-purple-600"
+                      data-testid={`race-tab-${index}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{raceItem.race.name}</span>
+                        <span className="text-xs text-gray-400">({raceItem.horses.length})</span>
+                      </div>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* JSON Input Card - visas när showManualInput är true */}
+        {showManualInput && (
+          <Card className="bg-[#151923] border-gray-800" data-testid="json-input-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <FileJson className="w-5 h-5" />
@@ -414,9 +642,10 @@ const RaceAnalyzer = () => {
             </div>
           </CardContent>
         </Card>
+        )}
 
-        {/* Race Selector - visas när flera lopp finns */}
-        {allRaces.length > 1 && (
+        {/* Race Selector (för manual JSON import) - visas när flera lopp finns och manual mode */}
+        {allRaces.length > 1 && showManualInput && (
           <Card className="bg-[#151923] border-gray-800" data-testid="race-selector-card">
             <CardHeader>
               <CardTitle className="text-white">Välj lopp att analysera</CardTitle>
