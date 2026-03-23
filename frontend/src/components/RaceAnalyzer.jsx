@@ -131,6 +131,31 @@ const RaceAnalyzer = () => {
     return found;
   };
 
+  // Rekursiv funktion för att hitta race metadata
+  const findRaceMetadata = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+
+    // Om detta objekt har race properties, returnera det
+    if (obj.name && (obj.track || obj.startTime)) {
+      return {
+        name: obj.name,
+        track: obj.track?.name || obj.track,
+        startTime: obj.startTime,
+        distance: obj.distance
+      };
+    }
+
+    // Leta rekursivt i properties
+    for (const value of Object.values(obj)) {
+      if (typeof value === 'object' && value !== null) {
+        const found = findRaceMetadata(value);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  };
+
   const parseJSON = (jsonString) => {
     const data = JSON.parse(jsonString);
     
@@ -152,12 +177,13 @@ const RaceAnalyzer = () => {
       throw new Error('Inga hästposter hittades i JSON-data. Kontrollera att data innehåller postPosition, horse.name och pools.');
     }
 
-    // Extrahera loppinfo (försök hitta den någonstans i strukturen)
+    // Extrahera loppinfo rekursivt
+    const raceMetadata = findRaceMetadata(data);
     const race = {
-      name: data.race?.name || data.name || data.raceName || 'V85-lopp',
-      track: data.race?.track?.name || data.track?.name || data.track || 'Okänd bana',
-      date: data.race?.startTime || data.startTime || new Date().toISOString().split('T')[0],
-      distance: data.race?.distance || data.distance || null
+      name: raceMetadata?.name || data.race?.name || data.name || data.raceName || 'V85-lopp',
+      track: raceMetadata?.track || data.race?.track?.name || data.track?.name || data.track || 'Okänd bana',
+      date: raceMetadata?.startTime || data.race?.startTime || data.startTime || new Date().toISOString().split('T')[0],
+      distance: raceMetadata?.distance || data.race?.distance || data.distance || null
     };
 
     // Konvertera varje hästpost till standardformat
@@ -205,9 +231,9 @@ const RaceAnalyzer = () => {
             ? `${horseObj.trainer.firstName} ${horseObj.trainer.lastName}`
             : horseObj.trainer?.name || horseObj.trainer || null;
 
-          // Validera att vi har minsta nödvändiga data
-          if (!odds || !betDistribution) {
-            console.warn(`Häst ${number} (${name}) saknar odds eller streckprocent, hoppar över`);
+          // Validera att vi har minsta nödvändiga data och att de är giltiga nummer
+          if (!odds || !betDistribution || isNaN(odds) || isNaN(betDistribution) || odds <= 0 || betDistribution <= 0) {
+            console.warn(`Häst ${number} (${name}) saknar giltig odds eller streckprocent, hoppar över`);
             return null;
           }
 
@@ -227,7 +253,7 @@ const RaceAnalyzer = () => {
       .filter(horse => horse !== null); // Ta bort null-värden
 
     if (horses.length === 0) {
-      throw new Error('Inga giltiga hästar kunde parsas. Kontrollera att odds och betDistribution finns.');
+      throw new Error('Inga giltiga hästar kunde parsas. Kontrollera att odds och betDistribution finns och är giltiga värden.');
     }
 
     return { race, horses };
