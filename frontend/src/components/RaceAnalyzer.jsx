@@ -86,6 +86,18 @@ const RaceAnalyzer = () => {
       ['Timo', 'Nurmos']
     ];
 
+    // Mock för senaste lopp (1=vinn, 2-5=placering, 0=ej placering, x=struken)
+    const formExamples = [
+      '1-1-2-3-1',
+      '2-1-3-1-2',
+      '3-2-1-4-2',
+      '1-2-2-1-3',
+      '4-3-2-5-1',
+      '2-3-1-2-4',
+      '5-4-3-2-1',
+      '1-3-2-4-3'
+    ];
+
     const hästSet = hästnamn[(loppNummer - 1) % hästnamn.length];
     const numHorses = 8 + (loppNummer % 4); // 8-11 hästar per lopp
 
@@ -100,6 +112,12 @@ const RaceAnalyzer = () => {
           trainer: {
             firstName: tränare[i % tränare.length][0],
             lastName: tränare[i % tränare.length][1]
+          },
+          // Sportsliga data
+          record: {
+            starts: 20 + Math.floor(Math.random() * 30),
+            wins: 3 + Math.floor(Math.random() * 8),
+            places: 5 + Math.floor(Math.random() * 10)
           }
         },
         driver: {
@@ -113,7 +131,12 @@ const RaceAnalyzer = () => {
           V85: {
             betDistribution: Math.round(baseStreck)
           }
-        }
+        },
+        // Ytterligare sportsliga data
+        form: formExamples[i % formExamples.length],
+        distance: 2140,
+        startMethod: i % 2 === 0 ? 'volt' : 'auto',
+        shoes: i % 3 === 0 ? 'barfota' : 'beskod'
       };
     });
   };
@@ -145,7 +168,13 @@ const RaceAnalyzer = () => {
           odds: start.pools.vinnare.odds,
           betDistribution: start.pools.V85.betDistribution,
           driver: `${start.driver.firstName} ${start.driver.lastName}`,
-          trainer: `${start.horse.trainer.firstName} ${start.horse.trainer.lastName}`
+          trainer: `${start.horse.trainer.firstName} ${start.horse.trainer.lastName}`,
+          // Sportsliga data
+          postPosition: start.postPosition,
+          form: start.form,
+          record: start.horse.record,
+          startMethod: start.startMethod,
+          shoes: start.shoes
         })).filter(h => h.odds && h.betDistribution)
       }));
 
@@ -271,6 +300,54 @@ const RaceAnalyzer = () => {
       if (streckPercent < 10) rankingScore += 1;
       if (streckPercent > 40) rankingScore -= 1;
 
+      // ===== HORSE SCORE (Sportslig ranking 0-100) =====
+      let horseScore = 0;
+
+      // 1. Startspår (0-25 poäng) - Lägre spår = bättre
+      if (horse.postPosition) {
+        const postScore = Math.max(0, 25 - (horse.postPosition - 1) * 2);
+        horseScore += postScore;
+      }
+
+      // 2. Form (0-30 poäng) - Senaste prestationer
+      if (horse.form) {
+        const formParts = horse.form.split('-').slice(0, 5);
+        let formScore = 0;
+        formParts.forEach((result, index) => {
+          const weight = 5 - index; // Senaste viktigast
+          if (result === '1') formScore += 6 * weight;
+          else if (result === '2') formScore += 4 * weight;
+          else if (result === '3') formScore += 2 * weight;
+          else if (result === '4' || result === '5') formScore += 1 * weight;
+        });
+        horseScore += Math.min(30, formScore);
+      }
+
+      // 3. Vinstprocent (0-25 poäng)
+      if (horse.record) {
+        const winPercentage = (horse.record.wins / horse.record.starts) * 100;
+        horseScore += Math.min(25, winPercentage * 0.625); // 40% win = 25 poäng
+      }
+
+      // 4. Startmetod (0-10 poäng) - Volt är generellt bättre
+      if (horse.startMethod) {
+        if (horse.startMethod === 'volt') horseScore += 10;
+        else if (horse.startMethod === 'auto') horseScore += 5;
+      }
+
+      // 5. Balans/Vagn (0-10 poäng) - Barfota kan vara fördelaktigt
+      if (horse.shoes) {
+        if (horse.shoes === 'barfota') horseScore += 10;
+        else horseScore += 5;
+      }
+
+      // Normalisera Horse Score till 0-100
+      horseScore = Math.min(100, Math.max(0, horseScore));
+
+      // ===== FINAL SCORE =====
+      // 60% Horse Score (sportslig) + 40% Ranking Score (value)
+      const finalScore = (horseScore * 0.6) + (rankingScore * 0.4);
+
       // Play rekommendation - justerade tröskelvärden
       let play = 'No play';
       if (valueRatio > 1.25) {
@@ -296,6 +373,8 @@ const RaceAnalyzer = () => {
         valueGap: valueGap,
         valueRatio: valueRatio,
         rankingScore: rankingScore,
+        horseScore: horseScore,
+        finalScore: finalScore,
         play: play,
         valueStatus: valueStatus
       };

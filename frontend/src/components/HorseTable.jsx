@@ -7,7 +7,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Download, Filter } from 'lucide-react'
 import { toast } from 'sonner';
 
 const HorseTable = ({ horses }) => {
-  const [sortField, setSortField] = useState('valueRatio');
+  const [sortField, setSortField] = useState('finalScore');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterValue, setFilterValue] = useState('');
   const [showFilter, setShowFilter] = useState('all'); // all, positive, favorites
@@ -108,7 +108,7 @@ const HorseTable = ({ horses }) => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Market %', 'Implied %', 'Value Ratio', 'Ranking Score', 'Status', 'Play'];
+    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Market %', 'Implied %', 'Value Ratio', 'Ranking Score', 'Horse Score', 'Final Score', 'Status', 'Play'];
     const rows = sortedAndFilteredHorses.map(h => [
       h.number,
       h.name,
@@ -118,6 +118,8 @@ const HorseTable = ({ horses }) => {
       h.impliedProbability.toFixed(2),
       h.valueRatio.toFixed(2),
       h.rankingScore.toFixed(2),
+      h.horseScore.toFixed(1),
+      h.finalScore.toFixed(1),
       h.valueStatus,
       h.play
     ]);
@@ -245,6 +247,18 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('rankingScore')}
                   </div>
                 </th>
+                <th onClick={() => handleSort('horseScore')} className="cursor-pointer text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    Horse Score
+                    {getSortIcon('horseScore')}
+                  </div>
+                </th>
+                <th onClick={() => handleSort('finalScore')} className="cursor-pointer text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    Final Score
+                    {getSortIcon('finalScore')}
+                  </div>
+                </th>
                 <th onClick={() => handleSort('play')} className="cursor-pointer text-center">
                   <div className="flex items-center justify-center gap-1">
                     Play
@@ -294,6 +308,18 @@ const HorseTable = ({ horses }) => {
                   </td>
                   <td className="text-right text-white font-mono font-semibold">
                     {horse.rankingScore.toFixed(1)}
+                  </td>
+                  <td className="text-right text-white font-mono font-semibold">
+                    <span className="text-blue-400">{horse.horseScore.toFixed(1)}</span>
+                  </td>
+                  <td className="text-right font-bold font-mono">
+                    <span className={`text-lg ${
+                      horse.finalScore > 80 ? 'text-green-400' :
+                      horse.finalScore > 60 ? 'text-yellow-400' :
+                      'text-gray-400'
+                    }`}>
+                      {horse.finalScore.toFixed(1)}
+                    </span>
                   </td>
                   <td className="text-center">
                     <span className={`inline-block px-3 py-1 rounded text-xs font-bold whitespace-nowrap ${
