@@ -100,35 +100,95 @@ const RaceAnalyzer = () => {
     });
   };
 
-  // Rekursiv funktion för att hitta hästposter i JSON
-  const findHorseObjects = (obj, found = []) => {
-    if (!obj || typeof obj !== 'object') {
-      return found;
-    }
+  // Funktion för att hitta arrays i JSON-strukturen
+  const findArrays = (obj, found = [], path = '') => {
+    if (!obj || typeof obj !== 'object') return found;
 
-    // Kolla om detta objekt är en hästpost
-    const isHorseObject = (
-      (obj.postPosition !== undefined || obj.number !== undefined) &&
-      (obj.horse?.name || obj.name) &&
-      (obj.pools || obj.odds !== undefined || obj.betDistribution !== undefined)
-    );
-
-    if (isHorseObject) {
-      found.push(obj);
-    }
-
-    // Fortsätt söka rekursivt i alla properties
     if (Array.isArray(obj)) {
-      obj.forEach(item => findHorseObjects(item, found));
+      found.push({ array: obj, path: path });
+    }
+
+    // Leta rekursivt
+    if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        findArrays(item, found, `${path}[${index}]`);
+      });
     } else {
-      Object.values(obj).forEach(value => {
+      Object.entries(obj).forEach(([key, value]) => {
         if (typeof value === 'object' && value !== null) {
-          findHorseObjects(value, found);
+          findArrays(value, found, path ? `${path}.${key}` : key);
         }
       });
     }
 
     return found;
+  };
+
+  // Validera om en array är en startlista
+  const isValidStartsList = (arr) => {
+    if (!Array.isArray(arr) || arr.length === 0) return false;
+
+    // Räkna hur många objekt som har hästdata
+    let validHorses = 0;
+    let hasPosition = 0;
+    let hasHorseName = 0;
+    let hasPools = 0;
+
+    arr.forEach(item => {
+      if (!item || typeof item !== 'object') return;
+
+      if (item.postPosition !== undefined || item.number !== undefined) {
+        hasPosition++;
+      }
+      if (item.horse?.name || item.name) {
+        hasHorseName++;
+      }
+      if (item.pools) {
+        hasPools++;
+      }
+
+      // Ett giltigt hästobjekt har minst position och namn
+      if ((item.postPosition !== undefined || item.number !== undefined) && 
+          (item.horse?.name || item.name)) {
+        validHorses++;
+      }
+    });
+
+    // En giltig startlista ska ha:
+    // - Minst 50% av objekten har position
+    // - Minst 50% av objekten har hästnamn
+    // - Minst 30% av objekten har pools (kan saknas för vissa hästar)
+    const threshold = arr.length * 0.5;
+    return (
+      hasPosition >= threshold &&
+      hasHorseName >= threshold &&
+      hasPools >= arr.length * 0.3
+    );
+  };
+
+  // Hitta den bästa startlistan
+  const findStartsList = (data) => {
+    const arrays = findArrays(data);
+    
+    // Filtrera och sortera arrays
+    const validLists = arrays
+      .filter(({ array }) => isValidStartsList(array))
+      .map(({ array, path }) => ({
+        array,
+        path,
+        score: array.length // Använd längd som score, vanligtvis 8-16 hästar i ett lopp
+      }))
+      .filter(({ score }) => score >= 3 && score <= 20) // Rimligt antal hästar per lopp
+      .sort((a, b) => {
+        // Prioritera arrays med färre hästar (undvik historik med många lopp)
+        return a.score - b.score;
+      });
+
+    if (validLists.length === 0) {
+      return null;
+    }
+
+    return validLists[0].array;
   };
 
   // Rekursiv funktion för att hitta race metadata
@@ -170,11 +230,16 @@ const RaceAnalyzer = () => {
       };
     }
 
-    // Annars: sök rekursivt efter hästposter i hela strukturen
-    const horseObjects = findHorseObjects(data);
+    // Hitta startlistan
+    const startsList = findStartsList(data);
     
-    if (horseObjects.length === 0) {
-      throw new Error('Inga hästposter hittades i JSON-data. Kontrollera att data innehåller postPosition, horse.name och pools.');
+    if (!startsList) {
+      throw new Error('Ingen giltig startlista hittades i JSON-data. Kontrollera att data innehåller en array med postPosition, horse.name och pools.');
+    }
+
+    // Varning om för många hästar
+    if (startsList.length > 20) {
+      console.warn(`Varning: ${startsList.length} hästar hittades. Detta verkar vara fel lista (förväntade max 20).`);
     }
 
     // Extrahera loppinfo rekursivt
@@ -186,8 +251,8 @@ const RaceAnalyzer = () => {
       distance: raceMetadata?.distance || data.race?.distance || data.distance || null
     };
 
-    // Konvertera varje hästpost till standardformat
-    const horses = horseObjects
+    // Konvertera varje häst i startlistan till standardformat
+    const horses = startsList
       .map((horseObj, index) => {
         try {
           // Extrahera fält med fallbacks
@@ -253,7 +318,7 @@ const RaceAnalyzer = () => {
       .filter(horse => horse !== null); // Ta bort null-värden
 
     if (horses.length === 0) {
-      throw new Error('Inga giltiga hästar kunde parsas. Kontrollera att odds och betDistribution finns och är giltiga värden.');
+      throw new Error('Inga giltiga hästar kunde parsas från startlistan. Kontrollera att odds och betDistribution finns.');
     }
 
     return { race, horses };
