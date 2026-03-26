@@ -236,12 +236,7 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('rankingScore')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('horseScore')} className="cursor-pointer text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    Horse Score
-                    {getSortIcon('horseScore')}
-                  </div>
-                </th>
+                
                 <th onClick={() => handleSort('finalScore')} className="cursor-pointer text-right">
                   <div className="flex items-center justify-end gap-1">
                     Final Score
@@ -297,9 +292,7 @@ const HorseTable = ({ horses }) => {
                   <td className="text-right text-white font-mono font-semibold">
                     {horse.rankingScore.toFixed(1)}
                   </td>
-                  <td className="text-right text-white font-mono font-semibold">
-                    <span className="text-blue-400">{horse.horseScore.toFixed(1)}</span>
-                  </td>
+                  
                   <td className="text-right font-bold font-mono">
                     <span className={`text-lg ${
                       horse.finalScore > 80 ? 'text-green-400' :
