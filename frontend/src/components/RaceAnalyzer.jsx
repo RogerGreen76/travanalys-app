@@ -436,6 +436,9 @@ const RaceAnalyzer = () => {
         valueStatus = 'Överspelad';
       }
 
+      // Skrällindikator
+      const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
+
       return {
         ...horse,
         odds: odds,
@@ -448,7 +451,8 @@ const RaceAnalyzer = () => {
         horseScore: horseScore,
         finalScore: finalScore,
         play: play,
-        valueStatus: valueStatus
+        valueStatus: valueStatus,
+        skrallSignal: skrallSignal
       };
     });
   };

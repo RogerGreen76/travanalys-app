@@ -267,6 +267,11 @@ const HorseTable = ({ horses }) => {
                         {horse.trainer && <span>{horse.trainer}</span>}
                       </div>
                     )}
+                    {horse.skrallSignal && (
+                      <div className="text-xs text-yellow-400 mt-1 font-medium">
+                        {horse.skrallSignal}
+                      </div>
+                    )}
                   </td>
                   <td className="text-center text-white font-mono w-20 py-3">{horse.odds.toFixed(2)}</td>
                   <td className="text-center text-white font-mono w-20 py-3">{horse.streckPercent.toFixed(1)}%</td>

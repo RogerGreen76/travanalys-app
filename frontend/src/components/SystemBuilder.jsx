@@ -46,7 +46,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         if (streckPercent < 0.10) rankingScore += 1;
         if (streckPercent > 0.40) rankingScore -= 1;
         
-        return { ...horse, valueRatio, rankingScore, odds, streckPercent };
+        const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
+        
+        return { ...horse, valueRatio, rankingScore, odds, streckPercent, skrallSignal };
       }).sort((a, b) => b.rankingScore - a.rankingScore);
     };
 
