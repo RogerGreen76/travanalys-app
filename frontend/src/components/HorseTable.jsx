@@ -224,7 +224,7 @@ const HorseTable = ({ horses }) => {
                   </div>
                 </th>
                 
-                <th onClick={() => handleSort('valueRatio')} className="cursor-pointer text-right">
+                <th onClick={() => handleSort('valueRatio')} className="cursor-pointer w-[130px] text-center">
                   <div className="flex items-center justify-end gap-1">
                     Spelvärde
                     {getSortIcon('valueRatio')}
@@ -243,7 +243,7 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('finalScore')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('play')} className="cursor-pointer text-center">
+                <th onClick={() => handleSort('play')} className="cursor-pointer w-[130px] text-center">
                   <div className="flex items-center justify-center gap-1">
                     Play
                     {getSortIcon('play')}
@@ -272,8 +272,8 @@ const HorseTable = ({ horses }) => {
                   <td className="text-right text-white font-mono">{horse.odds.toFixed(2)}</td>
                   <td className="text-right text-white font-mono">{horse.streckPercent.toFixed(1)}%</td>
                   
-                  <td className="text-right">
-                    <div className="flex justify-end">
+                  <td className="text-center w-[130px]">
+                    <div className="flex justify-center">
                       <span className={`text-xs px-2 py-0.5 rounded inline-flex justify-center min-w-[92px] ${
                         horse.valueStatus === 'Spelvärd' ? 'bg-green-500/20 text-green-400' :
                         horse.valueStatus === 'Överspelad' ? 'bg-red-500/20 text-red-400' :
@@ -296,7 +296,7 @@ const HorseTable = ({ horses }) => {
                       {horse.finalScore.toFixed(1)}
                     </span>
                   </td>
-                  <td className="text-center">
+                  <td className="text-center w-[130px]">
                     <span className={`inline-block px-3 py-1 rounded text-xs font-bold whitespace-nowrap ${
                       horse.play === 'Stark play' 
                         ? 'bg-green-500/30 text-green-300 border border-green-500/50' 
