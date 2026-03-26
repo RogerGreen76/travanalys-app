@@ -195,7 +195,8 @@ const HorseTable = ({ horses }) => {
           </div>
         )}
 
-        <table className="table-fixed w-full text-sm" data-testid="horses-table">
+        <div className="rounded-xl overflow-hidden">
+          <table className="table-fixed w-full text-sm" data-testid="horses-table">
             <thead>
               <tr>
                 <th onClick={() => handleSort('number')} className="cursor-pointer text-center w-12">
@@ -310,6 +311,7 @@ const HorseTable = ({ horses }) => {
               ))}
             </tbody>
           </table>
+        </div>
 
         {sortedAndFilteredHorses.length === 0 && (
           <div className="text-center py-8 text-gray-400" data-testid="no-horses-message">
