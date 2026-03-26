@@ -199,8 +199,8 @@ const HorseTable = ({ horses }) => {
           <table className="value-table w-full text-sm" data-testid="horses-table">
             <thead>
               <tr>
-                <th onClick={() => handleSort('number')} className="cursor-pointer">
-                  <div className="flex items-center gap-1">
+                <th onClick={() => handleSort('number')} className="cursor-pointer text-center">
+                  <div className="flex items-center justify-center gap-1">
                     #
                     {getSortIcon('number')}
                   </div>
@@ -211,14 +211,14 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('name')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('odds')} className="cursor-pointer text-right">
-                  <div className="flex items-center justify-end gap-1">
+                <th onClick={() => handleSort('odds')} className="cursor-pointer text-center">
+                  <div className="flex items-center justify-center gap-1">
                     Odds
                     {getSortIcon('odds')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('streckPercent')} className="cursor-pointer text-right">
-                  <div className="flex items-center justify-end gap-1">
+                <th onClick={() => handleSort('streckPercent')} className="cursor-pointer text-center">
+                  <div className="flex items-center justify-center gap-1">
                     Streck %
                     {getSortIcon('streckPercent')}
                   </div>
@@ -230,15 +230,15 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('valueRatio')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('rankingScore')} className="cursor-pointer text-right">
-                  <div className="flex items-center justify-end gap-1">
+                <th onClick={() => handleSort('rankingScore')} className="cursor-pointer text-center">
+                  <div className="flex items-center justify-center gap-1">
                     Ranking Score
                     {getSortIcon('rankingScore')}
                   </div>
                 </th>
                 
-                <th onClick={() => handleSort('finalScore')} className="cursor-pointer text-right">
-                  <div className="flex items-center justify-end gap-1">
+                <th onClick={() => handleSort('finalScore')} className="cursor-pointer text-center">
+                  <div className="flex items-center justify-center gap-1">
                     Final Score
                     {getSortIcon('finalScore')}
                   </div>
@@ -258,7 +258,7 @@ const HorseTable = ({ horses }) => {
                   className={getValueClass(horse.valueRatio)}
                   data-testid={`horse-row-${horse.number}`}
                 >
-                  <td className="font-bold text-white">{horse.number}</td>
+                  <td className="font-bold text-white text-center">{horse.number}</td>
                   <td className="text-white">
                     <div className="font-semibold">{horse.name}</div>
                     {(horse.driver || horse.trainer) && (
@@ -269,8 +269,8 @@ const HorseTable = ({ horses }) => {
                       </div>
                     )}
                   </td>
-                  <td className="text-right text-white font-mono">{horse.odds.toFixed(2)}</td>
-                  <td className="text-right text-white font-mono">{horse.streckPercent.toFixed(1)}%</td>
+                  <td className="text-center text-white font-mono">{horse.odds.toFixed(2)}</td>
+                  <td className="text-center text-white font-mono">{horse.streckPercent.toFixed(1)}%</td>
                   
                   <td className="text-center w-[130px]">
                     <div className="flex justify-center">
@@ -283,11 +283,11 @@ const HorseTable = ({ horses }) => {
                   </span>
                 </div>
               </td>
-                  <td className="text-right text-white font-mono font-semibold">
+                  <td className="text-center text-white font-mono font-semibold">
                     {horse.rankingScore.toFixed(1)}
                   </td>
                   
-                  <td className="text-right font-bold font-mono">
+                  <td className="text-center font-bold font-mono">
                     <span className={`text-lg ${
                       horse.finalScore > 80 ? 'text-green-400' :
                       horse.finalScore > 60 ? 'text-yellow-400' :
