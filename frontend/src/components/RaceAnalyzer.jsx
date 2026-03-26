@@ -302,7 +302,7 @@ const RaceAnalyzer = () => {
       const relativeStrength = avgOdds / horse.odds;
       
       // Ranking Score
-      const rankingScore = impliedProbability * 100 + relativeStrength * 20 + valueRatio * 10;
+      const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8;
 
       // ===== HORSE SCORE (Sportslig ranking 0-100) =====
       let horseScore = 0;

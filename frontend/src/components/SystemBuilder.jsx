@@ -49,7 +49,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         const relativeStrength = avgOdds / horse.odds;
         
         // Ranking Score
-        const rankingScore = impliedProbability * 100 + relativeStrength * 20 + valueRatio * 10;
+        const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8;
         
         const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
         
