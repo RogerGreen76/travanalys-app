@@ -258,21 +258,21 @@ const HorseTable = ({ horses }) => {
                   className={getValueClass(horse.valueRatio)}
                   data-testid={`horse-row-${horse.number}`}
                 >
-                  <td className="font-bold text-white text-center w-12">{horse.number}</td>
-                  <td className="text-white w-48">
+                  <td className="font-bold text-white text-center w-12 py-3">{horse.number}</td>
+                  <td className="text-white w-48 py-3">
                     <div className="font-semibold">{horse.name}</div>
                     {(horse.driver || horse.trainer) && (
-                      <div className="text-xs text-gray-400 mt-1">
+                      <div className="text-xs text-gray-400 mt-2">
                         {horse.driver && <span>{horse.driver}</span>}
                         {horse.driver && horse.trainer && <span> • </span>}
                         {horse.trainer && <span>{horse.trainer}</span>}
                       </div>
                     )}
                   </td>
-                  <td className="text-center text-white font-mono w-20">{horse.odds.toFixed(2)}</td>
-                  <td className="text-center text-white font-mono w-20">{horse.streckPercent.toFixed(1)}%</td>
+                  <td className="text-center text-white font-mono w-20 py-3">{horse.odds.toFixed(2)}</td>
+                  <td className="text-center text-white font-mono w-20 py-3">{horse.streckPercent.toFixed(1)}%</td>
                   
-                  <td className="text-center w-32">
+                  <td className="text-center w-32 py-3">
                     <div className="flex justify-center">
                       <span className={`text-xs px-2 py-0.5 rounded inline-flex justify-center min-w-[92px] ${
                         horse.valueStatus === 'Spelvärd' ? 'bg-green-500/20 text-green-400' :
@@ -283,11 +283,11 @@ const HorseTable = ({ horses }) => {
                   </span>
                 </div>
               </td>
-                  <td className="text-center text-white font-mono font-semibold w-24">
+                  <td className="text-center text-white font-mono font-semibold w-24 py-3">
                     {horse.rankingScore.toFixed(1)}
                   </td>
                   
-                  <td className="text-center font-bold font-mono w-24">
+                  <td className="text-center font-bold font-mono w-24 py-3">
                     <span className={`text-lg ${
                       horse.finalScore > 80 ? 'text-green-400' :
                       horse.finalScore > 60 ? 'text-yellow-400' :
@@ -296,7 +296,7 @@ const HorseTable = ({ horses }) => {
                       {horse.finalScore.toFixed(1)}
                     </span>
                   </td>
-                  <td className="text-center w-32">
+                  <td className="text-center w-32 py-3">
                     <span className={`inline-block px-3 py-1 rounded text-xs font-bold whitespace-nowrap ${
                       horse.play === 'Stark play' 
                         ? 'bg-green-500/30 text-green-300 border border-green-500/50' 
