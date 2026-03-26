@@ -273,14 +273,14 @@ const HorseTable = ({ horses }) => {
                   <td className="text-right text-white font-mono">{horse.streckPercent.toFixed(1)}%</td>
                   
                   <td className="text-right">
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-1 min-w-[90px]">
                       <span className={`font-bold font-mono ${
                         horse.valueRatio > 1.20 ? 'text-green-400' :
                         horse.valueRatio < 1.05 ? 'text-red-400' : 'text-yellow-400'
                       }`}>
                         {horse.valueRatio.toFixed(2)}
                       </span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${
+                      <span className={`text-xs px-2 py-0.5 rounded inline-flex justify-center min-w-[80px] ${
                         horse.valueStatus === 'Spelvärd' ? 'bg-green-500/20 text-green-400' :
                         horse.valueStatus === 'Överspelad' ? 'bg-red-500/20 text-red-400' :
                         'bg-yellow-500/20 text-yellow-400'
