@@ -223,18 +223,7 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('streckPercent')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('marketProbability')} className="cursor-pointer text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    Market %
-                    {getSortIcon('marketProbability')}
-                  </div>
-                </th>
-                <th onClick={() => handleSort('impliedProbability')} className="cursor-pointer text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    Implied %
-                    {getSortIcon('impliedProbability')}
-                  </div>
-                </th>
+                
                 <th onClick={() => handleSort('valueRatio')} className="cursor-pointer text-right">
                   <div className="flex items-center justify-end gap-1">
                     Value Ratio
@@ -287,8 +276,7 @@ const HorseTable = ({ horses }) => {
                   </td>
                   <td className="text-right text-white font-mono">{horse.odds.toFixed(2)}</td>
                   <td className="text-right text-white font-mono">{horse.streckPercent.toFixed(1)}%</td>
-                  <td className="text-right text-white font-mono">{horse.marketProbability.toFixed(1)}%</td>
-                  <td className="text-right text-white font-mono">{horse.impliedProbability.toFixed(2)}%</td>
+                  
                   <td className="text-right">
                     <div className="flex flex-col items-end gap-1">
                       <span className={`font-bold font-mono ${
