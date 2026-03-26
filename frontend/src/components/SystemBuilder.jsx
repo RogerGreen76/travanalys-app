@@ -43,8 +43,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         const valueRatio = impliedProbability / streckPercent;
         let rankingScore = (impliedProbability * 100) / streckPercent;
         if (odds > 10) rankingScore += 1;
-        if (streckPercent < 10) rankingScore += 1;
-        if (streckPercent > 40) rankingScore -= 1;
+        if (streckPercent < 0.10) rankingScore += 1;
+        if (streckPercent > 0.40) rankingScore -= 1;
         
         return { ...horse, valueRatio, rankingScore, odds, streckPercent };
       }).sort((a, b) => b.rankingScore - a.rankingScore);

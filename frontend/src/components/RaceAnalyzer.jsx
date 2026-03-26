@@ -298,8 +298,8 @@ const RaceAnalyzer = () => {
       // Ranking Score
       let rankingScore = (impliedProbability * 100) / streckPercent;
       if (odds > 10) rankingScore += 1;
-      if (streckPercent < 10) rankingScore += 1;
-      if (streckPercent > 40) rankingScore -= 1;
+      if (streckPercent < 0.10) rankingScore += 1;
+      if (streckPercent > 0.40) rankingScore -= 1;
 
       // ===== HORSE SCORE (Sportslig ranking 0-100) =====
       let horseScore = 0;
@@ -415,8 +415,10 @@ const RaceAnalyzer = () => {
       spurtScore = Math.min(100, Math.max(0, spurtScore));
 
       // ===== FINAL SCORE =====
-      // 60% Horse Score (sportslig) + 40% Ranking Score (value)
-      const finalScore = (horseScore * 0.6) + (rankingScore * 0.4);
+      const winStrength = 0.65 * rankingScore + 0.35 * horseScore;
+      const marketEdge = (valueRatio - 1) * 100;
+      const confidence = Math.sqrt(streckPercent * 100);
+      const finalScore = winStrength + marketEdge * 0.8 + confidence * 2;
 
       // Play rekommendation - justerade tröskelvärden
       let play = 'No play';
