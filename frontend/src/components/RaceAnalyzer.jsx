@@ -868,7 +868,7 @@ const RaceAnalyzer = () => {
 
         {/* Horse Table */}
         {analyzedHorses.length > 0 && (
-          <div className="table-transition">
+          <div className="space-y-6">
             <HorseTable horses={analyzedHorses} />
             <SystemBuilder 
               horses={analyzedHorses} 
