@@ -226,7 +226,7 @@ const HorseTable = ({ horses }) => {
                 
                 <th onClick={() => handleSort('valueRatio')} className="cursor-pointer text-right">
                   <div className="flex items-center justify-end gap-1">
-                    Value Ratio
+                    Spelvärde
                     {getSortIcon('valueRatio')}
                   </div>
                 </th>
