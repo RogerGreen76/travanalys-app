@@ -281,6 +281,9 @@ const RaceAnalyzer = () => {
   };
 
   const analyzeHorses = (horses) => {
+    // Calculate average odds in the race
+    const avgOdds = horses.reduce((sum, h) => sum + h.odds, 0) / horses.length;
+
     return horses.map(horse => {
       // Grundläggande beräkningar
       const odds = horse.odds / 100; // t.ex. 450 -> 4.50
@@ -295,11 +298,11 @@ const RaceAnalyzer = () => {
       // Value ratio - nu som decimal (t.ex. 1.18 istället för 118.27)
       const valueRatio = impliedProbability / streckPercent;
       
+      // Relative strength compared to the field
+      const relativeStrength = avgOdds / horse.odds;
+      
       // Ranking Score
-      let rankingScore = (impliedProbability * 100) / streckPercent;
-      if (odds > 10) rankingScore += 1;
-      if (streckPercent < 0.10) rankingScore += 1;
-      if (streckPercent > 0.40) rankingScore -= 1;
+      const rankingScore = impliedProbability * 100 + relativeStrength * 20 + valueRatio * 10;
 
       // ===== HORSE SCORE (Sportslig ranking 0-100) =====
       let horseScore = 0;

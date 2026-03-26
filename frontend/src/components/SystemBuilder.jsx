@@ -36,15 +36,20 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
     // Analysera hästar (behöver göra value-beräkningar)
     const analyzeForDD = (horses) => {
+      // Calculate average odds in the race
+      const avgOdds = horses.reduce((sum, h) => sum + h.odds, 0) / horses.length;
+
       return horses.map(horse => {
         const odds = horse.odds / 100;
         const streckPercent = horse.betDistribution / 100;
         const impliedProbability = (1 / odds) * 100;
         const valueRatio = impliedProbability / streckPercent;
-        let rankingScore = (impliedProbability * 100) / streckPercent;
-        if (odds > 10) rankingScore += 1;
-        if (streckPercent < 0.10) rankingScore += 1;
-        if (streckPercent > 0.40) rankingScore -= 1;
+        
+        // Relative strength compared to the field
+        const relativeStrength = avgOdds / horse.odds;
+        
+        // Ranking Score
+        const rankingScore = impliedProbability * 100 + relativeStrength * 20 + valueRatio * 10;
         
         const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
         
