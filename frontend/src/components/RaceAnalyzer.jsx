@@ -415,10 +415,10 @@ const RaceAnalyzer = () => {
       spurtScore = Math.min(100, Math.max(0, spurtScore));
 
       // ===== FINAL SCORE =====
-      const winStrength = 0.65 * rankingScore + 0.35 * horseScore;
+      const winStrength = (0.65 * rankingScore + 0.35 * horseScore) / 2;
       const marketEdge = (valueRatio - 1) * 100;
       const confidence = Math.sqrt(streckPercent * 100);
-      const finalScore = winStrength + marketEdge * 0.35 + confidence * 2;
+      const finalScore = winStrength + marketEdge * 0.25 + confidence * 1.5;
 
       // Play rekommendation - justerade tröskelvärden
       let play = 'No play';
