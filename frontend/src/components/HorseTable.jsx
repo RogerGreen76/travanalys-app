@@ -195,7 +195,7 @@ const HorseTable = ({ horses }) => {
           </div>
         )}
 
-        <table className="table-fixed w-full text-sm rounded-xl overflow-hidden" data-testid="horses-table">
+        <table className="table-fixed w-full text-sm" data-testid="horses-table">
             <thead>
               <tr>
                 <th onClick={() => handleSort('number')} className="cursor-pointer text-center w-12">
