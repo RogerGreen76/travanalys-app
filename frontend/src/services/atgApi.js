@@ -6,7 +6,7 @@
 // Game type configurations
 const GAME_CONFIGS = {
   'V85': { races: 8 },
-  'V86': { races: 6 },
+  'V86': { races: 8 },
   'V64': { races: 6 },
   'V65': { races: 6 },
   'V5': { races: 5 },
