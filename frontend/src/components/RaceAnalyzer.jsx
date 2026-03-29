@@ -417,11 +417,36 @@ const RaceAnalyzer = () => {
       
       spurtScore = Math.min(100, Math.max(0, spurtScore));
 
+      // ===== PACE / SPETS MODEL =====
+      const startPosition = horse.postPosition || horse.number || 0;
+      let startSpeedScore = 0;
+      if (startPosition >= 1 && startPosition <= 3) {
+        startSpeedScore = 5;
+      } else if (startPosition >= 4 && startPosition <= 5) {
+        startSpeedScore = 4;
+      } else if (startPosition >= 6 && startPosition <= 8) {
+        startSpeedScore = 3;
+      } else if (startPosition >= 9) {
+        startSpeedScore = 2;
+      }
+
+      const spetsChanceScore = startSpeedScore + relativeStrength * 2;
+
+      let paceBonus = 0;
+      if (spetsChanceScore > 7) {
+        paceBonus = 8;
+      } else if (spetsChanceScore > 5) {
+        paceBonus = 4;
+      }
+
+      const paceScore = startSpeedScore * 3 + spetsChanceScore * 2 + paceBonus;
+
       // ===== FINAL SCORE =====
       const winStrength = (0.65 * rankingScore + 0.35 * horseScore) / 2;
       const marketEdge = (valueRatio - 1) * 100;
       const confidence = Math.sqrt(streckPercent * 100);
-      const finalScore = winStrength + marketEdge * 0.25 + confidence * 1.5;
+      const finalScore =
+        winStrength + marketEdge * 0.25 + confidence * 1.5 + paceScore * 0.8;
 
       // Play rekommendation - justerade tröskelvärden
       let play = 'No play';
@@ -452,6 +477,9 @@ const RaceAnalyzer = () => {
         valueRatio: valueRatio,
         rankingScore: rankingScore,
         horseScore: horseScore,
+        startSpeedScore: startSpeedScore,
+        spetsChanceScore: spetsChanceScore,
+        paceScore: paceScore,
         finalScore: finalScore,
         play: play,
         valueStatus: valueStatus,

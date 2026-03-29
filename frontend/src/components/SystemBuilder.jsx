@@ -50,10 +50,49 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         
         // Ranking Score
         const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8;
+
+        // ===== PACE / SPETS MODEL =====
+        const startPosition = horse.postPosition || horse.number || 0;
+        let startSpeedScore = 0;
+        if (startPosition >= 1 && startPosition <= 3) {
+          startSpeedScore = 5;
+        } else if (startPosition >= 4 && startPosition <= 5) {
+          startSpeedScore = 4;
+        } else if (startPosition >= 6 && startPosition <= 8) {
+          startSpeedScore = 3;
+        } else if (startPosition >= 9) {
+          startSpeedScore = 2;
+        }
+
+        const spetsChanceScore = startSpeedScore + relativeStrength * 2;
+
+        let paceBonus = 0;
+        if (spetsChanceScore > 7) {
+          paceBonus = 8;
+        } else if (spetsChanceScore > 5) {
+          paceBonus = 4;
+        }
+
+        const paceScore = startSpeedScore * 3 + spetsChanceScore * 2 + paceBonus;
+
+        const marketEdge = (valueRatio - 1) * 100;
+        const confidence = Math.sqrt(streckPercent * 100);
+        const finalScore = rankingScore + marketEdge * 0.25 + confidence * 1.5 + paceScore * 0.8;
         
         const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
         
-        return { ...horse, valueRatio, rankingScore, odds, streckPercent, skrallSignal };
+        return {
+          ...horse,
+          valueRatio,
+          rankingScore,
+          odds,
+          streckPercent,
+          skrallSignal,
+          startSpeedScore,
+          spetsChanceScore,
+          paceScore,
+          finalScore
+        };
       }).sort((a, b) => b.rankingScore - a.rankingScore);
     };
 
