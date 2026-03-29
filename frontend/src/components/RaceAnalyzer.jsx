@@ -34,6 +34,13 @@ const RaceAnalyzer = () => {
     }
   }, [selectedGameType]);
 
+  // Update analyzed horses when selected race changes
+  useEffect(() => {
+    if (allRaces.length > 0 && selectedRaceIndex < allRaces.length) {
+      setAnalyzedHorses(allRaces[selectedRaceIndex].horses);
+    }
+  }, [selectedRaceIndex, allRaces]);
+
   const handleLoadGameType = async (gameType) => {
     try {
       // Step 1: Fetch raw game data
@@ -62,10 +69,7 @@ const RaceAnalyzer = () => {
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
 
-      // Analyze first race
-      if (parsedRaces.length > 0) {
-        setAnalyzedHorses(parsedRaces[0].horses);
-      }
+      // analyzedHorses will be set by useEffect when selectedRaceIndex changes
 
       toast.success(`${gameType} loaded`, {
         description: `${parsedRaces.length} races available`
@@ -314,9 +318,7 @@ const RaceAnalyzer = () => {
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
       
-      // Analysera första loppet
-      const analyzed = analyzeHorses(parsedRaces[0].horses);
-      setAnalyzedHorses(analyzed);
+      // analyzedHorses will be set by useEffect
       
       toast.success(`✓ ${parsedRaces.length} lopp importerade`, {
         description: `${parsedRaces[0].horses.length} hästar i första loppet`
@@ -331,15 +333,14 @@ const RaceAnalyzer = () => {
 
   const handleRaceChange = (index) => {
     const raceIndex = parseInt(index);
-    
+
     // Add fade effect
     setAnalyzedHorses([]);
-    
+
     setTimeout(() => {
       setSelectedRaceIndex(raceIndex);
-      const analyzed = analyzeHorses(allRaces[raceIndex].horses);
-      setAnalyzedHorses(analyzed);
-      
+      // analyzedHorses will be updated by useEffect
+
       toast.info(`Visar lopp ${raceIndex + 1}`, {
         description: allRaces[raceIndex].race.name
       });
