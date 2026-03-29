@@ -1,0 +1,153 @@
+/**
+ * ATG API Service
+ * Handles fetching raw game data for different game types
+ */
+
+// Game type configurations
+const GAME_CONFIGS = {
+  'V85': { races: 8 },
+  'V86': { races: 6 },
+  'V64': { races: 6 },
+  'V65': { races: 6 },
+  'V5': { races: 5 },
+  'DD': { races: 2 }
+};
+
+/**
+ * Fetch raw game data for a specific game type
+ * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
+ * @param {string} date - Optional date in YYYY-MM-DD format
+ * @returns {Promise<Object>} Raw game data
+ */
+export const fetchGameData = async (gameType, date = '2024-01-20') => {
+  try {
+    // For now, return mock data
+    // TODO: Replace with actual ATG API calls
+    const mockData = generateMockGameData(gameType, date);
+    return mockData;
+  } catch (error) {
+    console.error('Error fetching game data:', error);
+    throw new Error(`Failed to fetch ${gameType} data: ${error.message}`);
+  }
+};
+
+/**
+ * Generate mock game data for development
+ * @param {string} gameType
+ * @param {string} date
+ * @returns {Object} Mock game data
+ */
+const generateMockGameData = (gameType, date) => {
+  const config = GAME_CONFIGS[gameType];
+  if (!config) {
+    throw new Error(`Unknown game type: ${gameType}`);
+  }
+
+  const numRaces = config.races;
+
+  // Generate mock races
+  const races = [];
+  for (let i = 0; i < numRaces; i++) {
+    races.push({
+      number: i + 1,
+      name: `${gameType}-${i + 1}`,
+      track: {
+        name: i % 2 === 0 ? 'Solvalla' : 'Åby'
+      },
+      startTime: `${date}T15:${20 + i * 10}:00`,
+      distance: 2140 + i * 40,
+      starts: generateMockHorses(i + 1)
+    });
+  }
+
+  return {
+    gameType: gameType,
+    date: date,
+    races: races
+  };
+};
+
+/**
+ * Generate mock horses for a race
+ * @param {number} raceNumber
+ * @returns {Array} Array of horse objects
+ */
+const generateMockHorses = (raceNumber) => {
+  const horseNames = [
+    ['Staro Broline', 'Global Badman', 'Donatos', 'Perfect Kronos', 'Muscle Hustle'],
+    ['Racing Beauty', 'Super Nova', 'Eagle Eye', 'Thunder Strike', 'Golden Arrow'],
+    ['Mighty Max', 'Quick Silver', 'Star Runner', 'Blue Diamond', 'Red Baron'],
+    ['Speed King', 'Dream Dancer', 'Lucky Star', 'Wild Wind', 'Brave Heart'],
+    ['Royal Flash', 'Silver Bullet', 'Magic Moment', 'Flying Star', 'Bold Eagle'],
+    ['Night Rider', 'Storm Cloud', 'Fire Storm', 'Ice Queen', 'Golden Dream'],
+    ['Power Play', 'Swift Arrow', 'Bright Future', 'Dark Horse', 'True Spirit'],
+    ['Fast Lane', 'High Flyer', 'Noble Knight', 'Pure Gold', 'Sharp Shooter']
+  ];
+
+  const drivers = [
+    ['Örjan', 'Kihlström'],
+    ['Björn', 'Goop'],
+    ['Magnus A', 'Djuse'],
+    ['Erik', 'Adielsson'],
+    ['Stefan', 'Persson']
+  ];
+
+  const trainers = [
+    ['Daniel', 'Redén'],
+    ['Stefan', 'Melander'],
+    ['Jerry', 'Riordan'],
+    ['Robert', 'Bergh'],
+    ['Timo', 'Nurmos']
+  ];
+
+  const formExamples = [
+    '1-1-2-3-1',
+    '2-1-3-1-2',
+    '3-2-1-4-2',
+    '1-2-2-1-3',
+    '4-3-2-5-1',
+    '2-3-1-2-4',
+    '5-4-3-2-1',
+    '1-3-2-4-3'
+  ];
+
+  const horseSet = horseNames[(raceNumber - 1) % horseNames.length];
+  const numHorses = 8 + (raceNumber % 4); // 8-11 horses per race
+
+  return Array.from({ length: Math.min(numHorses, horseSet.length) }, (_, i) => {
+    const baseOdds = 400 + i * 200 + Math.random() * 300;
+    const baseStreck = 800 + i * 200 + Math.random() * 500;
+
+    return {
+      postPosition: i + 1,
+      horse: {
+        name: horseSet[i],
+        trainer: {
+          firstName: trainers[i % trainers.length][0],
+          lastName: trainers[i % trainers.length][1]
+        },
+        record: {
+          starts: 20 + Math.floor(Math.random() * 30),
+          wins: 3 + Math.floor(Math.random() * 8),
+          places: 5 + Math.floor(Math.random() * 10)
+        }
+      },
+      driver: {
+        firstName: drivers[i % drivers.length][0],
+        lastName: drivers[i % drivers.length][1]
+      },
+      pools: {
+        vinnare: {
+          odds: Math.round(baseOdds)
+        },
+        V85: {
+          betDistribution: Math.round(baseStreck)
+        }
+      },
+      form: formExamples[i % formExamples.length],
+      distance: 2140,
+      startMethod: i % 2 === 0 ? 'volt' : 'auto',
+      shoes: i % 3 === 0 ? 'barfota' : 'beskod'
+    };
+  });
+};

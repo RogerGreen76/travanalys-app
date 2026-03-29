@@ -9,6 +9,11 @@ import HorseTable from './HorseTable';
 import SystemBuilder from './SystemBuilder';
 import { AlertCircle, Upload, FileJson, ChevronRight, TrendingUp } from 'lucide-react';
 
+// Import the new data pipeline services
+import { fetchGameData } from '../services/atgApi';
+import { normalizeRaceData } from '../services/normalizeRaceData';
+import { analyzeRaceData } from '../services/analyzeRaceData';
+
 const RaceAnalyzer = () => {
   const [jsonInput, setJsonInput] = useState('');
   const [allRaces, setAllRaces] = useState([]);
@@ -21,126 +26,6 @@ const RaceAnalyzer = () => {
   const [gameData, setGameData] = useState(null);
   const [showManualInput, setShowManualInput] = useState(false);
 
-  // Mock data funktion - ersätts senare med riktig API
-  const loadGameType = (gameType, date = '2024-01-20') => {
-    // Simulera olika antal lopp per spelform
-    const loppCount = {
-      'V85': 8,
-      'V86': 6,
-      'V64': 6,
-      'V65': 6,
-      'V5': 5,
-      'DD': 2  // Dagens Dubbel har alltid 2 lopp
-    };
-
-    const numRaces = loppCount[gameType] || 6;
-    
-    // Generera mockdata för alla lopp
-    const races = [];
-    for (let i = 0; i < numRaces; i++) {
-      races.push({
-        number: i + 1,
-        name: `${gameType}-${i + 1}`,
-        track: {
-          name: i % 2 === 0 ? 'Solvalla' : 'Åby'
-        },
-        startTime: `${date}T15:${20 + i * 10}:00`,
-        distance: 2140 + i * 40,
-        starts: generateMockHorses(i + 1)
-      });
-    }
-
-    return {
-      gameType: gameType,
-      date: date,
-      races: races
-    };
-  };
-
-  // Generera mock-hästar för ett lopp
-  const generateMockHorses = (loppNummer) => {
-    const hästnamn = [
-      ['Staro Broline', 'Global Badman', 'Donatos', 'Perfect Kronos', 'Muscle Hustle'],
-      ['Racing Beauty', 'Super Nova', 'Eagle Eye', 'Thunder Strike', 'Golden Arrow'],
-      ['Mighty Max', 'Quick Silver', 'Star Runner', 'Blue Diamond', 'Red Baron'],
-      ['Speed King', 'Dream Dancer', 'Lucky Star', 'Wild Wind', 'Brave Heart'],
-      ['Royal Flash', 'Silver Bullet', 'Magic Moment', 'Flying Star', 'Bold Eagle'],
-      ['Night Rider', 'Storm Cloud', 'Fire Storm', 'Ice Queen', 'Golden Dream'],
-      ['Power Play', 'Swift Arrow', 'Bright Future', 'Dark Horse', 'True Spirit'],
-      ['Fast Lane', 'High Flyer', 'Noble Knight', 'Pure Gold', 'Sharp Shooter']
-    ];
-
-    const kuskar = [
-      ['Örjan', 'Kihlström'],
-      ['Björn', 'Goop'],
-      ['Magnus A', 'Djuse'],
-      ['Erik', 'Adielsson'],
-      ['Stefan', 'Persson']
-    ];
-
-    const tränare = [
-      ['Daniel', 'Redén'],
-      ['Stefan', 'Melander'],
-      ['Jerry', 'Riordan'],
-      ['Robert', 'Bergh'],
-      ['Timo', 'Nurmos']
-    ];
-
-    // Mock för senaste lopp (1=vinn, 2-5=placering, 0=ej placering, x=struken)
-    const formExamples = [
-      '1-1-2-3-1',
-      '2-1-3-1-2',
-      '3-2-1-4-2',
-      '1-2-2-1-3',
-      '4-3-2-5-1',
-      '2-3-1-2-4',
-      '5-4-3-2-1',
-      '1-3-2-4-3'
-    ];
-
-    const hästSet = hästnamn[(loppNummer - 1) % hästnamn.length];
-    const numHorses = 8 + (loppNummer % 4); // 8-11 hästar per lopp
-
-    return Array.from({ length: Math.min(numHorses, hästSet.length) }, (_, i) => {
-      const baseOdds = 400 + i * 200 + Math.random() * 300;
-      const baseStreck = 800 + i * 200 + Math.random() * 500;
-
-      return {
-        postPosition: i + 1,
-        horse: {
-          name: hästSet[i],
-          trainer: {
-            firstName: tränare[i % tränare.length][0],
-            lastName: tränare[i % tränare.length][1]
-          },
-          // Sportsliga data
-          record: {
-            starts: 20 + Math.floor(Math.random() * 30),
-            wins: 3 + Math.floor(Math.random() * 8),
-            places: 5 + Math.floor(Math.random() * 10)
-          }
-        },
-        driver: {
-          firstName: kuskar[i % kuskar.length][0],
-          lastName: kuskar[i % kuskar.length][1]
-        },
-        pools: {
-          vinnare: {
-            odds: Math.round(baseOdds)
-          },
-          V85: {
-            betDistribution: Math.round(baseStreck)
-          }
-        },
-        // Ytterligare sportsliga data
-        form: formExamples[i % formExamples.length],
-        distance: 2140,
-        startMethod: i % 2 === 0 ? 'volt' : 'auto',
-        shoes: i % 3 === 0 ? 'barfota' : 'beskod'
-      };
-    });
-  };
-
   // Ladda data när gameType ändras
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -149,50 +34,44 @@ const RaceAnalyzer = () => {
     }
   }, [selectedGameType]);
 
-  const handleLoadGameType = (gameType) => {
+  const handleLoadGameType = async (gameType) => {
     try {
-      const data = loadGameType(gameType);
-      setGameData(data);
-      
-      // Parse alla lopp
-      const parsedRaces = data.races.map((race, index) => ({
+      // Step 1: Fetch raw game data
+      const rawData = await fetchGameData(gameType);
+
+      // Step 2: Normalize the data
+      const normalizedData = normalizeRaceData(rawData, gameType);
+
+      // Step 3: Analyze the normalized data
+      const analyzedData = analyzeRaceData(normalizedData);
+
+      setGameData(analyzedData);
+
+      // Convert to the format expected by the UI
+      const parsedRaces = analyzedData.races.map((race, index) => ({
         race: {
-          number: race.number,
-          name: race.name,
-          track: race.track.name,
-          date: race.startTime,
+          number: race.raceNumber,
+          name: `${gameType}-${race.raceNumber}`,
+          track: 'Unknown', // TODO: Add track info to normalized format
+          date: new Date().toISOString().split('T')[0], // TODO: Add date to normalized format
           distance: race.distance
         },
-        horses: race.starts.map((start) => ({
-          number: start.postPosition,
-          name: start.horse.name,
-          odds: start.pools.vinnare.odds,
-          betDistribution: start.pools.V85.betDistribution,
-          driver: `${start.driver.firstName} ${start.driver.lastName}`,
-          trainer: `${start.horse.trainer.firstName} ${start.horse.trainer.lastName}`,
-          // Sportsliga data
-          postPosition: start.postPosition,
-          form: start.form,
-          record: start.horse.record,
-          startMethod: start.startMethod,
-          shoes: start.shoes
-        })).filter(h => h.odds && h.betDistribution)
+        horses: race.horses
       }));
 
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
-      
-      // Analysera första loppet
+
+      // Analyze first race
       if (parsedRaces.length > 0) {
-        const analyzed = analyzeHorses(parsedRaces[0].horses);
-        setAnalyzedHorses(analyzed);
+        setAnalyzedHorses(parsedRaces[0].horses);
       }
-      
-      toast.success(`${gameType} laddad`, {
-        description: `${parsedRaces.length} lopp tillgängliga`
+
+      toast.success(`${gameType} loaded`, {
+        description: `${parsedRaces.length} races available`
       });
     } catch (err) {
-      toast.error('Kunde inte ladda data', {
+      toast.error('Could not load data', {
         description: err.message
       });
     }
@@ -278,216 +157,6 @@ const RaceAnalyzer = () => {
         ]
       }
     ]
-  };
-
-  const analyzeHorses = (horses) => {
-    // Calculate average odds in the race
-    const avgOdds = horses.reduce((sum, h) => sum + h.odds, 0) / horses.length;
-
-    return horses.map(horse => {
-      // Grundläggande beräkningar
-      const odds = horse.odds / 100; // t.ex. 450 -> 4.50
-      const streckPercent = horse.betDistribution / 100; // ÄNDRAT: 1405 -> 14.05%
-      const impliedProbability = (1 / odds) * 100; // i procent
-      const streckDecimal = streckPercent / 100;
-      const valueGap = (impliedProbability / 100) - streckDecimal;
-
-      // Marknadens chans
-      const marketProbability = (1 / odds) * 100;
-
-      // Value ratio - nu som decimal (t.ex. 1.18 istället för 118.27)
-      const valueRatio = impliedProbability / streckPercent;
-      
-      // Relative strength compared to the field
-      const relativeStrength = avgOdds / horse.odds;
-      
-      // Ranking Score
-      const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8;
-
-      // ===== HORSE SCORE (Sportslig ranking 0-100) =====
-      let horseScore = 0;
-
-      // 1. Startspår (0-25 poäng) - Lägre spår = bättre
-      if (horse.postPosition) {
-        const postScore = Math.max(0, 25 - (horse.postPosition - 1) * 2);
-        horseScore += postScore;
-      }
-
-      // 2. Form (0-30 poäng) - Senaste prestationer
-      if (horse.form) {
-        const formParts = horse.form.split('-').slice(0, 5);
-        let formScore = 0;
-        formParts.forEach((result, index) => {
-          const weight = 5 - index; // Senaste viktigast
-          if (result === '1') formScore += 6 * weight;
-          else if (result === '2') formScore += 4 * weight;
-          else if (result === '3') formScore += 2 * weight;
-          else if (result === '4' || result === '5') formScore += 1 * weight;
-        });
-        horseScore += Math.min(30, formScore);
-      }
-
-      // 3. Vinstprocent (0-25 poäng)
-      if (horse.record) {
-        const winPercentage = (horse.record.wins / horse.record.starts) * 100;
-        horseScore += Math.min(25, winPercentage * 0.625); // 40% win = 25 poäng
-      }
-
-      // 4. Startmetod (0-10 poäng) - Volt är generellt bättre
-      if (horse.startMethod) {
-        if (horse.startMethod === 'volt') horseScore += 10;
-        else if (horse.startMethod === 'auto') horseScore += 5;
-      }
-
-      // 5. Balans/Vagn (0-10 poäng) - Barfota kan vara fördelaktigt
-      if (horse.shoes) {
-        if (horse.shoes === 'barfota') horseScore += 10;
-        else horseScore += 5;
-      }
-
-      // Normalisera Horse Score till 0-100
-      horseScore = Math.min(100, Math.max(0, horseScore));
-
-      // ===== SPETS & SPURT SCORING =====
-      
-      // SPETS SCORE (0-100)
-      let spetsScore = 0;
-      
-      // Baserat på startspår
-      if (horse.postPosition) {
-        if (horse.postPosition <= 3) {
-          spetsScore = 90; // Innerspår = hög spets-chans
-        } else if (horse.postPosition <= 6) {
-          spetsScore = 60; // Mittenspår = medel
-        } else {
-          spetsScore = 30; // Ytterspår = låg spets-chans
-        }
-        
-        // Justera för stark kusk (enkel heuristik baserat på namnlängd + position)
-        // TODO: Kan ersättas med riktig kusk-rating senare
-        if (horse.driver && horse.driver.length > 12) {
-          spetsScore += 10;
-        }
-      }
-      
-      // Justera för form - bra form ökar spets-chans
-      if (horse.form) {
-        const firstResult = horse.form.split('-')[0];
-        if (firstResult === '1') spetsScore += 10;
-        else if (firstResult === '2') spetsScore += 5;
-      }
-      
-      spetsScore = Math.min(100, Math.max(0, spetsScore));
-
-      // SPURT SCORE (0-100)
-      let spurtScore = 0;
-      
-      // Baserat på rekord - bra rekord = bättre spurt
-      if (horse.record) {
-        const winPercentage = (horse.record.wins / horse.record.starts) * 100;
-        spurtScore += winPercentage * 0.5; // Max 20 poäng från vinstprocent
-      }
-      
-      // Högre odds = mer spurtare (outsiders måste spurta för att vinna)
-      if (odds > 10) {
-        spurtScore += 30;
-      } else if (odds > 5) {
-        spurtScore += 20;
-      } else {
-        spurtScore += 10;
-      }
-      
-      // Sämre startspår = behöver spurta
-      if (horse.postPosition) {
-        if (horse.postPosition >= 7) {
-          spurtScore += 25;
-        } else if (horse.postPosition >= 4) {
-          spurtScore += 15;
-        } else {
-          spurtScore += 5;
-        }
-      }
-      
-      // Form påverkar spurt - bra form = bättre spurt
-      if (horse.form) {
-        const formParts = horse.form.split('-').slice(0, 3);
-        const recentWins = formParts.filter(r => r === '1').length;
-        spurtScore += recentWins * 10;
-      }
-      
-      spurtScore = Math.min(100, Math.max(0, spurtScore));
-
-      // ===== PACE / SPETS MODEL =====
-      const startPosition = horse.postPosition || horse.number || 0;
-      let startSpeedScore = 0;
-      if (startPosition === 2 || startPosition === 3) {
-        startSpeedScore = 5;
-      } else if (startPosition >= 4 && startPosition <= 6) {
-        startSpeedScore = 4;
-      } else if (startPosition === 1) {
-        startSpeedScore = 3;
-      } else if (startPosition === 7 || startPosition === 8) {
-        startSpeedScore = 1;
-      } else if (startPosition >= 9) {
-        startSpeedScore = 0;
-      }
-
-      const spetsChanceScore = startSpeedScore + relativeStrength * 2;
-
-      let paceBonus = 0;
-      if (spetsChanceScore > 7) {
-        paceBonus = 8;
-      } else if (spetsChanceScore > 5) {
-        paceBonus = 4;
-      }
-
-      const paceScore = startSpeedScore * 3 + spetsChanceScore * 2 + paceBonus;
-
-      // ===== FINAL SCORE =====
-      const winStrength = (0.65 * rankingScore + 0.35 * horseScore) / 2;
-      const marketEdge = (valueRatio - 1) * 100;
-      const confidence = Math.sqrt(streckPercent * 100);
-      const finalScore =
-        winStrength + marketEdge * 0.25 + confidence * 1.5 + paceScore * 0.8;
-
-      // Play rekommendation - justerade tröskelvärden
-      let play = 'No play';
-      if (valueRatio > 1.25) {
-        play = 'Stark play';
-      } else if (valueRatio >= 1.15) {
-        play = 'Möjlig play';
-      }
-
-      // Value status - justerade tröskelvärden
-      let valueStatus = 'Neutral';
-      if (valueRatio > 1.20) {
-        valueStatus = 'Spelvärd';
-      } else if (valueRatio < 1.05) {
-        valueStatus = 'Överspelad';
-      }
-
-      // Skrällindikator
-      const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
-
-      return {
-        ...horse,
-        odds: odds,
-        streckPercent: streckPercent,
-        impliedProbability: impliedProbability,
-        marketProbability: marketProbability,
-        valueGap: valueGap,
-        valueRatio: valueRatio,
-        rankingScore: rankingScore,
-        horseScore: horseScore,
-        startSpeedScore: startSpeedScore,
-        spetsChanceScore: spetsChanceScore,
-        paceScore: paceScore,
-        finalScore: finalScore,
-        play: play,
-        valueStatus: valueStatus,
-        skrallSignal: skrallSignal
-      };
-    });
   };
 
   const parseJSON = (jsonString) => {
