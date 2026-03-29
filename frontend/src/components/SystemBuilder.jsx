@@ -54,14 +54,16 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         // ===== PACE / SPETS MODEL =====
         const startPosition = horse.postPosition || horse.number || 0;
         let startSpeedScore = 0;
-        if (startPosition >= 1 && startPosition <= 3) {
+        if (startPosition === 2 || startPosition === 3) {
           startSpeedScore = 5;
-        } else if (startPosition >= 4 && startPosition <= 5) {
+        } else if (startPosition >= 4 && startPosition <= 6) {
           startSpeedScore = 4;
-        } else if (startPosition >= 6 && startPosition <= 8) {
+        } else if (startPosition === 1) {
           startSpeedScore = 3;
+        } else if (startPosition === 7 || startPosition === 8) {
+          startSpeedScore = 1;
         } else if (startPosition >= 9) {
-          startSpeedScore = 2;
+          startSpeedScore = 0;
         }
 
         const spetsChanceScore = startSpeedScore + relativeStrength * 2;
