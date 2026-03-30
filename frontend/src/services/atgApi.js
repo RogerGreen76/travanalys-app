@@ -151,3 +151,36 @@ const generateMockHorses = (raceNumber) => {
     };
   });
 };
+
+/**
+ * Parse manually imported JSON text from user
+ * @param {string} jsonText - Raw JSON text to parse
+ * @returns {Object} Parsed JSON data
+ * @throws {Error} If JSON is invalid or missing required structure
+ */
+export const parseManualImport = (jsonText) => {
+  if (!jsonText || typeof jsonText !== 'string') {
+    throw new Error('JSON text must be a non-empty string');
+  }
+
+  const trimmed = jsonText.trim();
+  if (trimmed.length === 0) {
+    throw new Error('JSON text is empty');
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+
+    // Validate that it has races array or is in expected format
+    if (!parsed.races || !Array.isArray(parsed.races) || parsed.races.length === 0) {
+      throw new Error('JSON must contain a "races" array with at least one race');
+    }
+
+    return parsed;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`Invalid JSON syntax: ${error.message}`);
+    }
+    throw error;
+  }
+};

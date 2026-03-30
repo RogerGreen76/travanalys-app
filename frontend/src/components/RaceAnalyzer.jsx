@@ -10,7 +10,7 @@ import SystemBuilder from './SystemBuilder';
 import { AlertCircle, Upload, FileJson, ChevronRight, TrendingUp } from 'lucide-react';
 
 // Import the new data pipeline services
-import { fetchGameData } from '../services/atgApi';
+import { fetchGameData, parseManualImport } from '../services/atgApi';
 import { normalizeRaceData } from '../services/normalizeRaceData';
 import { analyzeRaceData } from '../services/analyzeRaceData';
 
@@ -76,6 +76,51 @@ const RaceAnalyzer = () => {
       });
     } catch (err) {
       toast.error('Could not load data', {
+        description: err.message
+      });
+    }
+  };
+
+  /**
+   * Handle manual ATG JSON import using the new pipeline
+   * Parses → Normalizes → Analyzes → Displays
+   */
+  const handleManualImport = async () => {
+    setError(null);
+    try {
+      // Step 1: Parse the JSON safely
+      const rawData = parseManualImport(jsonInput);
+
+      // Step 2: Normalize the data (detect gameType from race data)
+      const gameType = rawData.gameType || 'V85'; // Fallback to V85 if not specified
+      const normalizedData = normalizeRaceData(rawData, gameType);
+
+      // Step 3: Analyze the normalized data
+      const analyzedData = analyzeRaceData(normalizedData);
+
+      // Step 4: Convert to the format expected by the UI
+      const parsedRaces = analyzedData.races.map((race) => ({
+        race: {
+          number: race.raceNumber,
+          name: `Lopp ${race.raceNumber}`,
+          track: 'Imported',
+          date: new Date().toISOString().split('T')[0],
+          distance: race.distance
+        },
+        horses: race.horses
+      }));
+
+      setAllRaces(parsedRaces);
+      setSelectedRaceIndex(0);
+      setShowManualInput(false);
+      setJsonInput('');
+
+      toast.success(`✓ ${parsedRaces.length} lopp importerade`, {
+        description: `${parsedRaces.reduce((sum, r) => sum + r.horses.length, 0)} hästar totalt`
+      });
+    } catch (err) {
+      setError(err.message);
+      toast.error('Importfel', {
         description: err.message
       });
     }
@@ -306,29 +351,7 @@ const RaceAnalyzer = () => {
   };
 
   const handleParse = () => {
-    setError(null);
-    try {
-      const parsedRaces = parseJSON(jsonInput);
-      
-      // Validera att vi har lopp
-      if (!parsedRaces || parsedRaces.length === 0) {
-        throw new Error('Inga lopp hittades i JSON-data');
-      }
-
-      setAllRaces(parsedRaces);
-      setSelectedRaceIndex(0);
-      
-      // analyzedHorses will be set by useEffect
-      
-      toast.success(`✓ ${parsedRaces.length} lopp importerade`, {
-        description: `${parsedRaces[0].horses.length} hästar i första loppet`
-      });
-    } catch (err) {
-      setError(err.message);
-      toast.error('JSON-fel', {
-        description: err.message
-      });
-    }
+    handleManualImport();
   };
 
   const handleRaceChange = (index) => {
