@@ -98,17 +98,37 @@ const RaceAnalyzer = () => {
       // Step 3: Analyze the normalized data
       const analyzedData = analyzeRaceData(normalizedData);
 
-      // Step 4: Convert to the format expected by the UI
-      const parsedRaces = analyzedData.races.map((race) => ({
-        race: {
-          number: race.raceNumber,
-          name: `Lopp ${race.raceNumber}`,
-          track: 'Imported',
-          date: new Date().toISOString().split('T')[0],
-          distance: race.distance
-        },
-        horses: race.horses
-      }));
+      // Step 4: Update app state to match mock loading
+      setSelectedGameType(gameType);
+      setGameData(analyzedData);
+
+      // Step 5: Convert to the format expected by the UI
+      const parsedRaces = analyzedData.races.map((race, index) => {
+        // Try to get track from raw data or use fallback
+        let track = 'Unknown';
+        if (rawData.races?.[index]?.track?.name) {
+          track = rawData.races[index].track.name;
+        } else if (rawData.races?.[index]?.trackName) {
+          track = rawData.races[index].trackName;
+        }
+
+        // Try to get date from raw data or use today's date
+        let date = new Date().toISOString().split('T')[0];
+        if (rawData.races?.[index]?.startTime) {
+          date = rawData.races[index].startTime.split('T')[0];
+        }
+
+        return {
+          race: {
+            number: race.raceNumber,
+            name: `${gameType}-${race.raceNumber}`,
+            track: track,
+            date: date,
+            distance: race.distance
+          },
+          horses: race.horses
+        };
+      });
 
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
