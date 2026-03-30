@@ -69,7 +69,7 @@ const normalizeHorse = (start, gameType) => {
     }
 
     // Extract basic horse info
-    const number = start.postPosition || start.number;
+    const number = start.number || start.postPosition;
     const name = start.horse.name;
 
     // Extract odds
