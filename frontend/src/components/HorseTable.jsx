@@ -80,16 +80,33 @@ const HorseTable = ({ horses }) => {
     }
 
     // Sortera
-    filtered.sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
+filtered.sort((a, b) => {
+  if (sortField === 'finalScore') {
+    const playPriority = {
+      'Stark play': 3,
+      'Möjlig play': 2,
+      'No play': 1
+    };
 
-      if (sortDirection === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
+    const aPlay = playPriority[a.play] || 0;
+    const bPlay = playPriority[b.play] || 0;
+
+    if (aPlay !== bPlay) {
+      return sortDirection === 'asc'
+        ? aPlay - bPlay
+        : bPlay - aPlay;
+    }
+  }
+
+  let aVal = a[sortField];
+  let bVal = b[sortField];
+
+  if (sortDirection === 'asc') {
+    return aVal > bVal ? 1 : -1;
+  } else {
+    return aVal < bVal ? 1 : -1;
+  }
+});
 
     return filtered;
   }, [horses, sortField, sortDirection, filterValue, showFilter]);
