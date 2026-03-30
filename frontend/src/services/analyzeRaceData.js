@@ -115,12 +115,19 @@ const analyzeHorses = (horses) => {
     const finalScore =
       winStrength + marketEdge * 0.25 + confidence * 1.5 + paceScore * 0.8;
 
-    // Play recommendation - considers both finalScore and valueRatio
+    // Play recommendation - finalScore is the main driver, valueRatio adjusts
     let play = "No play";
-    if (finalScore >= 100 && valueRatio >= 1.15) {
-      play = "Stark play";
-    } else if (finalScore >= 90 && valueRatio >= 1.0) {
+
+    if (finalScore >= 95 && valueRatio >= 1.0) {
       play = "Möjlig play";
+    }
+
+    if (finalScore >= 105 && valueRatio >= 1.1) {
+      play = "Stark play";
+    }
+
+    if (valueRatio < 0.9) {
+      play = "No play";
     }
 
     // Value status - adjusted thresholds
