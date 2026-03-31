@@ -627,9 +627,9 @@ const RaceAnalyzer = () => {
                     <SelectItem key={index} value={index.toString()}>
                       <div className="flex items-center gap-2">
                         <ChevronRight className="w-4 h-4" />
-                        <span className="font-semibold">Lopp {raceItem.race.number || index + 1}</span>
+                        <span className="font-semibold">{raceItem.race.name || `Lopp ${index + 1}`}</span>
                         <span className="text-gray-400">•</span>
-                        <span>{raceItem.race.name}</span>
+                        <span>{raceItem.race.track}</span>
                         <span className="text-gray-400">•</span>
                         <span className="text-sm text-gray-500">{raceItem.horses.length} hästar</span>
                       </div>
