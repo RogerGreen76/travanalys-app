@@ -39,7 +39,7 @@ const RaceAnalyzer = () => {
     const saved = localStorage.getItem('atgRawData');
     if (saved) {
       setJsonInput(saved);
-      setShowManualInput(true);
+     // setShowManualInput(true);
 
       try {
         const rawData = parseManualImport(saved);
