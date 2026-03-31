@@ -40,6 +40,46 @@ const RaceAnalyzer = () => {
     if (saved) {
       setJsonInput(saved);
       setShowManualInput(true);
+
+      try {
+        const rawData = parseManualImport(saved);
+        const gameType = rawData.gameType || 'V85';
+        const normalizedData = normalizeRaceData(rawData, gameType);
+        const analyzedData = analyzeRaceData(normalizedData);
+
+        setSelectedGameType(gameType);
+        setGameData(analyzedData);
+
+        const parsedRaces = analyzedData.races.map((race, index) => {
+          let track = 'Unknown';
+          if (rawData.races?.[index]?.track?.name) {
+            track = rawData.races[index].track.name;
+          } else if (rawData.races?.[index]?.trackName) {
+            track = rawData.races[index].trackName;
+          }
+
+          let date = new Date().toISOString().split('T')[0];
+          if (rawData.races?.[index]?.startTime) {
+            date = rawData.races[index].startTime.split('T')[0];
+          }
+
+          return {
+            race: {
+              number: race.raceNumber,
+              name: `${gameType}-${race.raceNumber}`,
+              track: track,
+              date: date,
+              distance: race.distance
+            },
+            horses: race.horses
+          };
+        });
+
+        setAllRaces(parsedRaces);
+        setSelectedRaceIndex(0);
+      } catch (err) {
+        console.error('Failed to auto-import saved ATG JSON', err);
+      }
     }
   }, []);
 
