@@ -108,12 +108,27 @@ const analyzeHorses = (horses) => {
 
     const paceScore = startSpeedScore * 3 + spetsChanceScore * 2 + paceBonus;
 
+    // ===== FAVORITE BIAS CORRECTION =====
+    // Reduce exaggerated value effects for horses with extremely low streck
+    let favoritBiasFactor = 1.0;
+    
+    if (streckPercent < 1) {
+      favoritBiasFactor = 0.35;
+    } else if (streckPercent < 2) {
+      favoritBiasFactor = 0.5;
+    } else if (streckPercent < 5) {
+      favoritBiasFactor = 0.75;
+    } else {
+      favoritBiasFactor = 1.0;
+    }
+
     // ===== FINAL SCORE =====
     const winStrength = (0.65 * rankingScore + 0.35 * horseScore) / 2;
     const marketEdge = (valueRatio - 1) * 100;
+    const adjustedMarketEdge = marketEdge * favoritBiasFactor;
     const confidence = Math.sqrt(streckPercent * 100);
     const finalScore =
-      winStrength + marketEdge * 0.25 + confidence * 1.5 + paceScore * 0.8;
+      winStrength + adjustedMarketEdge * 0.25 + confidence * 1.5 + paceScore * 0.8;
 
     // Play recommendation - finalScore is the main driver, valueRatio adjusts
     let play = "No play";
