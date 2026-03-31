@@ -66,7 +66,7 @@ const RaceAnalyzer = () => {
           return {
             race: {
               number: race.raceNumber,
-              name: `${gameType}-${race.raceNumber}`,
+              name: `${gameType}-${index + 1}`,
               track: track,
               date: date,
               distance: race.distance
