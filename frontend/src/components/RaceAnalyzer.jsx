@@ -66,6 +66,7 @@ const RaceAnalyzer = () => {
           return {
             race: {
               number: race.raceNumber,
+              gameNumber: index + 1,
               name: `${gameType}-${index + 1}`,
               track: track,
               date: date,
@@ -107,7 +108,8 @@ const RaceAnalyzer = () => {
       const parsedRaces = analyzedData.races.map((race, index) => ({
         race: {
           number: race.raceNumber,
-          name: `${gameType}-${race.raceNumber}`,
+          gameNumber: index + 1,
+          name: `${gameType}-${index + 1}`,
           track: 'Unknown', // TODO: Add track info to normalized format
           date: new Date().toISOString().split('T')[0], // TODO: Add date to normalized format
           distance: race.distance
@@ -174,7 +176,8 @@ const RaceAnalyzer = () => {
         return {
           race: {
             number: race.raceNumber,
-            name: `${gameType}-${race.raceNumber}`,
+            gameNumber: index + 1,
+            name: `${gameType}-${index + 1}`,
             track: track,
             date: date,
             distance: race.distance
