@@ -271,7 +271,13 @@ filtered.sort((a, b) => {
               {sortedAndFilteredHorses.map((horse) => (
                 <tr
                   key={horse.number}
-                  className={getValueClass(horse.valueRatio)}
+                  className={
+                      horse.play === 'Stark play'
+                        ? 'bg-green-500/20'
+                        : horse.play === 'Möjlig play'
+                        ? 'bg-blue-500/10'
+                        : ''
+                    }
                   data-testid={`horse-row-${horse.number}`}
                 >
                   <td className="font-bold text-white text-center w-12 py-3">{horse.number}</td>
