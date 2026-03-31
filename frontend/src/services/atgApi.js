@@ -21,6 +21,17 @@ const GAME_CONFIGS = {
  */
 export const fetchGameData = async (gameType, date = '2024-01-20') => {
   try {
+    // priority: load locally saved imported data per game type
+    const saved = localStorage.getItem(`atgRawData_${gameType}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (parseError) {
+        console.warn(`Failed to parse saved ATG data for ${gameType}`, parseError);
+        // fallback to mock data below
+      }
+    }
+
     // For now, return mock data
     // TODO: Replace with actual ATG API calls
     const mockData = generateMockGameData(gameType, date);

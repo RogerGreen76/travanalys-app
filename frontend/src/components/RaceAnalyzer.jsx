@@ -137,14 +137,15 @@ const RaceAnalyzer = () => {
   const handleManualImport = async () => {
     setError(null);
     try {
-      // Persist raw JSON for reloads
-      localStorage.setItem('atgRawData', jsonInput);
-
       // Step 1: Parse the JSON safely
       const rawData = parseManualImport(jsonInput);
 
-      // Step 2: Normalize the data (detect gameType from race data)
-      const gameType = rawData.gameType || 'V85'; // Fallback to V85 if not specified
+      // Step 2: Determine and persist gameType-specific raw JSON
+      const gameType = rawData.gameType || selectedGameType || 'V85';
+      localStorage.setItem(`atgRawData_${gameType}`, jsonInput);
+      localStorage.setItem('atgRawData', jsonInput);
+
+      // Step 3: Normalize the data
       const normalizedData = normalizeRaceData(rawData, gameType);
 
       // Step 3: Analyze the normalized data
