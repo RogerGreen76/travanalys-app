@@ -34,6 +34,15 @@ const RaceAnalyzer = () => {
     }
   }, [selectedGameType]);
 
+  // Persist manuell ATG-json mellan pageladdningar
+  useEffect(() => {
+    const saved = localStorage.getItem('atgRawData');
+    if (saved) {
+      setJsonInput(saved);
+      setShowManualInput(true);
+    }
+  }, []);
+
   // Update analyzed horses when selected race changes
   useEffect(() => {
     if (allRaces.length > 0 && selectedRaceIndex < allRaces.length) {
@@ -88,6 +97,9 @@ const RaceAnalyzer = () => {
   const handleManualImport = async () => {
     setError(null);
     try {
+      // Persist raw JSON for reloads
+      localStorage.setItem('atgRawData', jsonInput);
+
       // Step 1: Parse the JSON safely
       const rawData = parseManualImport(jsonInput);
 
