@@ -99,16 +99,20 @@ const normalizeHorse = (start, gameType) => {
       }
     }
 
-    // Validate odds and bet distribution
-    if (odds === null || betDistribution === null) {
-      console.warn(`Horse ${number} (${name}) missing odds or bet distribution, skipping`);
-      return null;
-    }
+   // Validate odds (DD saknar ofta betDistribution)
+if (odds === null) {
+  console.warn(`Horse ${number} (${name}) missing odds, skipping`);
+  return null;
+}
 
-    if (isNaN(odds) || odds <= 0 || isNaN(betDistribution) || betDistribution <= 0) {
-      console.warn(`Horse ${number} (${name}) has invalid odds or bet distribution, skipping`);
-      return null;
-    }
+if (betDistribution === null) {
+  betDistribution = 0; // fallback för DD
+}
+
+if (isNaN(odds) || odds <= 0) {
+  console.warn(`Horse ${number} (${name}) has invalid odds, skipping`);
+  return null;
+}
 
     // Extract driver info
     let driver = null;
