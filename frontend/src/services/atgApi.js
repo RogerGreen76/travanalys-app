@@ -26,12 +26,14 @@ export const fetchGameData = async (gameType, date = '2024-01-20') => {
  // } 
 
 let datePart = '2026-04-02_16_5'; // V85
+let apiGameType = gameType;
 
 if (gameType === 'DD') {
-  datePart = '2026-04-02_16_11'; // DD
+  datePart = '2026-04-02_16_11';
+  apiGameType = 'dd';
 }
 
-const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameType.toLowerCase()}_${datePart}`;
+const url = `https://www.atg.se/services/racinginfo/v1/api/games/${apiGameType}_${datePart}`;
 
 const response = await fetch(url, {
   headers: {
