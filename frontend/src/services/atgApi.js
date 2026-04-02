@@ -20,32 +20,41 @@ const GAME_CONFIGS = {
  * @returns {Promise<Object>} Raw game data
  */
 export const fetchGameData = async (gameType, date = '2024-01-20') => {
- // const saved = localStorage.getItem(`atgRawData_${gameType}`);
-  // if (saved) {
-  //  return JSON.parse(saved);
- // } 
+  const calendarUrl = `https://horse-betting-info.prod.cl.atg.cloud/api-public/v0/calendar/day/${date}`;
 
-let datePart = '2026-04-02_16_5'; // V85
-let apiGameType = gameType;
+  const calendarResponse = await fetch(calendarUrl, {
+    headers: {
+      accept: 'application/json'
+    }
+  });
 
-if (gameType === 'DD') {
-  datePart = '2026-04-02_16_11';
-  apiGameType = 'dd';
-}
-
-const url = `https://www.atg.se/services/racinginfo/v1/api/games/${apiGameType}_${datePart}`;
-
-const response = await fetch(url, {
-  headers: {
-    accept: 'application/json'
+  if (!calendarResponse.ok) {
+    throw new Error(`Failed to fetch ATG calendar: ${calendarResponse.status}`);
   }
-});
 
-if (!response.ok) {
-  throw new Error(`Failed to fetch ATG data: ${response.status}`);
-}
+  const calendarData = await calendarResponse.json();
 
-return await response.json();
+  const game = calendarData.games.find(g => g.game === gameType);
+
+  if (!game) {
+    throw new Error(`Game type ${gameType} not found for date ${date}`);
+  }
+
+  const gameId = game.id;
+
+  const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameId}`;
+
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ATG data: ${response.status}`);
+  }
+
+  return await response.json();
 };
 
 /**
