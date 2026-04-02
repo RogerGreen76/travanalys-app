@@ -133,15 +133,13 @@ const analyzeHorses = (horses) => {
     // Play recommendation - finalScore is the main driver, valueRatio adjusts
     let play = "No play";
 
-    if (finalScore >= 95 && valueRatio >= 1.0) {
-      play = "Möjlig play";
-    }
-
-    if (finalScore >= 105 && valueRatio >= 1.1) {
+    if (finalScore >= 250 && valueRatio >= 1.15) {
       play = "Stark play";
-    }
-
-    if (valueRatio < 0.9) {
+    } 
+    else if (finalScore >= 120 && valueRatio >= 1.05) {
+      play = "Möjlig play";
+    } 
+    else {
       play = "No play";
     }
 
