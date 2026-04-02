@@ -25,7 +25,8 @@ export const fetchGameData = async (gameType, date = '2024-01-20') => {
     return JSON.parse(saved);
   }
 
-  const url = 'https://www.atg.se/services/racinginfo/v1/api/games/V85_2026-04-02_16_5';
+  const datePart = '2026-04-02_16_5';
+  const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameType}_${datePart}`;
 
   const response = await fetch(url, {
     headers: {
