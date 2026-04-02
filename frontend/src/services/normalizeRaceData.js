@@ -106,7 +106,7 @@ if (odds === null) {
 }
 
 if (betDistribution === null) {
-  betDistribution = 5; // fallback för DD
+  betDistribution = 500; // fallback för DD
 }
 
 if (isNaN(odds) || odds <= 0) {
