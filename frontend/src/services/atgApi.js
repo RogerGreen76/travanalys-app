@@ -20,10 +20,10 @@ const GAME_CONFIGS = {
  * @returns {Promise<Object>} Raw game data
  */
 export const fetchGameData = async (gameType, date = '2024-01-20') => {
-  const saved = localStorage.getItem(`atgRawData_${gameType}`);
-  if (saved) {
-    return JSON.parse(saved);
-  }
+ // const saved = localStorage.getItem(`atgRawData_${gameType}`);
+  // if (saved) {
+  //  return JSON.parse(saved);
+ // } 
 
   const datePart = '2026-04-02_16_5';
   const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameType}_${datePart}`;
