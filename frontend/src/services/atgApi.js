@@ -20,22 +20,24 @@ const GAME_CONFIGS = {
  * @returns {Promise<Object>} Raw game data
  */
 export const fetchGameData = async (gameType, date = '2024-01-20') => {
-  try {
-    const saved = localStorage.getItem(`atgRawData_${gameType}`);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (parseError) {
-        console.error(`Failed to parse saved ATG data for ${gameType}`, parseError);
-        throw new Error('Saved ATG data is invalid JSON. Please re-import data manually.');
-      }
-    }
-
-    throw new Error('No ATG data available. Please import data manually.');
-  } catch (error) {
-    console.error('Error fetching game data:', error);
-    throw new Error(`Failed to fetch ${gameType} data: ${error.message}`);
+  const saved = localStorage.getItem(`atgRawData_${gameType}`);
+  if (saved) {
+    return JSON.parse(saved);
   }
+
+  const url = 'PASTE_FULL_ATG_URL_HERE';
+
+  const response = await fetch(url, {
+    headers: {
+      accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ATG data: ${response.status}`);
+  }
+
+  return await response.json();
 };
 
 /**
