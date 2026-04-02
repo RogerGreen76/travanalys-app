@@ -11,12 +11,21 @@
  */
 export const normalizeRaceData = (rawData, gameType) => {
   try {
-    if (!rawData || !rawData.races) {
+    if (!rawData || !(rawData.races || rawData.games)) {
       throw new Error('Invalid raw data: missing races array');
     }
 
-    // Normalize each race
-    const normalizedRaces = rawData.races.map((race, index) => {
+    const racesSource = rawData.races || rawData.games;
+    if (!Array.isArray(racesSource)) {
+      throw new Error('Invalid raw data: races is not an array');
+    }
+
+    const filteredRaces = racesSource.filter(race =>
+      race && race.pools && race.pools[gameType]
+    );
+
+    // Normalize each filtered race
+    const normalizedRaces = filteredRaces.map((race, index) => {
       if (!race.starts || !Array.isArray(race.starts)) {
         console.warn(`Race ${index + 1} missing starts array, skipping`);
         return null;
