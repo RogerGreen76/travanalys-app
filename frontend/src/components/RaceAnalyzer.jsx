@@ -541,7 +541,7 @@ const RaceAnalyzer = () => {
                       data-testid={`race-tab-${index}`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">{raceItem.race.name}</span>
+                        <span className="font-semibold">{`${selectedGameType}-${raceItem.race.number || index + 1}`}</span>
                         <span className="text-xs text-gray-400">({raceItem.horses.length})</span>
                       </div>
                     </TabsTrigger>
@@ -630,7 +630,7 @@ const RaceAnalyzer = () => {
                     <SelectItem key={index} value={index.toString()}>
                       <div className="flex items-center gap-2">
                         <ChevronRight className="w-4 h-4" />
-                        <span className="font-semibold">{raceItem.race.name || `Lopp ${index + 1}`}</span>
+                        <span className="font-semibold">{`${selectedGameType}-${raceItem.race.number || index + 1}`}</span>
                         <span className="text-gray-400">•</span>
                         <span>{raceItem.race.track}</span>
                         <span className="text-gray-400">•</span>
@@ -651,7 +651,7 @@ const RaceAnalyzer = () => {
               <div className="flex flex-wrap gap-6 text-sm">
                 <div>
                   <span className="text-gray-400">Lopp:</span>
-                  <span className="ml-2 text-white font-semibold">{currentRace.race.name}</span>
+                  <span className="ml-2 text-white font-semibold">{`${selectedGameType}-${currentRace.race.number || selectedRaceIndex + 1}`}</span>
                 </div>
                 <div>
                   <span className="text-gray-400">Bana:</span>
