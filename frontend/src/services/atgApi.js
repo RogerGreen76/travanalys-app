@@ -25,25 +25,25 @@ export const fetchGameData = async (gameType, date = '2024-01-20') => {
   //  return JSON.parse(saved);
  // } 
 
-  let datePart = '2026-04-02_16_5';
+let datePart = '2026-04-02_16_5'; // V85
 
 if (gameType === 'DD') {
-  datePart = '2026-04-02_21_5';
+  datePart = '2026-04-02_16_11'; // DD
 }
 
-const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameType}_${datePart}`;
+const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameType.toLowerCase()}_${datePart}`;
 
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/json'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ATG data: ${response.status}`);
+const response = await fetch(url, {
+  headers: {
+    accept: 'application/json'
   }
+});
 
-  return await response.json();
+if (!response.ok) {
+  throw new Error(`Failed to fetch ATG data: ${response.status}`);
+}
+
+return await response.json();
 };
 
 /**
