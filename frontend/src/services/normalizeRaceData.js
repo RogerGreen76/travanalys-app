@@ -88,7 +88,7 @@ const normalizeHorse = (start, gameType) => {
 
     // Extract bet distribution (try different pool types)
     let betDistribution = null;
-    const poolKeys = ['V85', 'V86', 'V75', 'V65', 'V64', 'V5'];
+    const poolKeys = ['V85', 'V86', 'V75', 'V65', 'V64', 'V5', 'DD', 'dd'];
     for (const key of poolKeys) {
       if (start.pools?.[key]?.betDistribution !== undefined) {
         betDistribution = start.pools[key].betDistribution;
