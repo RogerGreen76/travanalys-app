@@ -20,9 +20,7 @@ export const normalizeRaceData = (rawData, gameType) => {
       throw new Error('Invalid raw data: races is not an array');
     }
 
-    const filteredRaces = racesSource.filter(race =>
-      race && race.pools && race.pools[gameType]
-    );
+    const filteredRaces = racesSource;
 
     // Normalize each filtered race
     const normalizedRaces = filteredRaces.map((race, index) => {
