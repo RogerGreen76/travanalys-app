@@ -24,6 +24,7 @@ export const normalizeRaceData = (rawData, gameType) => {
 
     // Normalize each filtered race
     const normalizedRaces = filteredRaces.map((race, index) => {
+      console.log('RACE DEBUG', gameType, race);
       if (!race.starts || !Array.isArray(race.starts)) {
         console.warn(`Race ${index + 1} missing starts array, skipping`);
         return null;
