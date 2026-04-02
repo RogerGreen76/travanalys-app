@@ -79,6 +79,9 @@ const normalizeHorse = (start, gameType) => {
     // Extract basic horse info
     const number = start.number || start.postPosition;
     const name = start.horse.name;
+    if (gameType === 'DD') {
+  console.log('DD START DEBUG', start);
+}
 
     // Extract odds
     let odds = null;
