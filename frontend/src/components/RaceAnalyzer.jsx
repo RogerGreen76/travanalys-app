@@ -110,18 +110,25 @@ const RaceAnalyzer = () => {
 
   const handleLoadGameType = async (gameType) => {
     try {
-      // Step 1: Fetch raw game data (fetches gameId from ATG calendar automatically)
+      // Step 1: Fetch raw game data from ATG API (handles calendar lookup and game data fetching)
       const rawData = await fetchGameData(gameType);
 
-      // Step 2: Normalize the data
-      const normalizedData = normalizeRaceData(rawData, gameType);
+      // Step 2: Extract races from the API response
+      const apiRaces = rawData?.game?.races || [];
 
-      // Step 3: Analyze the normalized data
+      if (apiRaces.length === 0) {
+        throw new Error(`No races found for ${gameType}`);
+      }
+
+      // Step 3: Normalize the data
+      const normalizedData = normalizeRaceData({ ...rawData, races: apiRaces }, gameType);
+
+      // Step 4: Analyze the normalized data
       const analyzedData = analyzeRaceData(normalizedData);
 
       setGameData(analyzedData);
 
-      // Convert to the format expected by the UI
+      // Step 5: Convert to the format expected by the UI
       const parsedRaces = analyzedData.races.map((race, index) => ({
         race: {
           number: race.raceNumber,
@@ -134,6 +141,7 @@ const RaceAnalyzer = () => {
         horses: race.horses
       }));
 
+      // Step 6: Replace races completely and reset to first race
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
       setSelectedRace(parsedRaces[0]);
@@ -506,7 +514,6 @@ const RaceAnalyzer = () => {
           <CardContent>
             <Tabs value={selectedGameType} onValueChange={(value) => {
               setSelectedGameType(value);
-              setShowManualInput(false);
             }}>
               <TabsList className="bg-[#0a0e1a] w-full justify-start flex-wrap h-auto game-type-tabs">
                 <TabsTrigger value="V85" className="data-[state=active]:bg-blue-600" data-testid="tab-v85">

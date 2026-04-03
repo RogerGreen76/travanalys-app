@@ -14,18 +14,18 @@ const GAME_CONFIGS = {
 };
 
 /**
- * Get gameId for a specific game type from ATG calendar
- * Fetches calendar without hardcoding date, filters by gameType,
- * and returns the latest/nearest active game's ID
+ * Fetch calendar for a specific date and find the game matching the game type
  * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
- * @returns {Promise<string>} Game ID
+ * @param {string} date - Date in YYYY-MM-DD format (defaults to today)
+ * @returns {Promise<Object>} Game object from calendar
  */
-export const getGameIdFromCalendar = async (gameType) => {
+export const findGameInCalendar = async (gameType, date = null) => {
   try {
-    // Try to get calendar with current date
-    const today = new Date().toISOString().split('T')[0];
-    const calendarUrl = `https://horse-betting-info.prod.cl.atg.cloud/api-public/v0/calendar/day/${today}`;
+    // Use provided date or generate today's date dynamically
+    const calendarDate = date || new Date().toISOString().split('T')[0];
+    const calendarUrl = `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/calendar/day/${calendarDate}`;
 
+    console.log(`Fetching calendar for ${calendarDate}...`);
     const calendarResponse = await fetch(calendarUrl, {
       headers: {
         accept: 'application/json'
@@ -39,51 +39,68 @@ export const getGameIdFromCalendar = async (gameType) => {
     const calendarData = await calendarResponse.json();
     const games = calendarData?.games || [];
 
-    // Filter games by type and sort by startTime (newest first)
-    const matchingGames = games
-      .filter(g => g?.game === gameType || g?.type === gameType)
-      .sort((a, b) => {
-        const dateA = new Date(b?.startTime || 0).getTime();
-        const dateB = new Date(a?.startTime || 0).getTime();
-        return dateA - dateB;
-      });
+    // Find game matching the gameType by betType or game field
+    const game = games.find(g => g?.betType === gameType || g?.game === gameType);
 
-    if (matchingGames.length === 0) {
-      throw new Error(`Game type ${gameType} not found in calendar`);
+    if (!game) {
+      throw new Error(`Game type ${gameType} not found in calendar for ${calendarDate}`);
     }
 
-    const gameId = matchingGames[0].id;
-    console.log(`Found gameId for ${gameType}: ${gameId}`);
-    return gameId;
+    console.log(`Found game ${gameType} with ID: ${game.id}`);
+    return game;
   } catch (error) {
-    console.error(`Error fetching gameId from calendar: ${error.message}`);
+    console.error(`Error finding game in calendar: ${error.message}`);
     throw error;
   }
 };
 
 /**
- * Fetch raw game data for a specific game type
- * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
- * @param {string} date - Optional date in YYYY-MM-DD format (deprecated, kept for compatibility)
+ * Fetch raw game data using official ATG endpoint
+ * @param {string} gameId - The game ID
  * @returns {Promise<Object>} Raw game data
  */
-export const fetchGameData = async (gameType, date = '2024-01-20') => {
-  // Get gameId from calendar instead of using hardcoded date
-  const gameId = await getGameIdFromCalendar(gameType);
+export const fetchGameDataById = async (gameId) => {
+  try {
+    const url = `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/games/${gameId}`;
 
-  const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameId}`;
+    console.log(`Fetching game data for ID: ${gameId}...`);
+    const response = await fetch(url, {
+      headers: {
+        accept: 'application/json'
+      }
+    });
 
-  const response = await fetch(url, {
-    headers: {
-      accept: 'application/json'
+    if (!response.ok) {
+      throw new Error(`Failed to fetch game data: ${response.status}`);
     }
-  });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ATG data: ${response.status}`);
+    const gameData = await response.json();
+    return gameData;
+  } catch (error) {
+    console.error(`Error fetching game data: ${error.message}`);
+    throw error;
   }
+};
 
-  return await response.json();
+/**
+ * Load game data for a specific game type
+ * This is the main function that orchestrates the calendar and game data fetching
+ * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
+ * @returns {Promise<Object>} Game data with races
+ */
+export const fetchGameData = async (gameType) => {
+  try {
+    // Step 1: Find game in calendar
+    const game = await findGameInCalendar(gameType);
+
+    // Step 2: Fetch game data using the gameId
+    const gameData = await fetchGameDataById(game.id);
+
+    return gameData;
+  } catch (error) {
+    console.error(`Error fetching game data for ${gameType}: ${error.message}`);
+    throw error;
+  }
 };
 
 /**
