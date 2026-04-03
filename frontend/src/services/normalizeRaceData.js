@@ -63,7 +63,7 @@ export const normalizeRaceData = (rawData, gameType) => {
  * @param {string} gameType - Game type for bet distribution key
  * @returns {Object|null} Normalized horse data or null if invalid
  */
-const normalizeHorse = (start, gameType) => {
+export const normalizeHorse = (start, gameType) => {
   try {
     // Validate required fields
     if (!start.postPosition && !start.number) {
@@ -79,9 +79,6 @@ const normalizeHorse = (start, gameType) => {
     // Extract basic horse info
     const number = start.number || start.postPosition;
     const name = start.horse.name;
-    if (gameType === 'DD') {
-  console.log('DD START DEBUG', start);
-}
 
     // Extract odds
     let odds = null;
@@ -89,9 +86,9 @@ const normalizeHorse = (start, gameType) => {
       odds = start.pools.vinnare.odds;
     }
 
-    // Extract bet distribution (try different pool types)
+    // Extract bet distribution from the actual pool objects returned by ATG.
     let betDistribution = null;
-    const poolKeys = ['V85', 'V86', 'V75', 'V65', 'V64', 'V5', 'DD', 'dd'];
+    const poolKeys = [gameType, gameType?.toUpperCase(), gameType?.toLowerCase()].filter(Boolean);
     for (const key of poolKeys) {
       if (start.pools?.[key]?.betDistribution !== undefined) {
         betDistribution = start.pools[key].betDistribution;
@@ -99,20 +96,19 @@ const normalizeHorse = (start, gameType) => {
       }
     }
 
-   // Validate odds (DD saknar ofta betDistribution)
-if (odds === null) {
-  console.warn(`Horse ${number} (${name}) missing odds, skipping`);
-  return null;
-}
+    if (betDistribution === null) {
+      for (const pool of Object.values(start.pools || {})) {
+        if (pool?.betDistribution !== undefined) {
+          betDistribution = pool.betDistribution;
+          break;
+        }
+      }
+    }
 
-if (betDistribution === null) {
-  betDistribution = 500; // fallback för DD
-}
-
-if (isNaN(odds) || odds <= 0) {
-  console.warn(`Horse ${number} (${name}) has invalid odds, skipping`);
-  return null;
-}
+    if (odds === null || isNaN(odds) || odds <= 0) {
+      console.warn(`Horse ${number} (${name}) missing or invalid odds, skipping`);
+      return null;
+    }
 
     // Extract driver info
     let driver = null;

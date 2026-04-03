@@ -3,6 +3,9 @@
  * Handles fetching raw game data for different game types
  */
 
+import { normalizeHorse } from './normalizeRaceData';
+import { analyzeRaceData } from './analyzeRaceData';
+
 // Game type configurations
 const GAME_CONFIGS = {
   'V85': { races: 8 },
@@ -117,45 +120,34 @@ export const fetchGameData = async (selectedGameType) => {
     }
   }
 
-  // Pool keys to try when looking up betDistribution
-  const poolKeys = [selectedGameType, matchedKey, 'V85', 'V86', 'V75', 'V65', 'V64', 'V5', 'DD', 'dd'];
+  const sampleRawHorse = fullRaceMap[raceIds[0]]?.starts?.[0] || null;
+  if (sampleRawHorse) {
+    console.log('Horse before normalize:', sampleRawHorse);
+    console.log('Horse after normalize:', normalizeHorse(sampleRawHorse, matchedKey || selectedGameType));
+  }
 
   // Step 3: Build race objects with normalized horses
   return raceIds.map((raceId, index) => {
     const fullRace = fullRaceMap[raceId];
 
-    const horses = (fullRace?.starts || []).map(start => {
-      const number = start.number || start.postPosition;
-      if (!number || !start.horse?.name) return null;
+    const normalizedHorses = (fullRace?.starts || [])
+      .map(start => normalizeHorse(start, matchedKey || selectedGameType))
+      .filter(Boolean);
 
-      const odds = start.pools?.vinnare?.odds ?? null;
-      if (odds === null || isNaN(odds) || odds <= 0) return null;
+    const hasRealBetDistribution = normalizedHorses.some(horse =>
+      horse.betDistribution !== null && horse.betDistribution !== undefined
+    );
 
-      let betDistribution = null;
-      for (const k of poolKeys) {
-        if (start.pools?.[k]?.betDistribution !== undefined) {
-          betDistribution = start.pools[k].betDistribution;
-          break;
-        }
-      }
-      if (betDistribution === null) betDistribution = 500;
-
-      let driver = null;
-      if (start.driver?.firstName && start.driver?.lastName) {
-        driver = `${start.driver.firstName} ${start.driver.lastName}`;
-      } else if (start.driver?.name) {
-        driver = start.driver.name;
-      }
-
-      let trainer = null;
-      if (start.horse.trainer?.firstName && start.horse.trainer?.lastName) {
-        trainer = `${start.horse.trainer.firstName} ${start.horse.trainer.lastName}`;
-      } else if (start.horse.trainer?.name) {
-        trainer = start.horse.trainer.name;
-      }
-
-      return { number, name: start.horse.name, odds, betDistribution, driver, trainer };
-    }).filter(Boolean);
+    const horses = hasRealBetDistribution
+      ? analyzeRaceData({
+          gameType: selectedGameType,
+          races: [{
+            raceNumber: fullRace?.number || index + 1,
+            distance: fullRace?.distance || null,
+            horses: normalizedHorses
+          }]
+        }).races[0].horses
+      : normalizedHorses;
 
     return {
       id: raceId,

@@ -62,6 +62,7 @@ const RaceAnalyzer = () => {
   // Update analyzed horses when selected race changes
   useEffect(() => {
     if (selectedRace) {
+      console.log("Raw horse sample:", JSON.stringify(selectedRace?.horses?.[0], null, 2));
       setAnalyzedHorses(selectedRace.horses);
     }
   }, [selectedRace]);
