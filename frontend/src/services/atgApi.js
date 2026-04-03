@@ -3,6 +3,9 @@
  * Handles fetching raw game data for different game types
  */
 
+// Backend base URL — in production set REACT_APP_API_BASE_URL to the deployed backend origin
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '';
+
 // Game type configurations
 const GAME_CONFIGS = {
   'V85': { races: 8 },
@@ -41,7 +44,7 @@ export const findGameInCalendar = async (gameType, date = null) => {
     }
 
     const calendarDate = date || getSwedenDate();
-    const calendarUrl = `/api/atg/calendar?date=${encodeURIComponent(calendarDate)}`;
+    const calendarUrl = `${API_BASE_URL}/api/atg/calendar?date=${encodeURIComponent(calendarDate)}`;
 
     console.log(`[ATG] === CALENDAR FETCH ===`);
     console.log(`[ATG] GameType: ${gameType}`);
@@ -105,7 +108,7 @@ export const fetchGameDataById = async (gameId) => {
       throw new Error('gameId is required');
     }
 
-    const url = `/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
+    const url = `${API_BASE_URL}/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
 
     console.log(`[ATG] === GAME FETCH ===`);
     console.log(`[ATG] GameID: ${gameId}`);

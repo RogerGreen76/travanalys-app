@@ -1,9 +1,11 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Query
+from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import requests as http_requests
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
@@ -65,6 +67,20 @@ async def get_status_checks():
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     
     return status_checks
+
+@api_router.get("/atg/calendar")
+def atg_calendar(date: str = Query(..., description="Date in YYYY-MM-DD format")):
+    url = f"https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/calendar/day/{date}"
+    resp = http_requests.get(url, timeout=15)
+    return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+
+
+@api_router.get("/atg/game")
+def atg_game(gameId: str = Query(..., description="ATG game ID")):
+    url = f"https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/games/{gameId}"
+    resp = http_requests.get(url, timeout=15)
+    return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+
 
 # Include the router in the main app
 app.include_router(api_router)
