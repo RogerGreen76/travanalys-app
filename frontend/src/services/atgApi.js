@@ -79,52 +79,30 @@ export const findGameInCalendar = async (gameType, date = null) => {
   }
 };
 
-/**
- * Temporary debug loader: read race IDs directly from calendar.
- * Falls back to calendar.tracks if game.races is missing.
- * @param {string} selectedGameType - The game type (V85, V86, V64, V65, V5, DD)
- * @returns {Promise<Array>} Race objects for tabs
- */
 export const fetchGameData = async (selectedGameType) => {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString("sv-SE", {
+    timeZone: "Europe/Stockholm"
+  });
 
   const res = await fetch(`/api/atg/calendar?date=${today}`);
   const calendar = await res.json();
 
   const game = calendar?.games?.[selectedGameType];
+
   if (!game) {
     throw new Error(`Game ${selectedGameType} not found`);
   }
 
-  console.log("Selected game raw:", JSON.stringify(game, null, 2));
-  console.log("All tracks raw:", JSON.stringify(calendar.tracks, null, 2));
+  const raceIds = Array.isArray(game.races) ? game.races : [];
 
-  let raceIds = game?.races || [];
+  console.log("raceIds length:", raceIds.length);
+  console.log("raceIds raw:", raceIds);
 
-  if (!raceIds.length && game?.tracks?.length) {
-    raceIds = (calendar.tracks || [])
-      .filter(track => game.tracks.includes(track.id))
-      .flatMap(track => track.races || [])
-      .map(race => race.id || race);
-  }
-
-  if (!raceIds.length) {
-    raceIds = (calendar.tracks || [])
-      .flatMap(track => track.races || [])
-      .filter(race => race?.id && String(race.id).includes("_"))
-      .map(race => race.id);
-  }
-
-  if (!raceIds.length) {
-    console.log("NO RACES FOUND - selected game:", JSON.stringify(game, null, 2));
-    console.log("NO RACES FOUND - tracks:", JSON.stringify(calendar.tracks, null, 2));
-    return [];
-  }
-
-  return raceIds.map((raceId, i) => ({
+  return raceIds.map((raceId, index) => ({
     id: raceId,
-    number: i + 1,
-    name: `${selectedGameType}-${i + 1}`
+    number: index + 1,
+    name: `${selectedGameType}-${index + 1}`,
+    horseCount: 0
   }));
 };
 

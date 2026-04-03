@@ -82,26 +82,18 @@ const RaceAnalyzer = () => {
 
       const races = await fetchGameData(gameType);
 
-      if (!Array.isArray(races) || races.length === 0) {
-        console.error(`[RaceAnalyzer] No races found in API response for ${gameType}`);
-        throw new Error(`No races found for ${gameType}`);
-      }
-
-      const parsedRaces = races.map((race, index) => ({
+      const parsedRaces = races.map(race => ({
         race: {
           id: race.id,
-          number: race.number || index + 1,
-          gameNumber: race.number || index + 1,
-          name: race.name || `${gameType}-${index + 1}`,
-          track: 'Unknown',
-          date: new Date().toISOString().split('T')[0],
+          number: race.number,
+          name: race.name,
+          track: '',
           distance: null
         },
         horses: []
       }));
 
-      const setRaces = setAllRaces;
-      setRaces(parsedRaces);
+      setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
       setSelectedRace(parsedRaces[0] || null);
       setError(null);
