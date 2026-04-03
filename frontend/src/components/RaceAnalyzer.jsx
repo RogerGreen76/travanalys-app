@@ -110,15 +110,27 @@ const RaceAnalyzer = () => {
 
   const handleLoadGameType = async (gameType) => {
     try {
+      if (!gameType) {
+        console.warn('[RaceAnalyzer] handleLoadGameType called without gameType');
+        return;
+      }
+
+      console.log(`[RaceAnalyzer] Loading game type: ${gameType}`);
+
       // Step 1: Fetch raw game data from ATG API (handles calendar lookup and game data fetching)
       const rawData = await fetchGameData(gameType);
+
+      console.log(`[RaceAnalyzer] Raw data received for ${gameType}:`, rawData);
 
       // Step 2: Extract races from the API response
       const apiRaces = rawData?.game?.races || [];
 
       if (apiRaces.length === 0) {
+        console.error(`[RaceAnalyzer] No races found in API response for ${gameType}`);
         throw new Error(`No races found for ${gameType}`);
       }
+
+      console.log(`[RaceAnalyzer] Processing ${apiRaces.length} races for ${gameType}`);
 
       // Step 3: Normalize the data
       const normalizedData = normalizeRaceData({ ...rawData, races: apiRaces }, gameType);
@@ -141,10 +153,13 @@ const RaceAnalyzer = () => {
         horses: race.horses
       }));
 
+      console.log(`[RaceAnalyzer] Successfully loaded ${parsedRaces.length} races for UI`);
+
       // Step 6: Replace races completely and reset to first race
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
       setSelectedRace(parsedRaces[0]);
+      setError(null);
 
       // analyzedHorses will be set by useEffect when selectedRace changes
 
@@ -152,8 +167,14 @@ const RaceAnalyzer = () => {
         description: `${parsedRaces.length} races available`
       });
     } catch (err) {
+      console.error(`[RaceAnalyzer] Error loading game type ${gameType}:`, err);
+      const errorMessage = err?.message || 'Failed to fetch data';
+      setError(errorMessage);
+      setAllRaces([]);
+      setSelectedRace(null);
+      setAnalyzedHorses([]);
       toast.error('Could not load data', {
-        description: err.message
+        description: errorMessage
       });
     }
   };

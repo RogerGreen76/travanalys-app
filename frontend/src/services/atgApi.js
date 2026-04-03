@@ -36,11 +36,15 @@ function getSwedenDate() {
  */
 export const findGameInCalendar = async (gameType, date = null) => {
   try {
+    if (!gameType) {
+      throw new Error('gameType is required');
+    }
+
     // Use provided date or generate today's date in Swedish timezone
     const calendarDate = date || getSwedenDate();
     const calendarUrl = `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/calendar/day/${calendarDate}`;
 
-    console.log(`Fetching calendar for ${calendarDate}...`);
+    console.log(`[ATG] Fetching calendar for ${calendarDate}...`);
     const calendarResponse = await fetch(calendarUrl, {
       headers: {
         accept: 'application/json'
@@ -48,23 +52,40 @@ export const findGameInCalendar = async (gameType, date = null) => {
     });
 
     if (!calendarResponse.ok) {
-      throw new Error(`Failed to fetch ATG calendar: ${calendarResponse.status}`);
+      console.error(`[ATG] Calendar fetch failed with status: ${calendarResponse.status}`);
+      throw new Error(`Calendar fetch failed: ${calendarResponse.status}`);
     }
 
     const calendarData = await calendarResponse.json();
-    const games = calendarData?.games || [];
+    console.log(`[ATG] Calendar response received:`, calendarData);
 
-    // Find game matching the gameType by betType or game field
-    const game = games.find(g => g?.betType === gameType || g?.game === gameType);
+    const games = calendarData?.games || [];
+    if (!Array.isArray(games)) {
+      throw new Error('Calendar response has invalid games structure');
+    }
+
+    console.log(`[ATG] Found ${games.length} games in calendar, searching for ${gameType}...`);
+
+    // Find game matching the gameType by betType, game, or name field
+    const game = games.find(g => {
+      if (!g) return false;
+      return g?.betType === gameType || g?.game === gameType || g?.name === gameType || g?.type === gameType;
+    });
 
     if (!game) {
+      console.error(`[ATG] Game type ${gameType} not found in calendar. Available games:`, games.map(g => ({ betType: g?.betType, game: g?.game, name: g?.name, type: g?.type })));
       throw new Error(`Game type ${gameType} not found in calendar for ${calendarDate}`);
     }
 
-    console.log(`Found game ${gameType} with ID: ${game.id}`);
+    if (!game.id) {
+      console.error(`[ATG] Matched game has no ID:`, game);
+      throw new Error(`Game found for ${gameType} but missing ID`);
+    }
+
+    console.log(`[ATG] Found game ${gameType} with ID: ${game.id}`, game);
     return game;
   } catch (error) {
-    console.error(`Error finding game in calendar: ${error.message}`);
+    console.error(`[ATG] Error finding game in calendar: ${error.message}`);
     throw error;
   }
 };
@@ -76,9 +97,13 @@ export const findGameInCalendar = async (gameType, date = null) => {
  */
 export const fetchGameDataById = async (gameId) => {
   try {
+    if (!gameId) {
+      throw new Error('gameId is required');
+    }
+
     const url = `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/games/${gameId}`;
 
-    console.log(`Fetching game data for ID: ${gameId}...`);
+    console.log(`[ATG] Fetching game data for ID: ${gameId}...`);
     const response = await fetch(url, {
       headers: {
         accept: 'application/json'
@@ -86,34 +111,64 @@ export const fetchGameDataById = async (gameId) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch game data: ${response.status}`);
+      console.error(`[ATG] Game fetch failed with status: ${response.status}`);
+      throw new Error(`Game fetch failed: ${response.status}`);
     }
 
     const gameData = await response.json();
+    console.log(`[ATG] Game response received:`, gameData);
+
+    // Validate the response structure
+    if (!gameData?.game) {
+      console.error(`[ATG] Response missing 'game' object:`, gameData);
+      throw new Error('Game response missing game object');
+    }
+
+    if (!Array.isArray(gameData.game.races)) {
+      console.error(`[ATG] Response missing 'game.races' array:`, gameData.game);
+      throw new Error('Game response missing races array');
+    }
+
+    console.log(`[ATG] Game data has ${gameData.game.races.length} races`);
     return gameData;
   } catch (error) {
-    console.error(`Error fetching game data: ${error.message}`);
+    console.error(`[ATG] Error fetching game data: ${error.message}`);
     throw error;
   }
 };
 
 /**
- * Load game data for a specific game type
- * This is the main function that orchestrates the calendar and game data fetching
+ * Main function to load game data for a specific game type
+ * Orchestrates calendar lookup and game data fetching with comprehensive error handling
  * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
  * @returns {Promise<Object>} Game data with races
  */
 export const fetchGameData = async (gameType) => {
   try {
+    if (!gameType) {
+      console.warn('[ATG] fetchGameData called without gameType');
+      throw new Error('gameType is required');
+    }
+
+    console.log(`[ATG] Starting fetchGameData for: ${gameType}`);
+
     // Step 1: Find game in calendar
     const game = await findGameInCalendar(gameType);
 
     // Step 2: Fetch game data using the gameId
     const gameData = await fetchGameDataById(game.id);
 
+    // Step 3: Validate races exist
+    const races = gameData?.game?.races || [];
+    if (races.length === 0) {
+      console.warn(`[ATG] No races found for game ${gameType}`);
+      throw new Error(`No races found for ${gameType}`);
+    }
+
+    console.log(`[ATG] Successfully loaded ${races.length} races for ${gameType}`);
     return gameData;
   } catch (error) {
-    console.error(`Error fetching game data for ${gameType}: ${error.message}`);
+    console.error(`[ATG] Error fetching game data for ${gameType}: ${error.message}`);
     throw error;
   }
 };
