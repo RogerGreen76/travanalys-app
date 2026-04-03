@@ -6,6 +6,8 @@
 import { normalizeHorse } from './normalizeRaceData';
 import { analyzeRaceData } from './analyzeRaceData';
 
+let hasLoggedDdRawResponse = false;
+
 // Game type configurations
 const GAME_CONFIGS = {
   'V85': { races: 8 },
@@ -83,6 +85,7 @@ export const findGameInCalendar = async (gameType, date = null) => {
 };
 
 export const fetchGameData = async (selectedGameType) => {
+  const isDD = selectedGameType?.toUpperCase() === 'DD';
   const today = new Date().toLocaleDateString("sv-SE", {
     timeZone: "Europe/Stockholm"
   });
@@ -106,7 +109,7 @@ export const fetchGameData = async (selectedGameType) => {
 
   // Build V85 race index for DD linkage
   let v85RaceIds = [];
-  if (selectedGameType.toUpperCase() === 'DD') {
+  if (isDD) {
     const v85Key = Object.keys(games).find(k => k.toUpperCase() === 'V85');
     if (v85Key) {
       const v85Entry = games[v85Key];
@@ -119,9 +122,19 @@ export const fetchGameData = async (selectedGameType) => {
   let fullRaceMap = {};
   if (gameId) {
     try {
-      const gameRes = await fetch(`/api/atg/game?gameId=${encodeURIComponent(gameId)}`);
+      const detailsUrl = isDD
+        ? `/api/atg/dd-game?id=${encodeURIComponent(gameId)}`
+        : `/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
+
+      const gameRes = await fetch(detailsUrl);
       if (gameRes.ok) {
         const gameData = await gameRes.json();
+
+        if (isDD && !hasLoggedDdRawResponse) {
+          console.log('DD endpoint raw response:', JSON.stringify(gameData, null, 2));
+          hasLoggedDdRawResponse = true;
+        }
+
         for (const race of (gameData.races || [])) {
           fullRaceMap[race.id] = race;
         }
@@ -133,7 +146,7 @@ export const fetchGameData = async (selectedGameType) => {
 
   const selectedRaceRaw = fullRaceMap[raceIds[0]] || null;
 
-  if (selectedGameType?.toUpperCase() === 'DD') {
+  if (isDD) {
     const ddRace = selectedRaceRaw;
     const ddHorseRaw = ddRace?.starts?.[0] || ddRace?.horses?.[0] || null;
     const ddStartPools = ddHorseRaw?.pools || null;
