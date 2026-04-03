@@ -62,19 +62,36 @@ export const findGameInCalendar = async (gameType, date = null) => {
     const games = calendar?.games || {};
     const gameKey = gameType;
     const game = games?.[gameKey];
-    console.log('[ATG] Selected game object:', game);
+    console.log('Selected game object:', game);
+    console.log('Game keys:', Object.keys(game || {}));
 
     if (!game) {
       console.error(`[ATG] ❌ Game ${gameType} NOT FOUND in calendar`);
       throw new Error(`Game type ${gameType} not found in calendar for ${calendarDate}`);
     }
 
-    const gameId = game?.id || game?.gameId || game?.['@id'];
+    const raceIds = game?.races || [];
+    console.log('Race IDs from calendar:', raceIds);
+
+    const gameId =
+      game?.gameId ||
+      game?.id ||
+      game?.['@id'] ||
+      game?.uuid ||
+      game?.raceDayId ||
+      game?.productId ||
+      game?.sequenceId;
     console.log('[ATG] Resolved gameId:', gameId);
 
     if (!gameId) {
       console.error(`[ATG] ❌ Matched game missing ID:`, game);
       throw new Error(`No gameId found for ${gameType}`);
+    }
+
+    const isNumericGameId = typeof gameId === 'number' || /^[0-9]+$/.test(String(gameId));
+    const isCompositeGameId = /^[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d+_\d+$/.test(String(gameId));
+    if (!isNumericGameId && !isCompositeGameId) {
+      throw new Error(`calendar game id is not valid for /games endpoint: ${gameId}`);
     }
 
     console.log(`[ATG] ✅ Found game ${gameType} with ID: ${gameId}`);
@@ -94,6 +111,12 @@ export const fetchGameDataById = async (gameId) => {
   try {
     if (!gameId) {
       throw new Error('gameId is required');
+    }
+
+    const isNumericGameId = typeof gameId === 'number' || /^[0-9]+$/.test(String(gameId));
+    const isCompositeGameId = /^[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d+_\d+$/.test(String(gameId));
+    if (!isNumericGameId && !isCompositeGameId) {
+      throw new Error(`calendar game id is not valid for /games endpoint: ${gameId}`);
     }
 
     const gameUrl = `/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
