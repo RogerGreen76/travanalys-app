@@ -14,33 +14,62 @@ const GAME_CONFIGS = {
 };
 
 /**
+ * Get gameId for a specific game type from ATG calendar
+ * Fetches calendar without hardcoding date, filters by gameType,
+ * and returns the latest/nearest active game's ID
+ * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
+ * @returns {Promise<string>} Game ID
+ */
+export const getGameIdFromCalendar = async (gameType) => {
+  try {
+    // Try to get calendar with current date
+    const today = new Date().toISOString().split('T')[0];
+    const calendarUrl = `https://horse-betting-info.prod.cl.atg.cloud/api-public/v0/calendar/day/${today}`;
+
+    const calendarResponse = await fetch(calendarUrl, {
+      headers: {
+        accept: 'application/json'
+      }
+    });
+
+    if (!calendarResponse.ok) {
+      throw new Error(`Failed to fetch ATG calendar: ${calendarResponse.status}`);
+    }
+
+    const calendarData = await calendarResponse.json();
+    const games = calendarData?.games || [];
+
+    // Filter games by type and sort by startTime (newest first)
+    const matchingGames = games
+      .filter(g => g?.game === gameType || g?.type === gameType)
+      .sort((a, b) => {
+        const dateA = new Date(b?.startTime || 0).getTime();
+        const dateB = new Date(a?.startTime || 0).getTime();
+        return dateA - dateB;
+      });
+
+    if (matchingGames.length === 0) {
+      throw new Error(`Game type ${gameType} not found in calendar`);
+    }
+
+    const gameId = matchingGames[0].id;
+    console.log(`Found gameId for ${gameType}: ${gameId}`);
+    return gameId;
+  } catch (error) {
+    console.error(`Error fetching gameId from calendar: ${error.message}`);
+    throw error;
+  }
+};
+
+/**
  * Fetch raw game data for a specific game type
  * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
- * @param {string} date - Optional date in YYYY-MM-DD format
+ * @param {string} date - Optional date in YYYY-MM-DD format (deprecated, kept for compatibility)
  * @returns {Promise<Object>} Raw game data
  */
 export const fetchGameData = async (gameType, date = '2024-01-20') => {
-  const calendarUrl = `https://horse-betting-info.prod.cl.atg.cloud/api-public/v0/calendar/day/${date}`;
-
-  const calendarResponse = await fetch(calendarUrl, {
-    headers: {
-      accept: 'application/json'
-    }
-  });
-
-  if (!calendarResponse.ok) {
-    throw new Error(`Failed to fetch ATG calendar: ${calendarResponse.status}`);
-  }
-
-  const calendarData = await calendarResponse.json();
-
-  const game = calendarData.games.find(g => g.game === gameType);
-
-  if (!game) {
-    throw new Error(`Game type ${gameType} not found for date ${date}`);
-  }
-
-  const gameId = game.id;
+  // Get gameId from calendar instead of using hardcoded date
+  const gameId = await getGameIdFromCalendar(gameType);
 
   const url = `https://www.atg.se/services/racinginfo/v1/api/games/${gameId}`;
 

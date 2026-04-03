@@ -110,7 +110,7 @@ const RaceAnalyzer = () => {
 
   const handleLoadGameType = async (gameType) => {
     try {
-      // Step 1: Fetch raw game data
+      // Step 1: Fetch raw game data (fetches gameId from ATG calendar automatically)
       const rawData = await fetchGameData(gameType);
 
       // Step 2: Normalize the data
