@@ -42,25 +42,13 @@ const RaceAnalyzer = () => {
   const [selectedGameType, setSelectedGameType] = useState('V85');
   const [gameData, setGameData] = useState(null);
   const [showManualInput, setShowManualInput] = useState(false);
-  const [isUsingImportedData, setIsUsingImportedData] = useState(false);
-  const [allImportedRaces, setAllImportedRaces] = useState([]);
 
   // Ladda data när gameType ändras
   useEffect(() => {
-    if (isUsingImportedData) {
-      let filteredRaces = getRacesForGameType(allImportedRaces, selectedGameType);
-      if (!filteredRaces || filteredRaces.length === 0) {
-        filteredRaces = allImportedRaces;
-      }
-      setAllRaces(filteredRaces);
-      if (filteredRaces.length > 0) {
-        setSelectedRaceIndex(0);
-        setSelectedRace(filteredRaces[0]);
-      }
-    } else if (selectedGameType && !showManualInput) {
+    if (selectedGameType) {
       handleLoadGameType(selectedGameType);
     }
-  }, [selectedGameType, isUsingImportedData, allImportedRaces]);
+  }, [selectedGameType]);
 
   // Persist manuell ATG-json mellan pageladdningar
   useEffect(() => {
@@ -105,8 +93,6 @@ const RaceAnalyzer = () => {
         });
 
         setAllRaces(parsedRaces);
-        setAllImportedRaces(parsedRaces);
-        setIsUsingImportedData(true);
         setSelectedRaceIndex(0);
         setSelectedRace(parsedRaces[0]);
       } catch (err) {
@@ -124,7 +110,6 @@ const RaceAnalyzer = () => {
 
   const handleLoadGameType = async (gameType) => {
     try {
-      setIsUsingImportedData(false);
       // Step 1: Fetch raw game data
       const rawData = await fetchGameData(gameType);
 
@@ -220,8 +205,6 @@ const RaceAnalyzer = () => {
       });
 
       setAllRaces(parsedRaces);
-      setAllImportedRaces(parsedRaces);
-      setIsUsingImportedData(true);
       setSelectedRaceIndex(0);
       setSelectedRace(parsedRaces[0]);
       setShowManualInput(false);
@@ -493,8 +476,6 @@ const RaceAnalyzer = () => {
   const clearData = () => {
     setJsonInput('');
     setAllRaces([]);
-    setAllImportedRaces([]);
-    setIsUsingImportedData(false);
     setSelectedRaceIndex(0);
     setSelectedRace(null);
     setAnalyzedHorses([]);
