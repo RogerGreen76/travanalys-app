@@ -80,10 +80,7 @@ const RaceAnalyzer = () => {
       setError(null);
       setLoading(true);
 
-      // Calendar-only loading: fetch race IDs and create race tabs.
       const races = await fetchGameData(gameType);
-
-      console.log(`[RaceAnalyzer] Race IDs received for ${gameType}:`, races);
 
       if (!Array.isArray(races) || races.length === 0) {
         console.error(`[RaceAnalyzer] No races found in API response for ${gameType}`);
@@ -93,9 +90,9 @@ const RaceAnalyzer = () => {
       const parsedRaces = races.map((race, index) => ({
         race: {
           id: race.id,
-          number: index + 1,
-          gameNumber: index + 1,
-          name: `${gameType}-${index + 1}`,
+          number: race.number || index + 1,
+          gameNumber: race.number || index + 1,
+          name: race.name || `${gameType}-${index + 1}`,
           track: 'Unknown',
           date: new Date().toISOString().split('T')[0],
           distance: null
@@ -103,20 +100,13 @@ const RaceAnalyzer = () => {
         horses: []
       }));
 
-      console.log(`[RaceAnalyzer] Step 6: SET RACES CALLED - Using ${parsedRaces.length} races from API for ${gameType}`);
-      console.log(`[RaceAnalyzer] First race: ${parsedRaces[0]?.race.name || 'ERROR: no first race'}`);
-      console.log(`[RaceAnalyzer] Last race: ${parsedRaces[parsedRaces.length - 1]?.race.name || 'ERROR: nomatchinglastrace'}`);
-
-      // Step 6: Replace races completely and reset to first race
-      setAllRaces(parsedRaces);
+      const setRaces = setAllRaces;
+      setRaces(parsedRaces);
       setSelectedRaceIndex(0);
-      setSelectedRace(parsedRaces[0]);
+      setSelectedRace(parsedRaces[0] || null);
       setError(null);
       setLoading(false);
-
-      console.log(`[RaceAnalyzer] ✅ RENDER: allRaces state updated, UI will show ${parsedRaces.length} races for ${gameType}`);
-
-      setGameData({ gameType, races });
+      setGameData({ gameType, races: parsedRaces });
       setAnalyzedHorses([]);
 
       toast.success(`${gameType} loaded`, {

@@ -80,41 +80,31 @@ export const findGameInCalendar = async (gameType, date = null) => {
 };
 
 /**
- * Main function to load race IDs for a specific game type from calendar endpoint only.
- * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
+ * Temporary debug loader: read race IDs directly from calendar only.
+ * @param {string} selectedGameType - The game type (V85, V86, V64, V65, V5, DD)
  * @returns {Promise<Array>} Race objects for tabs
  */
-export const fetchGameData = async (gameType) => {
-  try {
-    if (!gameType) {
-      console.warn('[ATG] fetchGameData called without gameType');
-      throw new Error('gameType is required');
-    }
+export const fetchGameData = async (selectedGameType) => {
+  const today = new Date().toISOString().split('T')[0];
 
-    console.log(`[ATG] Starting fetchGameData for: ${gameType}`);
+  const res = await fetch(`/api/atg/calendar?date=${today}`);
+  const calendar = await res.json();
 
-    const { raceIds = [] } = await findGameInCalendar(gameType);
+  console.log('Calendar:', calendar);
 
-    const selectedGameType = gameType;
-    const raceObjects = raceIds.map((raceId, index) => ({
-      id: raceId,
-      number: index + 1,
-      name: `${selectedGameType}-${index + 1}`
-    }));
+  const game = calendar?.games?.[selectedGameType];
 
-    console.log('[ATG] Race tab objects:', raceObjects);
-
-    if (raceObjects.length === 0) {
-      console.warn(`[ATG] No races found for game ${selectedGameType}`);
-      throw new Error(`No races found for ${selectedGameType}`);
-    }
-
-    console.log(`[ATG] Successfully loaded ${raceObjects.length} race IDs for ${selectedGameType}`);
-    return raceObjects;
-  } catch (error) {
-    console.error(`[ATG] Error fetching game data for ${gameType}: ${error.message}`);
-    throw error;
+  if (!game) {
+    throw new Error('Game not found in calendar');
   }
+
+  const races = (game.races || []).map((raceId, i) => ({
+    id: raceId,
+    number: i + 1,
+    name: `${selectedGameType}-${i + 1}`
+  }));
+
+  return races;
 };
 
 /**
