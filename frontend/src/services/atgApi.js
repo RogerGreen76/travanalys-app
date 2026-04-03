@@ -87,22 +87,22 @@ export const fetchGameData = async (selectedGameType) => {
   const res = await fetch(`/api/atg/calendar?date=${today}`);
   const calendar = await res.json();
 
+  console.log("calendar.games keys:", Object.keys(calendar?.games || {}));
+  console.log("DD raw entry:", JSON.stringify(calendar?.games?.DD, null, 2));
+  console.log("V85 raw entry:", JSON.stringify(calendar?.games?.V85, null, 2));
+
   const rawGameEntry = calendar?.games?.[selectedGameType];
 
   const rawGame = Array.isArray(rawGameEntry)
     ? rawGameEntry[0]
     : rawGameEntry;
 
-  console.log("rawGameEntry:", rawGameEntry);
-  console.log("rawGame:", rawGame);
-
   if (!rawGame) {
-    throw new Error(`Game ${selectedGameType} not found`);
+    console.log(`No raw game found for ${selectedGameType}`, calendar?.games);
+    return [];
   }
 
   const raceIds = Array.isArray(rawGame.races) ? rawGame.races : [];
-
-  console.log("raceIds:", raceIds);
 
   return raceIds.map((raceId, index) => ({
     id: raceId,
