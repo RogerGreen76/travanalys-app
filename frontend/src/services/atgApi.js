@@ -8,6 +8,47 @@ import { analyzeRaceData } from './analyzeRaceData';
 
 let hasLoggedDdRawResponse = false;
 
+/**
+ * Derive horse-level market share from the DD combination odds matrix.
+ * NOTE: DD betDistribution computed here is inferred from comboOdds,
+ *       NOT official ATG horse-level streck data.
+ *
+ * @param {number[][]} comboOdds - rows = DD-1 horses, cols = DD-2 horses (values are ATG-encoded odds × 100)
+ * @returns {{ leg1: (number|null)[], leg2: (number|null)[] }} normalized percentage per horse per leg
+ */
+function computeDdDistributions(comboOdds) {
+  if (!Array.isArray(comboOdds) || !comboOdds.length) {
+    return { leg1: [], leg2: [] };
+  }
+
+  const weights = comboOdds.map(row =>
+    row.map(value => {
+      const odd = Number(value);
+      return Number.isFinite(odd) && odd > 0 ? 1 / odd : 0;
+    })
+  );
+
+  const rowSums = weights.map(row => row.reduce((sum, v) => sum + v, 0));
+
+  const colCount = Math.max(...weights.map(row => row.length));
+  const colSums = Array.from({ length: colCount }, (_, colIndex) =>
+    weights.reduce((sum, row) => sum + (row[colIndex] || 0), 0)
+  );
+
+  const totalRow = rowSums.reduce((sum, v) => sum + v, 0);
+  const totalCol = colSums.reduce((sum, v) => sum + v, 0);
+
+  const leg1 = rowSums.map(v =>
+    totalRow > 0 ? Number(((v / totalRow) * 100).toFixed(1)) : null
+  );
+
+  const leg2 = colSums.map(v =>
+    totalCol > 0 ? Number(((v / totalCol) * 100).toFixed(1)) : null
+  );
+
+  return { leg1, leg2 };
+}
+
 // Game type configurations
 const GAME_CONFIGS = {
   'V85': { races: 8 },
@@ -120,6 +161,7 @@ export const fetchGameData = async (selectedGameType) => {
 
   // Step 2: Full game fetch – horses, track, distance, odds
   let fullRaceMap = {};
+  let ddComboOdds = null;
   if (gameId) {
     try {
       const detailsUrl = isDD
@@ -130,6 +172,10 @@ export const fetchGameData = async (selectedGameType) => {
       if (gameRes.ok) {
         const gameData = await gameRes.json();
         const ddResponse = gameData;
+
+        if (isDD) {
+          ddComboOdds = gameData?.pools?.dd?.comboOdds || null;
+        }
 
         if (isDD && !hasLoggedDdRawResponse) {
           console.log('DD endpoint raw response:', JSON.stringify(ddResponse, null, 2));
@@ -151,68 +197,12 @@ export const fetchGameData = async (selectedGameType) => {
     }
   }
 
-  const selectedRaceRaw = fullRaceMap[raceIds[0]] || null;
-
+  // Compute DD horse-level market share from comboOdds (raw response already logged above)
+  const ddDistributions = isDD ? computeDdDistributions(ddComboOdds) : null;
   if (isDD) {
-    const ddRace = selectedRaceRaw;
-    const ddHorseRaw = ddRace?.starts?.[0] || ddRace?.horses?.[0] || null;
-    const ddStartPools = ddHorseRaw?.pools || null;
-    const ddMergedPools = ddRace?.mergedPools || null;
-    const ddRacePools = ddRace?.pools || null;
-
-    const ddTypedObjects = {
-      dd: ddRacePools?.dd || null,
-      vinnare: ddRacePools?.vinnare || null,
-      plats: ddRacePools?.plats || null,
-      komb: ddRacePools?.komb || null,
-      tvilling: ddRacePools?.tvilling || null,
-      trio: ddRacePools?.trio || null
-    };
-
-    const keywordPattern = /(betDistribution|distribution|percentage|betPercent|poolDistribution|proportion|shares|stake|pools|startPools|mergedPools|betTypes)/i;
-
-    const findKeywordPaths = (value, path = 'root', maxResults = 300, found = []) => {
-      if (!value || found.length >= maxResults) {
-        return found;
-      }
-
-      if (Array.isArray(value)) {
-        value.forEach((item, index) => {
-          if (found.length >= maxResults) return;
-          findKeywordPaths(item, `${path}[${index}]`, maxResults, found);
-        });
-        return found;
-      }
-
-      if (typeof value === 'object') {
-        for (const [key, child] of Object.entries(value)) {
-          if (found.length >= maxResults) break;
-          const childPath = `${path}.${key}`;
-          if (keywordPattern.test(key)) {
-            found.push(childPath);
-          }
-          findKeywordPaths(child, childPath, maxResults, found);
-        }
-      }
-
-      return found;
-    };
-
-    const ddKeywordPaths = findKeywordPaths(ddRace || {}, 'ddRace');
-
-    console.log('DD race raw:', JSON.stringify(ddRace, null, 2));
-    console.log('DD horse raw:', JSON.stringify(ddHorseRaw, null, 2));
-    console.log('DD start.pools:', JSON.stringify(ddStartPools, null, 2));
-    console.log('DD mergedPools:', JSON.stringify(ddMergedPools, null, 2));
-    console.log('DD pools object:', JSON.stringify(ddRacePools, null, 2));
-    console.log('DD dd/vinnare/plats/komb/tvilling/trio objects:', JSON.stringify(ddTypedObjects, null, 2));
-    console.log('DD keyword paths:', ddKeywordPaths);
-
-    if (ddHorseRaw) {
-      const normalizedHorseSample = normalizeHorse(ddHorseRaw, matchedKey || selectedGameType);
-      console.log('DD horse before normalize:', ddHorseRaw);
-      console.log('DD horse after normalize:', normalizedHorseSample);
-    }
+    console.log('DD comboOdds rows:', ddComboOdds?.length, 'cols:', ddComboOdds?.[0]?.length);
+    console.log('DD leg1 distributions:', ddDistributions?.leg1);
+    console.log('DD leg2 distributions:', ddDistributions?.leg2);
   }
 
   // Step 3: Build race objects with normalized horses
@@ -222,6 +212,18 @@ export const fetchGameData = async (selectedGameType) => {
     const normalizedHorses = (fullRace?.starts || [])
       .map(start => normalizeHorse(start, matchedKey || selectedGameType))
       .filter(Boolean);
+
+    // For DD only: override betDistribution with values inferred from comboOdds matrix.
+    // NOTE: These are NOT official ATG streck percentages — derived from combination odds per leg.
+    // Values are scaled to ATG encoding (e.g. 14.3% → stored as 1430) so analyzeRaceData's
+    // `betDistribution / 100` correctly yields streckPercent.
+    if (isDD && ddDistributions) {
+      const legDist = index === 0 ? ddDistributions.leg1 : ddDistributions.leg2;
+      normalizedHorses.forEach(horse => {
+        const pct = legDist[horse.number - 1];
+        horse.betDistribution = (pct != null) ? Math.round(pct * 100) : null;
+      });
+    }
 
     const hasRealBetDistribution = normalizedHorses.some(horse =>
       horse.betDistribution !== null && horse.betDistribution !== undefined
