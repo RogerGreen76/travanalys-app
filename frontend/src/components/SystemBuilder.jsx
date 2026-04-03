@@ -78,29 +78,68 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   };
 
   const generateAutoSuggestion = () => {
-    // Sortera hästar efter value ratio
-    const sortedByValue = [...horses].sort((a, b) => b.valueRatio - a.valueRatio);
-    const sortedByRanking = [...horses].sort((a, b) => b.rankingScore - a.rankingScore);
+    const enriched = horses.map(horse => {
+      const valueRatio = Number(horse.valueRatio) || 0;
+      const finalScore = Number(horse.finalScore) || 0;
+      const rankingScore = Number(horse.rankingScore) || 0;
+      const odds = Number(horse.odds) || 0;
 
-    // Spik: häst med högst value_ratio om >1.20, annars ingen spik
+      // Clamp to avoid ratio outliers dominating the suggestion model.
+      const safeRatio = Math.min(Math.max(valueRatio, 0), 2.0);
+      const playBonus = horse.play === 'Stark play' ? 8 : horse.play === 'Möjlig play' ? 4 : 0;
+      const valueBonus = horse.valueStatus === 'Spelvärd' ? 3 : horse.valueStatus === 'Neutral' ? 1 : 0;
+
+      const systemScore =
+        (finalScore * 0.55) +
+        (rankingScore * 0.30) +
+        (safeRatio * 100 * 0.15) +
+        playBonus +
+        valueBonus;
+
+      const isExtremeLongshot =
+        odds > 40 || rankingScore < 60 || finalScore < 80;
+
+      return {
+        ...horse,
+        systemScore,
+        isExtremeLongshot
+      };
+    });
+
+    const sortedBySystem = [...enriched].sort((a, b) => b.systemScore - a.systemScore);
+    const eligibleSpik = sortedBySystem.filter(h => !h.isExtremeLongshot);
+
     let spik = null;
-    if (sortedByValue[0] && sortedByValue[0].valueRatio > 1.20) {
-      spik = sortedByValue[0];
+    if (eligibleSpik.length > 0) {
+      const top = eligibleSpik[0];
+      const second = eligibleSpik[1];
+      const scoreGap = second ? top.systemScore - second.systemScore : top.systemScore;
+      const hasStrongBaseline = top.finalScore >= 90 && top.rankingScore >= 70;
+      const hasClearLead = scoreGap >= 5;
+
+      if (hasStrongBaseline && hasClearLead) {
+        spik = top;
+      }
     }
 
-    // Lås: topp 2 value_ratio (exklusive spik)
-    const las = sortedByValue
-      .filter(h => !spik || h.number !== spik.number)
+    const las = sortedBySystem
+      .filter(h =>
+        !h.isExtremeLongshot &&
+        (!spik || h.number !== spik.number)
+      )
       .slice(0, 2);
 
-    // Gardering: value_ratio > 1.10 ELLER streck < 5%
-    const gardering = horses
-      .filter(h => 
-        (!spik || h.number !== spik.number) && 
-        !las.find(l => l.number === h.number) &&
-        (h.valueRatio > 1.10 || h.streckPercent < 5)
+    const gardering = sortedBySystem
+      .filter(h =>
+        (!spik || h.number !== spik.number) &&
+        !las.find(l => l.number === h.number)
       )
-      .sort((a, b) => b.valueRatio - a.valueRatio)
+      .filter(h =>
+        !h.isExtremeLongshot ||
+        h.play === 'Stark play' ||
+        h.play === 'Möjlig play' ||
+        h.valueStatus === 'Spelvärd'
+      )
       .slice(0, 5);
 
     setAutoSuggestion({ spik, las, gardering });
