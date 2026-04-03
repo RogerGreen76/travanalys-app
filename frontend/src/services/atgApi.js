@@ -3,9 +3,6 @@
  * Handles fetching raw game data for different game types
  */
 
-// Backend base URL — in production set REACT_APP_API_BASE_URL to the deployed backend origin
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
-
 // Game type configurations
 const GAME_CONFIGS = {
   'V85': { races: 8 },
@@ -43,17 +40,12 @@ export const findGameInCalendar = async (gameType, date = null) => {
       throw new Error('gameType is required');
     }
 
-    if (!API_BASE_URL) {
-      throw new Error('Missing REACT_APP_API_BASE_URL. Point it to your FastAPI backend domain.');
-    }
-
     const calendarDate = date || getSwedenDate();
-    const calendarUrl = `${API_BASE_URL}/api/atg/calendar?date=${encodeURIComponent(calendarDate)}`;
+    const calendarUrl = `/api/atg/calendar?date=${encodeURIComponent(calendarDate)}`;
 
-    console.log('ATG backend URL:', calendarUrl);
+    console.log('[ATG] URL:', calendarUrl);
     console.log(`[ATG] === CALENDAR FETCH ===`);
     console.log(`[ATG] GameType: ${gameType}`);
-    console.log(`[ATG] URL: ${calendarUrl}`);
 
     const calendarResponse = await fetch(calendarUrl, {
       headers: { accept: 'application/json' }
@@ -113,16 +105,12 @@ export const fetchGameDataById = async (gameId) => {
       throw new Error('gameId is required');
     }
 
-    if (!API_BASE_URL) {
-      throw new Error('Missing REACT_APP_API_BASE_URL. Point it to your FastAPI backend domain.');
-    }
-
-    const url = `${API_BASE_URL}/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
+    const gameUrl = `/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
 
     console.log(`[ATG] === GAME FETCH ===`);
     console.log(`[ATG] GameID: ${gameId}`);
-    console.log(`[ATG] URL: ${url}`);
-    const response = await fetch(url, {
+    console.log('[ATG] Game URL:', gameUrl);
+    const response = await fetch(gameUrl, {
       headers: {
         accept: 'application/json'
       }
