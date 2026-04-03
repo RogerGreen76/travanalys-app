@@ -6,6 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { ArrowUpDown, ArrowUp, ArrowDown, Download, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 
+const formatNumber = (value, decimals = 1) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toFixed(decimals) : '-';
+};
+
 const HorseTable = ({ horses }) => {
   const [sortField, setSortField] = useState('finalScore');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -129,14 +134,14 @@ filtered.sort((a, b) => {
     const rows = sortedAndFilteredHorses.map(h => [
       h.number,
       h.name,
-      h.odds.toFixed(2),
-      h.streckPercent.toFixed(1),
-      h.marketProbability.toFixed(1),
-      h.impliedProbability.toFixed(2),
-      h.valueRatio.toFixed(2),
-      h.rankingScore.toFixed(2),
-      h.horseScore.toFixed(1),
-      h.finalScore.toFixed(1),
+      formatNumber(h.odds, 2),
+      formatNumber(h.streckPercent, 1),
+      formatNumber(h.marketProbability, 1),
+      formatNumber(h.impliedProbability, 2),
+      formatNumber(h.valueRatio, 2),
+      formatNumber(h.rankingScore, 2),
+      formatNumber(h.horseScore, 1),
+      formatNumber(h.finalScore, 1),
       h.valueStatus,
       h.play
     ]);
@@ -296,8 +301,8 @@ filtered.sort((a, b) => {
                       </div>
                     )}
                   </td>
-                  <td className="text-center text-white font-mono w-20 py-3">{horse.odds.toFixed(2)}</td>
-                  <td className="text-center text-white font-mono w-20 py-3">{horse.streckPercent.toFixed(1)}%</td>
+                  <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.odds, 2)}</td>
+                  <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.streckPercent, 1)}%</td>
                   
                   <td className="text-center w-32 py-3">
                     <div className="flex justify-center">
@@ -311,7 +316,7 @@ filtered.sort((a, b) => {
                 </div>
               </td>
                   <td className="text-center text-white font-mono font-semibold w-24 py-3">
-                    {horse.rankingScore.toFixed(1)}
+                    {formatNumber(horse.rankingScore, 1)}
                   </td>
                   
                   <td className="text-center font-bold font-mono w-24 py-3">
@@ -320,7 +325,7 @@ filtered.sort((a, b) => {
                       horse.finalScore > 60 ? 'text-yellow-400' :
                       'text-gray-400'
                     }`}>
-                      {horse.finalScore.toFixed(1)}
+                      {formatNumber(horse.finalScore, 1)}
                     </span>
                   </td>
                   <td className="text-center w-32 py-3">
