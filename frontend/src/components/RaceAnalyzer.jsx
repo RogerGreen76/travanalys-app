@@ -85,6 +85,36 @@ const RaceAnalyzer = () => {
 
       console.log(`[RaceAnalyzer] Raw data received for ${gameType}:`, rawData);
 
+      // Temporary mode: use calendar race IDs only until correct game-detail endpoint is identified.
+      if (rawData?.calendarOnly) {
+        const raceIds = rawData?.races || [];
+        const parsedRaces = raceIds.map((race, index) => ({
+          race: {
+            id: race.id,
+            number: index + 1,
+            gameNumber: index + 1,
+            name: `${gameType}-${index + 1}`,
+            track: 'Unknown',
+            date: new Date().toISOString().split('T')[0],
+            distance: null
+          },
+          horses: []
+        }));
+
+        setGameData(rawData);
+        setAllRaces(parsedRaces);
+        setSelectedRaceIndex(0);
+        setSelectedRace(parsedRaces[0] || null);
+        setAnalyzedHorses([]);
+        setError(null);
+        setLoading(false);
+
+        toast.success(`${gameType} loaded`, {
+          description: `${parsedRaces.length} races available (calendar IDs)`
+        });
+        return;
+      }
+
       // Step 2: Extract races from the API response
       const apiRaces = rawData?.game?.races || [];
 
@@ -125,6 +155,7 @@ const RaceAnalyzer = () => {
       setSelectedRaceIndex(0);
       setSelectedRace(parsedRaces[0]);
       setError(null);
+      setLoading(false);
 
       console.log(`[RaceAnalyzer] ✅ RENDER: allRaces state updated, UI will show ${parsedRaces.length} races for ${gameType}`);
 

@@ -62,8 +62,8 @@ export const findGameInCalendar = async (gameType, date = null) => {
     const games = calendar?.games || {};
     const gameKey = gameType;
     const game = games?.[gameKey];
-    console.log('Selected game object:', game);
-    console.log('Game keys:', Object.keys(game || {}));
+    console.log('[ATG] Selected game object:', game);
+    console.log('[ATG] Game keys:', Object.keys(game || {}));
 
     if (!game) {
       console.error(`[ATG] ❌ Game ${gameType} NOT FOUND in calendar`);
@@ -71,7 +71,7 @@ export const findGameInCalendar = async (gameType, date = null) => {
     }
 
     const raceIds = game?.races || [];
-    console.log('Race IDs from calendar:', raceIds);
+    console.log('[ATG] Race IDs from calendar:', raceIds);
 
     const gameId =
       game?.gameId ||
@@ -83,19 +83,8 @@ export const findGameInCalendar = async (gameType, date = null) => {
       game?.sequenceId;
     console.log('[ATG] Resolved gameId:', gameId);
 
-    if (!gameId) {
-      console.error(`[ATG] ❌ Matched game missing ID:`, game);
-      throw new Error(`No gameId found for ${gameType}`);
-    }
-
-    const isNumericGameId = typeof gameId === 'number' || /^[0-9]+$/.test(String(gameId));
-    const isCompositeGameId = /^[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d+_\d+$/.test(String(gameId));
-    if (!isNumericGameId && !isCompositeGameId) {
-      throw new Error(`calendar game id is not valid for /games endpoint: ${gameId}`);
-    }
-
-    console.log(`[ATG] ✅ Found game ${gameType} with ID: ${gameId}`);
-    return { game, gameId };
+    // Temporary: do not block on gameId validity until the correct endpoint is confirmed.
+    return { calendar, game, gameId, raceIds };
   } catch (error) {
     console.error(`[ATG] Error finding game in calendar: ${error.message}`);
     throw error;
@@ -109,50 +98,7 @@ export const findGameInCalendar = async (gameType, date = null) => {
  */
 export const fetchGameDataById = async (gameId) => {
   try {
-    if (!gameId) {
-      throw new Error('gameId is required');
-    }
-
-    const isNumericGameId = typeof gameId === 'number' || /^[0-9]+$/.test(String(gameId));
-    const isCompositeGameId = /^[A-Z0-9]+_\d{4}-\d{2}-\d{2}_\d+_\d+$/.test(String(gameId));
-    if (!isNumericGameId && !isCompositeGameId) {
-      throw new Error(`calendar game id is not valid for /games endpoint: ${gameId}`);
-    }
-
-    const gameUrl = `/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
-
-    console.log(`[ATG] === GAME FETCH ===`);
-    console.log(`[ATG] GameID: ${gameId}`);
-    console.log('[ATG] Game URL:', gameUrl);
-    const response = await fetch(gameUrl, {
-      headers: {
-        accept: 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      console.error(`[ATG] Game fetch failed with status: ${response.status}`);
-      throw new Error(`Game fetch failed: ${response.status}`);
-    }
-
-    const gameData = await response.json();
-    console.log('[ATG] Game JSON:', gameData);
-    console.log(`[ATG] === GAME RESPONSE ===`);
-    console.log(`[ATG] Response status: ${response.status}`);
-    const races = gameData?.races || gameData?.game?.races || [];
-    console.log(`[ATG] Races count: ${races.length}`);
-
-    if (!Array.isArray(races)) {
-      console.error(`[ATG] Response missing races array:`, gameData);
-      throw new Error('Game response missing races array');
-    }
-
-    const normalizedGameData = gameData?.game
-      ? { ...gameData, game: { ...gameData.game, races } }
-      : { ...gameData, game: { races } };
-
-    console.log(`[ATG] Game data has ${races.length} races`);
-    return normalizedGameData;
+    throw new Error(`fetchGameDataById is temporarily disabled. gameId=${gameId}`);
   } catch (error) {
     console.error(`[ATG] Error fetching game data: ${error.message}`);
     throw error;
@@ -174,21 +120,33 @@ export const fetchGameData = async (gameType) => {
 
     console.log(`[ATG] Starting fetchGameData for: ${gameType}`);
 
-    // Step 1: Find game in calendar
+    // Step 1: Find selected game in calendar
     const selectedGame = await findGameInCalendar(gameType);
 
-    // Step 2: Fetch game data using the gameId
-    const gameData = await fetchGameDataById(selectedGame.gameId);
+    // Step 2: Use race IDs from calendar only (temporary), do not call /api/atg/game.
+    const raceIds = selectedGame?.raceIds || [];
+    const races = raceIds.map((raceId, index) => ({
+      id: raceId,
+      number: index + 1,
+      name: `${gameType}-${index + 1}`
+    }));
 
-    // Step 3: Validate races exist
-    const races = gameData?.races || gameData?.game?.races || [];
+    console.log('[ATG] Calendar-only race tabs:', races);
+
     if (races.length === 0) {
       console.warn(`[ATG] No races found for game ${gameType}`);
       throw new Error(`No races found for ${gameType}`);
     }
 
-    console.log(`[ATG] Successfully loaded ${races.length} races for ${gameType}`);
-    return gameData;
+    console.log(`[ATG] Successfully loaded ${races.length} race IDs for ${gameType}`);
+    return {
+      calendarOnly: true,
+      gameType,
+      game: {
+        races
+      },
+      races
+    };
   } catch (error) {
     console.error(`[ATG] Error fetching game data for ${gameType}: ${error.message}`);
     throw error;
