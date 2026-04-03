@@ -14,6 +14,7 @@ import { AlertCircle, Upload, FileJson, ChevronRight, TrendingUp } from 'lucide-
 import { fetchGameData, parseManualImport } from '../services/atgApi';
 import { normalizeRaceData } from '../services/normalizeRaceData';
 import { analyzeRaceData } from '../services/analyzeRaceData';
+import { saveRacePrediction, getPerformanceHistory } from '../services/performanceTracker';
 
 /**
  * Filter races for a specific game type based on horse pools
@@ -77,6 +78,66 @@ const RaceAnalyzer = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!Array.isArray(allRaces) || allRaces.length === 0) {
+      return;
+    }
+
+    try {
+      const history = getPerformanceHistory();
+      const existingRaceIds = new Set(
+        history.map(item => item?.raceId).filter(Boolean)
+      );
+      const existingFallbackKeys = new Set(
+        history.map(item => `${item?.date || ''}__${item?.gameType || ''}__${item?.raceLabel || ''}`)
+      );
+
+      allRaces.forEach((raceItem, raceIndex) => {
+        const race = raceItem?.race || {};
+        const horses = Array.isArray(raceItem?.horses) ? raceItem.horses : [];
+
+        if (horses.length === 0) {
+          return;
+        }
+
+        const raceLabel = `${selectedGameType}-${race.number || raceIndex + 1}`;
+        const date = race.date || new Date().toISOString().split('T')[0];
+        const raceId = race.id || null;
+        const fallbackKey = `${date}__${selectedGameType}__${raceLabel}`;
+
+        if ((raceId && existingRaceIds.has(raceId)) || existingFallbackKeys.has(fallbackKey)) {
+          return;
+        }
+
+        saveRacePrediction({
+          date,
+          gameType: selectedGameType,
+          raceId,
+          raceLabel,
+          track: race.track || '',
+          horses: horses.map(h => ({
+            number: h.number,
+            name: h.name,
+            odds: h.odds,
+            streckPercent: h.streckPercent,
+            rankingScore: h.rankingScore,
+            finalScore: h.finalScore,
+            valueRatio: h.valueRatio,
+            play: h.play,
+            valueStatus: h.valueStatus
+          }))
+        });
+
+        if (raceId) {
+          existingRaceIds.add(raceId);
+        }
+        existingFallbackKeys.add(fallbackKey);
+      });
+    } catch (saveError) {
+      console.warn('[RaceAnalyzer] Could not save performance snapshot:', saveError);
+    }
+  }, [allRaces, selectedGameType]);
 
   const handleLoadGameType = async (gameType) => {
     try {
