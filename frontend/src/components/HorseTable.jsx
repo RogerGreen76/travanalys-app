@@ -163,7 +163,7 @@ filtered.sort((a, b) => {
   };
 
   return (
-    <Card className="bg-[#151923] border-gray-800" data-testid="horse-table-card">
+    <Card className="bg-[#151923] border-gray-800 horse-table-card" data-testid="horse-table-card">
       <CardHeader>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Textarea } from './ui/textarea';
@@ -38,6 +38,8 @@ const RaceAnalyzer = () => {
   const [analyzedHorses, setAnalyzedHorses] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isRaceSwitching, setIsRaceSwitching] = useState(false);
+  const raceSwitchTimeoutRef = useRef(null);
   
   // Navigation state
   const [selectedGameType, setSelectedGameType] = useState('V85');
@@ -66,6 +68,14 @@ const RaceAnalyzer = () => {
       setAnalyzedHorses(selectedRace.horses);
     }
   }, [selectedRace]);
+
+  useEffect(() => {
+    return () => {
+      if (raceSwitchTimeoutRef.current) {
+        clearTimeout(raceSwitchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleLoadGameType = async (gameType) => {
     try {
@@ -423,19 +433,27 @@ const RaceAnalyzer = () => {
 
   const handleRaceChange = (index) => {
     const raceIndex = parseInt(index);
+    const nextRace = allRaces[raceIndex];
 
-    // Add fade effect
-    setAnalyzedHorses([]);
+    if (!nextRace) {
+      return;
+    }
 
-    setTimeout(() => {
-      setSelectedRaceIndex(raceIndex);
-      setSelectedRace(allRaces[raceIndex]);
-      // analyzedHorses will be updated by useEffect
+    setIsRaceSwitching(true);
+    setSelectedRaceIndex(raceIndex);
+    setSelectedRace(nextRace);
 
-      toast.info(`Visar lopp ${raceIndex + 1}`, {
-        description: allRaces[raceIndex].race.name
-      });
-    }, 50);
+    if (raceSwitchTimeoutRef.current) {
+      clearTimeout(raceSwitchTimeoutRef.current);
+    }
+
+    raceSwitchTimeoutRef.current = setTimeout(() => {
+      setIsRaceSwitching(false);
+    }, 180);
+
+    toast.info(`Visar lopp ${raceIndex + 1}`, {
+      description: nextRace.race.name
+    });
   };
 
   const loadSample = () => {
@@ -638,7 +656,7 @@ const RaceAnalyzer = () => {
 
         {/* Race Info */}
         {currentRace && (
-          <Card className="bg-[#151923] border-gray-800" data-testid="race-info-card">
+          <Card className={`bg-[#151923] border-gray-800 race-details-card race-content ${isRaceSwitching ? 'loading' : ''}`} data-testid="race-info-card">
             <CardContent className="pt-6">
               <div className="flex flex-wrap gap-6 text-sm">
                 <div>
@@ -673,11 +691,11 @@ const RaceAnalyzer = () => {
         )}
 
         {/* Horse Table */}
-        {analyzedHorses.length > 0 && (
-          <div className="space-y-6">
-            <HorseTable horses={analyzedHorses} />
+        {currentRace && (
+          <div className={`space-y-6 race-content ${isRaceSwitching ? 'loading' : ''}`}>
+            <HorseTable horses={analyzedHorses || []} />
             <SystemBuilder 
-              horses={analyzedHorses} 
+              horses={analyzedHorses || []} 
               gameType={selectedGameType}
               allRaces={allRaces}
               selectedRaceIndex={selectedRaceIndex}

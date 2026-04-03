@@ -183,7 +183,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   );
 
   return (
-    <Card className="bg-[#151923] border-gray-800" data-testid="system-builder-card">
+    <Card className="bg-[#151923] border-gray-800 system-builder-card" data-testid="system-builder-card">
       <CardHeader>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>

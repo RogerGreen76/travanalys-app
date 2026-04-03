@@ -13,6 +13,10 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+    overflow-y: scroll;
+}
+
 code {
     font-family:
         source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
@@ -72,6 +76,27 @@ code {
         --chart-4: 280 65% 60%;
         --chart-5: 340 75% 55%;
     }
+}
+
+.race-content {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.race-content.loading {
+    opacity: 0.85;
+    transform: translateY(4px);
+}
+
+.race-details-card {
+    min-height: 88px;
+}
+
+.horse-table-card {
+    min-height: 500px;
+}
+
+.system-builder-card {
+    min-height: 360px;
 }
 
 @layer base {
