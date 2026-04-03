@@ -104,6 +104,17 @@ export const fetchGameData = async (selectedGameType) => {
   const raceIds = Array.isArray(rawGame.races) ? rawGame.races : [];
   const gameId = rawGame.id;
 
+  // Build V85 race index for DD linkage
+  let v85RaceIds = [];
+  if (selectedGameType.toUpperCase() === 'DD') {
+    const v85Key = Object.keys(games).find(k => k.toUpperCase() === 'V85');
+    if (v85Key) {
+      const v85Entry = games[v85Key];
+      const v85Game = Array.isArray(v85Entry) ? v85Entry[0] : v85Entry;
+      v85RaceIds = Array.isArray(v85Game?.races) ? v85Game.races : [];
+    }
+  }
+
   // Step 2: Full game fetch – horses, track, distance, odds
   let fullRaceMap = {};
   if (gameId) {
@@ -163,11 +174,14 @@ export const fetchGameData = async (selectedGameType) => {
       : normalizedHorses;
 
     const actualRaceNumber = Number(String(raceId).split('_').pop()) || null;
+    const v85Index = v85RaceIds.indexOf(raceId);
+    const linkedV85Number = v85Index >= 0 ? v85Index + 1 : null;
 
     return {
       id: raceId,
       number: index + 1,
       actualRaceNumber,
+      linkedV85Number,
       name: `${selectedGameType}-${index + 1}`,
       track: fullRace?.track?.name || '',
       date: fullRace?.startTime?.split('T')[0] || today,
