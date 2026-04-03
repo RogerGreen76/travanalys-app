@@ -87,10 +87,11 @@ const RaceAnalyzer = () => {
           id: race.id,
           number: race.number,
           name: race.name,
-          track: '',
-          distance: null
+          track: race.track || '',
+          date: race.date || new Date().toISOString().split('T')[0],
+          distance: race.distance || null
         },
-        horses: []
+        horses: race.horses || []
       }));
 
       setAllRaces(parsedRaces);
@@ -99,10 +100,10 @@ const RaceAnalyzer = () => {
       setError(null);
       setLoading(false);
       setGameData({ gameType, races: parsedRaces });
-      setAnalyzedHorses([]);
+      setAnalyzedHorses(parsedRaces[0]?.horses || []);
 
       toast.success(`${gameType} loaded`, {
-        description: `${parsedRaces.length} races available`
+        description: `${parsedRaces.length} races, ${parsedRaces[0]?.horses?.length || 0} horses in race 1`
       });
     } catch (err) {
       console.error(`[RaceAnalyzer] Error loading game type ${gameType}:`, err);

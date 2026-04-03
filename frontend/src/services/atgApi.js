@@ -84,37 +84,89 @@ export const fetchGameData = async (selectedGameType) => {
     timeZone: "Europe/Stockholm"
   });
 
-  const res = await fetch(`/api/atg/calendar?date=${today}`);
-  const calendar = await res.json();
+  // Step 1: Calendar – resolve game key, race IDs, and master game ID
+  const calRes = await fetch(`/api/atg/calendar?date=${today}`);
+  const calendar = await calRes.json();
 
   const games = calendar?.games || {};
-
   const matchedKey =
     Object.keys(games).find(key => key === selectedGameType) ||
     Object.keys(games).find(key => key.toLowerCase() === selectedGameType.toLowerCase());
 
   const rawGameEntry = matchedKey ? games[matchedKey] : null;
+  const rawGame = Array.isArray(rawGameEntry) ? rawGameEntry[0] : rawGameEntry;
 
-  const rawGame = Array.isArray(rawGameEntry)
-    ? rawGameEntry[0]
-    : rawGameEntry;
-
-  console.log("selectedGameType:", selectedGameType);
-  console.log("matchedKey:", matchedKey);
-  console.log("rawGame:", rawGame);
-
-  if (!rawGame) {
-    return [];
-  }
+  if (!rawGame) return [];
 
   const raceIds = Array.isArray(rawGame.races) ? rawGame.races : [];
+  const gameId = rawGame.id;
 
-  return raceIds.map((raceId, index) => ({
-    id: raceId,
-    number: index + 1,
-    name: `${selectedGameType}-${index + 1}`,
-    horseCount: 0
-  }));
+  // Step 2: Full game fetch – horses, track, distance, odds
+  let fullRaceMap = {};
+  if (gameId) {
+    try {
+      const gameRes = await fetch(`/api/atg/game?gameId=${encodeURIComponent(gameId)}`);
+      if (gameRes.ok) {
+        const gameData = await gameRes.json();
+        for (const race of (gameData.races || [])) {
+          fullRaceMap[race.id] = race;
+        }
+      }
+    } catch (e) {
+      console.warn('Game fetch failed:', e.message);
+    }
+  }
+
+  // Pool keys to try when looking up betDistribution
+  const poolKeys = [selectedGameType, matchedKey, 'V85', 'V86', 'V75', 'V65', 'V64', 'V5', 'DD', 'dd'];
+
+  // Step 3: Build race objects with normalized horses
+  return raceIds.map((raceId, index) => {
+    const fullRace = fullRaceMap[raceId];
+
+    const horses = (fullRace?.starts || []).map(start => {
+      const number = start.number || start.postPosition;
+      if (!number || !start.horse?.name) return null;
+
+      const odds = start.pools?.vinnare?.odds ?? null;
+      if (odds === null || isNaN(odds) || odds <= 0) return null;
+
+      let betDistribution = null;
+      for (const k of poolKeys) {
+        if (start.pools?.[k]?.betDistribution !== undefined) {
+          betDistribution = start.pools[k].betDistribution;
+          break;
+        }
+      }
+      if (betDistribution === null) betDistribution = 500;
+
+      let driver = null;
+      if (start.driver?.firstName && start.driver?.lastName) {
+        driver = `${start.driver.firstName} ${start.driver.lastName}`;
+      } else if (start.driver?.name) {
+        driver = start.driver.name;
+      }
+
+      let trainer = null;
+      if (start.horse.trainer?.firstName && start.horse.trainer?.lastName) {
+        trainer = `${start.horse.trainer.firstName} ${start.horse.trainer.lastName}`;
+      } else if (start.horse.trainer?.name) {
+        trainer = start.horse.trainer.name;
+      }
+
+      return { number, name: start.horse.name, odds, betDistribution, driver, trainer };
+    }).filter(Boolean);
+
+    return {
+      id: raceId,
+      number: index + 1,
+      name: `${selectedGameType}-${index + 1}`,
+      track: fullRace?.track?.name || '',
+      date: fullRace?.startTime?.split('T')[0] || today,
+      distance: fullRace?.distance || null,
+      horses
+    };
+  });
 };
 
 /**
