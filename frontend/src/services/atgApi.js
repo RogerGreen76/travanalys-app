@@ -129,9 +129,16 @@ export const fetchGameData = async (selectedGameType) => {
       const gameRes = await fetch(detailsUrl);
       if (gameRes.ok) {
         const gameData = await gameRes.json();
+        const ddResponse = gameData;
 
         if (isDD && !hasLoggedDdRawResponse) {
-          console.log('DD endpoint raw response:', JSON.stringify(gameData, null, 2));
+          console.log('DD endpoint raw response:', JSON.stringify(ddResponse, null, 2));
+          console.log('DD response keys:', Object.keys(ddResponse || {}));
+          console.log('DD pools.dd keys:', Object.keys(ddResponse?.pools?.dd || {}));
+          console.log('DD starts:', JSON.stringify(ddResponse?.starts, null, 2));
+          console.log('DD races:', JSON.stringify(ddResponse?.races, null, 2));
+          console.log('DD horses:', JSON.stringify(ddResponse?.horses, null, 2));
+          console.log('DD dd pool full:', JSON.stringify(ddResponse?.pools?.dd, null, 2));
           hasLoggedDdRawResponse = true;
         }
 
