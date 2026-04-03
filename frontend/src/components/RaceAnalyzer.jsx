@@ -534,9 +534,6 @@ const RaceAnalyzer = () => {
                     >
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{`${selectedGameType}-${raceItem.race.number || index + 1}`}</span>
-                        {selectedGameType === 'DD' && raceItem.race.linkedV85Number && (
-                          <span className="text-xs text-blue-400">• V85-{raceItem.race.linkedV85Number}</span>
-                        )}
                         <span className="text-xs text-gray-400">({raceItem.horses.length})</span>
                       </div>
                     </TabsTrigger>
@@ -668,12 +665,6 @@ const RaceAnalyzer = () => {
                   <div>
                     <span className="text-gray-400">Avd:</span>
                     <span className="ml-2 text-white font-semibold">{currentRace.race.actualRaceNumber}</span>
-                  </div>
-                )}
-                {selectedGameType === 'DD' && currentRace.race.linkedV85Number && (
-                  <div>
-                    <span className="text-gray-400">V85-avd:</span>
-                    <span className="ml-2 text-white font-semibold">{currentRace.race.linkedV85Number}</span>
                   </div>
                 )}
               </div>
