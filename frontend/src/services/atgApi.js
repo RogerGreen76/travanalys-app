@@ -132,22 +132,67 @@ export const fetchGameData = async (selectedGameType) => {
   }
 
   const selectedRaceRaw = fullRaceMap[raceIds[0]] || null;
-  const selectedHorseRaw = selectedRaceRaw?.starts?.[0] || null;
-  const normalizedHorseSample = selectedHorseRaw
-    ? normalizeHorse(selectedHorseRaw, matchedKey || selectedGameType)
-    : null;
 
-  const v85Race = selectedGameType === 'V85' ? selectedRaceRaw : null;
-  const ddRace = selectedGameType === 'DD' ? selectedRaceRaw : null;
+  if (selectedGameType?.toUpperCase() === 'DD') {
+    const ddRace = selectedRaceRaw;
+    const ddHorseRaw = ddRace?.starts?.[0] || ddRace?.horses?.[0] || null;
+    const ddStartPools = ddHorseRaw?.pools || null;
+    const ddMergedPools = ddRace?.mergedPools || null;
+    const ddRacePools = ddRace?.pools || null;
 
-  console.log("V85 selected race raw:", JSON.stringify(v85Race, null, 2));
-  console.log("DD selected race raw:", JSON.stringify(ddRace, null, 2));
-  console.log("V85 raw horse sample:", JSON.stringify(v85Race?.starts?.[0], null, 2));
-  console.log("DD raw horse sample:", JSON.stringify(ddRace?.starts?.[0], null, 2));
+    const ddTypedObjects = {
+      dd: ddRacePools?.dd || null,
+      vinnare: ddRacePools?.vinnare || null,
+      plats: ddRacePools?.plats || null,
+      komb: ddRacePools?.komb || null,
+      tvilling: ddRacePools?.tvilling || null,
+      trio: ddRacePools?.trio || null
+    };
 
-  if (selectedHorseRaw) {
-    console.log('Horse before normalize:', selectedHorseRaw);
-    console.log('Horse after normalize:', normalizedHorseSample);
+    const keywordPattern = /(betDistribution|distribution|percentage|betPercent|poolDistribution|proportion|shares|stake|pools|startPools|mergedPools|betTypes)/i;
+
+    const findKeywordPaths = (value, path = 'root', maxResults = 300, found = []) => {
+      if (!value || found.length >= maxResults) {
+        return found;
+      }
+
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => {
+          if (found.length >= maxResults) return;
+          findKeywordPaths(item, `${path}[${index}]`, maxResults, found);
+        });
+        return found;
+      }
+
+      if (typeof value === 'object') {
+        for (const [key, child] of Object.entries(value)) {
+          if (found.length >= maxResults) break;
+          const childPath = `${path}.${key}`;
+          if (keywordPattern.test(key)) {
+            found.push(childPath);
+          }
+          findKeywordPaths(child, childPath, maxResults, found);
+        }
+      }
+
+      return found;
+    };
+
+    const ddKeywordPaths = findKeywordPaths(ddRace || {}, 'ddRace');
+
+    console.log('DD race raw:', JSON.stringify(ddRace, null, 2));
+    console.log('DD horse raw:', JSON.stringify(ddHorseRaw, null, 2));
+    console.log('DD start.pools:', JSON.stringify(ddStartPools, null, 2));
+    console.log('DD mergedPools:', JSON.stringify(ddMergedPools, null, 2));
+    console.log('DD pools object:', JSON.stringify(ddRacePools, null, 2));
+    console.log('DD dd/vinnare/plats/komb/tvilling/trio objects:', JSON.stringify(ddTypedObjects, null, 2));
+    console.log('DD keyword paths:', ddKeywordPaths);
+
+    if (ddHorseRaw) {
+      const normalizedHorseSample = normalizeHorse(ddHorseRaw, matchedKey || selectedGameType);
+      console.log('DD horse before normalize:', ddHorseRaw);
+      console.log('DD horse after normalize:', normalizedHorseSample);
+    }
   }
 
   // Step 3: Build race objects with normalized horses
