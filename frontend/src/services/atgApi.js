@@ -42,7 +42,7 @@ export const findGameInCalendar = async (gameType, date = null) => {
 
     // Use provided date or generate today's date in Swedish timezone
     const calendarDate = date || getSwedenDate();
-    const calendarUrl = `/api/atg-calendar?date=${encodeURIComponent(calendarDate)}`;
+    const calendarUrl = `/api/atg/calendar?date=${encodeURIComponent(calendarDate)}`;
 
     console.log(`[ATG] === CALENDAR FETCH ===`);
     console.log(`[ATG] GameType: ${gameType}`);
@@ -106,7 +106,7 @@ export const fetchGameDataById = async (gameId) => {
       throw new Error('gameId is required');
     }
 
-    const url = `/api/atg-game?gameId=${encodeURIComponent(gameId)}`;
+    const url = `/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
 
     console.log(`[ATG] === GAME FETCH ===`);
     console.log(`[ATG] GameID: ${gameId}`);

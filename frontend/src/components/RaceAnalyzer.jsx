@@ -37,6 +37,7 @@ const RaceAnalyzer = () => {
   const [selectedRace, setSelectedRace] = useState(null);
   const [analyzedHorses, setAnalyzedHorses] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   
   // Navigation state
   const [selectedGameType, setSelectedGameType] = useState('V85');
@@ -74,6 +75,11 @@ const RaceAnalyzer = () => {
 
       console.log(`[RaceAnalyzer] Loading game type: ${gameType}`);
 
+      setAllRaces([]);
+      setSelectedRace(null);
+      setError(null);
+      setLoading(true);
+
       // Step 1: Fetch raw game data from ATG API (handles calendar lookup and game data fetching)
       const rawData = await fetchGameData(gameType);
 
@@ -110,7 +116,10 @@ const RaceAnalyzer = () => {
         horses: race.horses
       }));
 
-      console.log(`[RaceAnalyzer] Step 6: SET RACES CALLED - Using ${parsedRaces.length} races from API for ${gameType}`);\n      console.log(`[RaceAnalyzer] First race: ${parsedRaces[0]?.race.name || 'ERROR: no first race'}`);\n      console.log(`[RaceAnalyzer] Last race: ${parsedRaces[parsedRaces.length - 1]?.race.name || 'ERROR: nomatchinglastrace'}`);\n    
+      console.log(`[RaceAnalyzer] Step 6: SET RACES CALLED - Using ${parsedRaces.length} races from API for ${gameType}`);
+      console.log(`[RaceAnalyzer] First race: ${parsedRaces[0]?.race.name || 'ERROR: no first race'}`);
+      console.log(`[RaceAnalyzer] Last race: ${parsedRaces[parsedRaces.length - 1]?.race.name || 'ERROR: nomatchinglastrace'}`);
+
       // Step 6: Replace races completely and reset to first race
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
@@ -131,6 +140,7 @@ const RaceAnalyzer = () => {
       setAllRaces([]);
       setSelectedRace(null);
       setAnalyzedHorses([]);
+      setLoading(false);
       toast.error('Could not load data', {
         description: errorMessage
       });
