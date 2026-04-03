@@ -14,6 +14,21 @@ const GAME_CONFIGS = {
 };
 
 /**
+ * Get today's date formatted as YYYY-MM-DD in Swedish local time (Europe/Stockholm)
+ * This ensures the correct date is used even when running on UTC servers
+ * @returns {string} Date in YYYY-MM-DD format in Swedish timezone
+ */
+function getSwedenDate() {
+  const now = new Date();
+  return now.toLocaleDateString('sv-SE', {
+    timeZone: 'Europe/Stockholm',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
+/**
  * Fetch calendar for a specific date and find the game matching the game type
  * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
  * @param {string} date - Date in YYYY-MM-DD format (defaults to today)
@@ -21,8 +36,8 @@ const GAME_CONFIGS = {
  */
 export const findGameInCalendar = async (gameType, date = null) => {
   try {
-    // Use provided date or generate today's date dynamically
-    const calendarDate = date || new Date().toISOString().split('T')[0];
+    // Use provided date or generate today's date in Swedish timezone
+    const calendarDate = date || getSwedenDate();
     const calendarUrl = `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/calendar/day/${calendarDate}`;
 
     console.log(`Fetching calendar for ${calendarDate}...`);
