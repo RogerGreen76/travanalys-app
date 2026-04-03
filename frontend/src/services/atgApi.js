@@ -70,20 +70,9 @@ export const findGameInCalendar = async (gameType, date = null) => {
     }
 
     const raceIds = game?.races || [];
-      console.log('[ATG] Race IDs:', raceIds);
+    console.log('[ATG] Race IDs:', raceIds);
 
-    const gameId =
-      game?.gameId ||
-      game?.id ||
-      game?.['@id'] ||
-      game?.uuid ||
-      game?.raceDayId ||
-      game?.productId ||
-      game?.sequenceId;
-    console.log('[ATG] Resolved gameId:', gameId);
-
-    // Temporary: do not block on gameId validity until the correct endpoint is confirmed.
-    return { calendar, game, gameId, raceIds };
+    return { calendar, game, raceIds };
   } catch (error) {
     console.error(`[ATG] Error finding game in calendar: ${error.message}`);
     throw error;
@@ -91,24 +80,9 @@ export const findGameInCalendar = async (gameType, date = null) => {
 };
 
 /**
- * Fetch raw game data using official ATG endpoint
- * @param {string} gameId - The game ID
- * @returns {Promise<Object>} Raw game data
- */
-export const fetchGameDataById = async (gameId) => {
-  try {
-    throw new Error(`fetchGameDataById is temporarily disabled. gameId=${gameId}`);
-  } catch (error) {
-    console.error(`[ATG] Error fetching game data: ${error.message}`);
-    throw error;
-  }
-};
-
-/**
- * Main function to load game data for a specific game type
- * Orchestrates calendar lookup and game data fetching with comprehensive error handling
+ * Main function to load race IDs for a specific game type from calendar endpoint only.
  * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
- * @returns {Promise<Object>} Game data with races
+ * @returns {Promise<Array>} Race objects for tabs
  */
 export const fetchGameData = async (gameType) => {
   try {
@@ -119,33 +93,24 @@ export const fetchGameData = async (gameType) => {
 
     console.log(`[ATG] Starting fetchGameData for: ${gameType}`);
 
-    // Step 1: Find selected game in calendar
-    const selectedGame = await findGameInCalendar(gameType);
+    const { raceIds = [] } = await findGameInCalendar(gameType);
 
-    // Step 2: Use race IDs from calendar only (temporary), do not call /api/atg/game.
-    const raceIds = selectedGame?.raceIds || [];
-    const races = raceIds.map((raceId, index) => ({
+    const selectedGameType = gameType;
+    const raceObjects = raceIds.map((raceId, index) => ({
       id: raceId,
       number: index + 1,
-      name: `${gameType}-${index + 1}`
+      name: `${selectedGameType}-${index + 1}`
     }));
 
-    console.log('[ATG] Calendar-only race tabs:', races);
+    console.log('[ATG] Race tab objects:', raceObjects);
 
-    if (races.length === 0) {
-      console.warn(`[ATG] No races found for game ${gameType}`);
-      throw new Error(`No races found for ${gameType}`);
+    if (raceObjects.length === 0) {
+      console.warn(`[ATG] No races found for game ${selectedGameType}`);
+      throw new Error(`No races found for ${selectedGameType}`);
     }
 
-    console.log(`[ATG] Successfully loaded ${races.length} race IDs for ${gameType}`);
-    return {
-      calendarOnly: true,
-      gameType,
-      game: {
-        races
-      },
-      races
-    };
+    console.log(`[ATG] Successfully loaded ${raceObjects.length} race IDs for ${selectedGameType}`);
+    return raceObjects;
   } catch (error) {
     console.error(`[ATG] Error fetching game data for ${gameType}: ${error.message}`);
     throw error;

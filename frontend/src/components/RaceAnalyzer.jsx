@@ -80,70 +80,27 @@ const RaceAnalyzer = () => {
       setError(null);
       setLoading(true);
 
-      // Step 1: Fetch raw game data from ATG API (handles calendar lookup and game data fetching)
-      const rawData = await fetchGameData(gameType);
+      // Calendar-only loading: fetch race IDs and create race tabs.
+      const races = await fetchGameData(gameType);
 
-      console.log(`[RaceAnalyzer] Raw data received for ${gameType}:`, rawData);
+      console.log(`[RaceAnalyzer] Race IDs received for ${gameType}:`, races);
 
-      // Temporary mode: use calendar race IDs only until correct game-detail endpoint is identified.
-      if (rawData?.calendarOnly) {
-        const raceIds = rawData?.races || [];
-        const parsedRaces = raceIds.map((race, index) => ({
-          race: {
-            id: race.id,
-            number: index + 1,
-            gameNumber: index + 1,
-            name: `${gameType}-${index + 1}`,
-            track: 'Unknown',
-            date: new Date().toISOString().split('T')[0],
-            distance: null
-          },
-          horses: []
-        }));
-
-        setGameData(rawData);
-        setAllRaces(parsedRaces);
-        setSelectedRaceIndex(0);
-        setSelectedRace(parsedRaces[0] || null);
-        setAnalyzedHorses([]);
-        setError(null);
-        setLoading(false);
-
-        toast.success(`${gameType} loaded`, {
-          description: `${parsedRaces.length} races available (calendar IDs)`
-        });
-        return;
-      }
-
-      // Step 2: Extract races from the API response
-      const apiRaces = rawData?.game?.races || [];
-
-      if (apiRaces.length === 0) {
+      if (!Array.isArray(races) || races.length === 0) {
         console.error(`[RaceAnalyzer] No races found in API response for ${gameType}`);
         throw new Error(`No races found for ${gameType}`);
       }
 
-      console.log(`[RaceAnalyzer] Processing ${apiRaces.length} races for ${gameType}`);
-
-      // Step 3: Normalize the data
-      const normalizedData = normalizeRaceData({ ...rawData, races: apiRaces }, gameType);
-
-      // Step 4: Analyze the normalized data
-      const analyzedData = analyzeRaceData(normalizedData);
-
-      setGameData(analyzedData);
-
-      // Step 5: Convert to the format expected by the UI
-      const parsedRaces = analyzedData.races.map((race, index) => ({
+      const parsedRaces = races.map((race, index) => ({
         race: {
+          id: race.id,
           number: index + 1,
           gameNumber: index + 1,
           name: `${gameType}-${index + 1}`,
-          track: 'Unknown', // TODO: Add track info to normalized format
-          date: new Date().toISOString().split('T')[0], // TODO: Add date to normalized format
-          distance: race.distance
+          track: 'Unknown',
+          date: new Date().toISOString().split('T')[0],
+          distance: null
         },
-        horses: race.horses
+        horses: []
       }));
 
       console.log(`[RaceAnalyzer] Step 6: SET RACES CALLED - Using ${parsedRaces.length} races from API for ${gameType}`);
@@ -159,7 +116,8 @@ const RaceAnalyzer = () => {
 
       console.log(`[RaceAnalyzer] ✅ RENDER: allRaces state updated, UI will show ${parsedRaces.length} races for ${gameType}`);
 
-      // analyzedHorses will be set by useEffect when selectedRace changes
+      setGameData({ gameType, races });
+      setAnalyzedHorses([]);
 
       toast.success(`${gameType} loaded`, {
         description: `${parsedRaces.length} races available`
