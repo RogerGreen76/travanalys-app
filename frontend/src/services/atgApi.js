@@ -120,10 +120,23 @@ export const fetchGameData = async (selectedGameType) => {
     }
   }
 
-  const sampleRawHorse = fullRaceMap[raceIds[0]]?.starts?.[0] || null;
-  if (sampleRawHorse) {
-    console.log('Horse before normalize:', sampleRawHorse);
-    console.log('Horse after normalize:', normalizeHorse(sampleRawHorse, matchedKey || selectedGameType));
+  const selectedRaceRaw = fullRaceMap[raceIds[0]] || null;
+  const selectedHorseRaw = selectedRaceRaw?.starts?.[0] || null;
+  const normalizedHorseSample = selectedHorseRaw
+    ? normalizeHorse(selectedHorseRaw, matchedKey || selectedGameType)
+    : null;
+
+  const v85Race = selectedGameType === 'V85' ? selectedRaceRaw : null;
+  const ddRace = selectedGameType === 'DD' ? selectedRaceRaw : null;
+
+  console.log("V85 selected race raw:", JSON.stringify(v85Race, null, 2));
+  console.log("DD selected race raw:", JSON.stringify(ddRace, null, 2));
+  console.log("V85 raw horse sample:", JSON.stringify(v85Race?.starts?.[0], null, 2));
+  console.log("DD raw horse sample:", JSON.stringify(ddRace?.starts?.[0], null, 2));
+
+  if (selectedHorseRaw) {
+    console.log('Horse before normalize:', selectedHorseRaw);
+    console.log('Horse after normalize:', normalizedHorseSample);
   }
 
   // Step 3: Build race objects with normalized horses
