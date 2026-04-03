@@ -8,6 +8,11 @@ import { toast } from 'sonner';
 // Import the new data pipeline services
 import { analyzeRaceData } from '../services/analyzeRaceData';
 
+const formatNumber = (value, decimals = 1) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toFixed(decimals) : '-';
+};
+
 const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIndex = 0 }) => {
   const [autoSuggestion, setAutoSuggestion] = useState(null);
   const [manualSelection, setManualSelection] = useState({
@@ -158,10 +163,10 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         </div>
         <div className="flex gap-2">
           <Badge className={getValueColor(horse.valueRatio)}>
-            Ratio: {horse.valueRatio.toFixed(2)}
+            Ratio: {formatNumber(horse.valueRatio, 2)}
           </Badge>
           <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/40">
-            Rank: {horse.rankingScore.toFixed(1)}
+            Rank: {formatNumber(horse.rankingScore, 1)}
           </Badge>
         </div>
       </div>
@@ -170,7 +175,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         <div className="flex-1">
           <div className="font-semibold text-white">{horse.name}</div>
           <div className="text-xs text-gray-400">
-            Odds: {horse.odds.toFixed(2)} • Streck: {horse.streckPercent.toFixed(1)}% • {horse.play}
+            Odds: {formatNumber(horse.odds, 2)} • Streck: {formatNumber(horse.streckPercent, 1)}% • {horse.play}
           </div>
         </div>
       </div>
@@ -236,7 +241,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
                           <Badge className="bg-blue-500/20 text-blue-400">
-                            {horse.rankingScore.toFixed(1)}
+                            {formatNumber(horse.rankingScore, 1)}
                           </Badge>
                         </div>
                       </div>
@@ -249,7 +254,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
                           <Badge className="bg-purple-500/20 text-purple-400">
-                            {horse.rankingScore.toFixed(1)}
+                            {formatNumber(horse.rankingScore, 1)}
                           </Badge>
                         </div>
                       </div>
@@ -288,7 +293,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                             index < 3 ? 'bg-yellow-500/20 text-yellow-400' :
                             'bg-gray-600/20 text-gray-400'
                           }>
-                            Score: {combo.combinedScore.toFixed(1)}
+                            Score: {formatNumber(combo.combinedScore, 1)}
                           </Badge>
                         </div>
                       </div>
