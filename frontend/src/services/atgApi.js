@@ -40,7 +40,6 @@ export const findGameInCalendar = async (gameType, date = null) => {
       throw new Error('gameType is required');
     }
 
-    // Use provided date or generate today's date in Swedish timezone
     const calendarDate = date || getSwedenDate();
     const calendarUrl = `/api/atg/calendar?date=${encodeURIComponent(calendarDate)}`;
 
@@ -49,87 +48,29 @@ export const findGameInCalendar = async (gameType, date = null) => {
     console.log(`[ATG] URL: ${calendarUrl}`);
 
     const calendarResponse = await fetch(calendarUrl, {
-      headers: {
-        accept: 'application/json'
-      }
+      headers: { accept: 'application/json' }
     });
 
     if (!calendarResponse.ok) {
       const errorText = await calendarResponse.text();
-      throw new Error(`Failed at /api/atg/calendar with status ${calendarResponse.status}: ${errorText.slice(0, 100)}`);
-    }
-
-    if (!calendarResponse.ok) {    if (!text.trim().startsWith('{')) {
-      throw new Error('API route /api/atg/calendar did not return JSON');
-    }
-
-    const calendarData = JSON.parse(text);      const text = await calendarResponse.text();
-      console.error('[ATG] calendar route response not ok', { status: calendarResponse.status, body: text.slice(0, 500) });
-      throw new Error(`Calendar route fetch failed ${calendarResponse.status}`);
+      throw new Error(`Calendar route returned ${calendarResponse.status}: ${errorText.slice(0, 200)}`);
     }
 
     const text = await calendarResponse.text();
     if (!text.trim().startsWith('{')) {
-      console.error('[ATG] calendar route returned non-json response', { text: text.slice(0, 200) });
-      throw new Error('ATG calendar route did not return JSON');
+      throw new Error(`Calendar route did not return JSON. Got: ${text.slice(0, 100)}`);
     }
 
     const calendarData = JSON.parse(text);
-    console.log(`[ATG] === CALENDAR RESPONSE ===`);
-    console.log(`[ATG] Response status: ${calendarResponse.status}`);
-    console.log(`[ATG] Response games count: ${calendarData?.games?.length}`);
+    console.log(`[ATG] Calendar games count: ${calendarData?.games?.length}`);
 
     const games = calendarData?.games || [];
     if (!Array.isArray(games)) {
       throw new Error('Calendar response has invalid games structure');
     }
 
-    console.log(`[ATG] Searching for game ${gameType} in ${games.length} available games...`);
     console.log(`[ATG] Available game types:`, games.map(g => ({ betType: g?.betType, game: g?.game, name: g?.name, type: g?.type, id: g?.id })));
 
-    // Find game matching the gameType by betType, game, or name field
-    const game = games.find(g => {
-      if (!g) return false;
-      return g?.betType === gameType || g?.game === gameType || g?.name === gameType || g?.type === gameType;
-    });
-
-    if (!game) {
-      console.error(`[ATG] ❌ Game ${gameType} NOT FOUND in calendar`);
-      throw new Error(`Game type ${gameType} not found in calendar for ${calendarDate}`);
-    }
-
-    if (!game.id) {
-      console.error(`[ATG] ❌ Matched game missing ID:`, game);
-      throw new Error(`Game found for ${gameType} but missing ID`);
-    }
-
-    console.log(`[ATG] ✅ Found game ${gameType} with ID: ${game.id}`);
-    return game;
-  } catch (error) {
-    console.error(`[ATG] Error finding game in calendar: ${error.message}`);
-    throw error;
-  }
-};
-
-    if (!calendarResponse.ok) {
-      console.error(`[ATG] Calendar fetch failed with status: ${calendarResponse.status}`);
-      throw new Error(`Calendar fetch failed: ${calendarResponse.status}`);
-    }
-
-    const calendarData = await calendarResponse.json();
-    console.log(`[ATG] === CALENDAR RESPONSE ===`);
-    console.log(`[ATG] Response status: ${calendarResponse.status}`);
-    console.log(`[ATG] Response games count: ${calendarData?.games?.length}`);
-
-    const games = calendarData?.games || [];
-    if (!Array.isArray(games)) {
-      throw new Error('Calendar response has invalid games structure');
-    }
-
-    console.log(`[ATG] Searching for game ${gameType} in ${games.length} available games...`);
-    console.log(`[ATG] Available game types:`, games.map(g => ({ betType: g?.betType, game: g?.game, name: g?.name, type: g?.type, id: g?.id })));
-
-    // Find game matching the gameType by betType, game, or name field
     const game = games.find(g => {
       if (!g) return false;
       return g?.betType === gameType || g?.game === gameType || g?.name === gameType || g?.type === gameType;
