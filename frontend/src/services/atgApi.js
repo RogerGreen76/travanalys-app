@@ -42,7 +42,7 @@ export const findGameInCalendar = async (gameType, date = null) => {
 
     // Use provided date or generate today's date in Swedish timezone
     const calendarDate = date || getSwedenDate();
-    const calendarUrl = `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/calendar/day/${calendarDate}`;
+    const calendarUrl = `/api/atg-calendar?date=${encodeURIComponent(calendarDate)}`;
 
     console.log(`[ATG] === CALENDAR FETCH ===`);
     console.log(`[ATG] GameType: ${gameType}`);
@@ -60,7 +60,8 @@ export const findGameInCalendar = async (gameType, date = null) => {
 
     const calendarData = await calendarResponse.json();
     console.log(`[ATG] === CALENDAR RESPONSE ===`);
-    console.log(`[ATG] Response status: ${calendarResponse.status}`);\n    console.log(`[ATG] Response games count: ${calendarData?.games?.length}`);
+    console.log(`[ATG] Response status: ${calendarResponse.status}`);
+    console.log(`[ATG] Response games count: ${calendarData?.games?.length}`);
 
     const games = calendarData?.games || [];
     if (!Array.isArray(games)) {
@@ -105,11 +106,12 @@ export const fetchGameDataById = async (gameId) => {
       throw new Error('gameId is required');
     }
 
-    const url = `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/games/${gameId}`;
+    const url = `/api/atg-game?gameId=${encodeURIComponent(gameId)}`;
 
     console.log(`[ATG] === GAME FETCH ===`);
     console.log(`[ATG] GameID: ${gameId}`);
-    console.log(`[ATG] URL: ${url}`);\n    const response = await fetch(url, {
+    console.log(`[ATG] URL: ${url}`);
+    const response = await fetch(url, {
       headers: {
         accept: 'application/json'
       }
