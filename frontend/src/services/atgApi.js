@@ -93,10 +93,23 @@ export const fetchGameData = async (selectedGameType) => {
     throw new Error(`Game ${selectedGameType} not found`);
   }
 
-  const raceIds = Array.isArray(game.races) ? game.races : [];
+  console.log("game raw:", game);
+  console.log("typeof game.races:", typeof game.races);
+  console.log("game.races raw:", game.races);
+  console.log("Array.isArray(game.races):", Array.isArray(game.races));
+  console.log("game.races keys:", Object.keys(game.races || {}));
 
-  console.log("raceIds length:", raceIds.length);
-  console.log("raceIds raw:", raceIds);
+  let raceIds = [];
+
+  if (Array.isArray(game.races)) {
+    raceIds = game.races;
+  } else if (game.races && typeof game.races === "object") {
+    raceIds = Object.values(game.races);
+  } else if (typeof game.races === "string") {
+    raceIds = [game.races];
+  }
+
+  console.log("normalized raceIds:", raceIds);
 
   return raceIds.map((raceId, index) => ({
     id: raceId,
