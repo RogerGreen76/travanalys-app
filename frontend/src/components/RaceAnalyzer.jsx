@@ -81,7 +81,7 @@ const RaceAnalyzer = () => {
 
           return {
             race: {
-              number: race.raceNumber,
+              number: index + 1,
               gameNumber: index + 1,
               name: `${gameType}-${index + 1}`,
               track: track,
@@ -131,7 +131,7 @@ const RaceAnalyzer = () => {
       // Step 5: Convert to the format expected by the UI
       const parsedRaces = analyzedData.races.map((race, index) => ({
         race: {
-          number: race.raceNumber,
+          number: index + 1,
           gameNumber: index + 1,
           name: `${gameType}-${index + 1}`,
           track: 'Unknown', // TODO: Add track info to normalized format
@@ -201,7 +201,7 @@ const RaceAnalyzer = () => {
 
         return {
           race: {
-            number: race.raceNumber,
+            number: index + 1,
             gameNumber: index + 1,
             name: `${gameType}-${index + 1}`,
             track: track,
