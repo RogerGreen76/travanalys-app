@@ -59,19 +59,18 @@ export const findGameInCalendar = async (gameType, date = null) => {
     const calendar = await calendarResponse.json();
     console.log('[ATG] Calendar JSON:', calendar);
 
-    const games = calendar?.games || {};
-    const gameKey = gameType;
-    const game = games?.[gameKey];
-    console.log('[ATG] Selected game object:', game);
-    console.log('[ATG] Game keys:', Object.keys(game || {}));
+      const selectedGameType = gameType;
+      const game = calendar?.games?.[selectedGameType];
+      console.log('[ATG] Selected game:', game);
+      console.log('[ATG] Game keys:', Object.keys(game || {}));
 
     if (!game) {
-      console.error(`[ATG] ❌ Game ${gameType} NOT FOUND in calendar`);
-      throw new Error(`Game type ${gameType} not found in calendar for ${calendarDate}`);
+        console.error(`[ATG] ❌ Game ${selectedGameType} NOT FOUND in calendar`);
+        throw new Error(`Game type ${selectedGameType} not found in calendar for ${calendarDate}`);
     }
 
     const raceIds = game?.races || [];
-    console.log('[ATG] Race IDs from calendar:', raceIds);
+      console.log('[ATG] Race IDs:', raceIds);
 
     const gameId =
       game?.gameId ||
