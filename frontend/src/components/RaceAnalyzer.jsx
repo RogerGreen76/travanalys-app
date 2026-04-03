@@ -50,55 +50,12 @@ const RaceAnalyzer = () => {
     }
   }, [selectedGameType]);
 
-  // Persist manuell ATG-json mellan pageladdningar
+  // Clean up: Remove auto-import from localStorage on mount
+  // Data should come ONLY from fresh ATG API or manual import
   useEffect(() => {
-    const saved = localStorage.getItem('atgRawData');
-    if (saved) {
-      setJsonInput(saved);
-     // setShowManualInput(true);
-
-      try {
-        const rawData = parseManualImport(saved);
-        const gameType = rawData.gameType || 'V85';
-        const normalizedData = normalizeRaceData(rawData, gameType);
-        const analyzedData = analyzeRaceData(normalizedData);
-
-        setSelectedGameType(gameType);
-        setGameData(analyzedData);
-
-        const parsedRaces = analyzedData.races.map((race, index) => {
-          let track = 'Unknown';
-          if (rawData.races?.[index]?.track?.name) {
-            track = rawData.races[index].track.name;
-          } else if (rawData.races?.[index]?.trackName) {
-            track = rawData.races[index].trackName;
-          }
-
-          let date = new Date().toISOString().split('T')[0];
-          if (rawData.races?.[index]?.startTime) {
-            date = rawData.races[index].startTime.split('T')[0];
-          }
-
-          return {
-            race: {
-              number: index + 1,
-              gameNumber: index + 1,
-              name: `${gameType}-${index + 1}`,
-              track: track,
-              date: date,
-              distance: race.distance
-            },
-            horses: race.horses
-          };
-        });
-
-        setAllRaces(parsedRaces);
-        setSelectedRaceIndex(0);
-        setSelectedRace(parsedRaces[0]);
-      } catch (err) {
-        console.error('Failed to auto-import saved ATG JSON', err);
-      }
-    }
+    console.log('[RaceAnalyzer] Mount effect: Clearing cached localStorage data to force fresh API fetch');
+    localStorage.removeItem('atgRawData');
+    // Fresh data will be loaded via selectedGameType useEffect
   }, []);
 
   // Update analyzed horses when selected race changes
@@ -153,13 +110,14 @@ const RaceAnalyzer = () => {
         horses: race.horses
       }));
 
-      console.log(`[RaceAnalyzer] Successfully loaded ${parsedRaces.length} races for UI`);
-
+      console.log(`[RaceAnalyzer] Step 6: SET RACES CALLED - Using ${parsedRaces.length} races from API for ${gameType}`);\n      console.log(`[RaceAnalyzer] First race: ${parsedRaces[0]?.race.name || 'ERROR: no first race'}`);\n      console.log(`[RaceAnalyzer] Last race: ${parsedRaces[parsedRaces.length - 1]?.race.name || 'ERROR: nomatchinglastrace'}`);\n    
       // Step 6: Replace races completely and reset to first race
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
       setSelectedRace(parsedRaces[0]);
       setError(null);
+
+      console.log(`[RaceAnalyzer] ✅ RENDER: allRaces state updated, UI will show ${parsedRaces.length} races for ${gameType}`);
 
       // analyzedHorses will be set by useEffect when selectedRace changes
 
