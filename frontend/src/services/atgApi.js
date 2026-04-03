@@ -56,38 +56,29 @@ export const findGameInCalendar = async (gameType, date = null) => {
       throw new Error(`Calendar route returned ${calendarResponse.status}: ${errorText.slice(0, 200)}`);
     }
 
-    const text = await calendarResponse.text();
-    if (!text.trim().startsWith('{')) {
-      throw new Error(`Calendar route did not return JSON. Got: ${text.slice(0, 100)}`);
-    }
+    const calendar = await calendarResponse.json();
+    console.log('[ATG] Calendar JSON:', calendar);
 
-    const calendarData = JSON.parse(text);
-    console.log(`[ATG] Calendar games count: ${calendarData?.games?.length}`);
-
-    const games = calendarData?.games || [];
-    if (!Array.isArray(games)) {
-      throw new Error('Calendar response has invalid games structure');
-    }
-
-    console.log(`[ATG] Available game types:`, games.map(g => ({ betType: g?.betType, game: g?.game, name: g?.name, type: g?.type, id: g?.id })));
-
-    const game = games.find(g => {
-      if (!g) return false;
-      return g?.betType === gameType || g?.game === gameType || g?.name === gameType || g?.type === gameType;
-    });
+    const games = calendar?.games || {};
+    const gameKey = gameType;
+    const game = games?.[gameKey];
+    console.log('[ATG] Selected game object:', game);
 
     if (!game) {
       console.error(`[ATG] ❌ Game ${gameType} NOT FOUND in calendar`);
       throw new Error(`Game type ${gameType} not found in calendar for ${calendarDate}`);
     }
 
-    if (!game.id) {
+    const gameId = game?.id || game?.gameId || game?.['@id'];
+    console.log('[ATG] Resolved gameId:', gameId);
+
+    if (!gameId) {
       console.error(`[ATG] ❌ Matched game missing ID:`, game);
-      throw new Error(`Game found for ${gameType} but missing ID`);
+      throw new Error(`No gameId found for ${gameType}`);
     }
 
-    console.log(`[ATG] ✅ Found game ${gameType} with ID: ${game.id}`);
-    return game;
+    console.log(`[ATG] ✅ Found game ${gameType} with ID: ${gameId}`);
+    return { game, gameId };
   } catch (error) {
     console.error(`[ATG] Error finding game in calendar: ${error.message}`);
     throw error;
@@ -122,23 +113,23 @@ export const fetchGameDataById = async (gameId) => {
     }
 
     const gameData = await response.json();
+    console.log('[ATG] Game JSON:', gameData);
     console.log(`[ATG] === GAME RESPONSE ===`);
     console.log(`[ATG] Response status: ${response.status}`);
-    console.log(`[ATG] Races count: ${gameData?.game?.races?.length || 0}`);
+    const races = gameData?.races || gameData?.game?.races || [];
+    console.log(`[ATG] Races count: ${races.length}`);
 
-    // Validate the response structure
-    if (!gameData?.game) {
-      console.error(`[ATG] Response missing 'game' object:`, gameData);
-      throw new Error('Game response missing game object');
-    }
-
-    if (!Array.isArray(gameData.game.races)) {
-      console.error(`[ATG] Response missing 'game.races' array:`, gameData.game);
+    if (!Array.isArray(races)) {
+      console.error(`[ATG] Response missing races array:`, gameData);
       throw new Error('Game response missing races array');
     }
 
-    console.log(`[ATG] Game data has ${gameData.game.races.length} races`);
-    return gameData;
+    const normalizedGameData = gameData?.game
+      ? { ...gameData, game: { ...gameData.game, races } }
+      : { ...gameData, game: { races } };
+
+    console.log(`[ATG] Game data has ${races.length} races`);
+    return normalizedGameData;
   } catch (error) {
     console.error(`[ATG] Error fetching game data: ${error.message}`);
     throw error;
@@ -161,13 +152,13 @@ export const fetchGameData = async (gameType) => {
     console.log(`[ATG] Starting fetchGameData for: ${gameType}`);
 
     // Step 1: Find game in calendar
-    const game = await findGameInCalendar(gameType);
+    const selectedGame = await findGameInCalendar(gameType);
 
     // Step 2: Fetch game data using the gameId
-    const gameData = await fetchGameDataById(game.id);
+    const gameData = await fetchGameDataById(selectedGame.gameId);
 
     // Step 3: Validate races exist
-    const races = gameData?.game?.races || [];
+    const races = gameData?.races || gameData?.game?.races || [];
     if (races.length === 0) {
       console.warn(`[ATG] No races found for game ${gameType}`);
       throw new Error(`No races found for ${gameType}`);
