@@ -14,6 +14,22 @@ import { fetchGameData, parseManualImport } from '../services/atgApi';
 import { normalizeRaceData } from '../services/normalizeRaceData';
 import { analyzeRaceData } from '../services/analyzeRaceData';
 
+/**
+ * Filter races for a specific game type based on horse pools
+ * @param {Array} races - Array of race objects
+ * @param {string} gameType - Game type to filter by (V85, V86, etc.)
+ * @returns {Array} Filtered races
+ */
+function getRacesForGameType(races, gameType) {
+  return races.filter(race =>
+    race.horses.some(horse =>
+      horse.pools && Object.keys(horse.pools).some(poolKey =>
+        poolKey === gameType || poolKey.toLowerCase() === gameType.toLowerCase()
+      )
+    )
+  );
+}
+
 const RaceAnalyzer = () => {
   const [jsonInput, setJsonInput] = useState('');
   const [allRaces, setAllRaces] = useState([]);
@@ -25,14 +41,21 @@ const RaceAnalyzer = () => {
   const [selectedGameType, setSelectedGameType] = useState('V85');
   const [gameData, setGameData] = useState(null);
   const [showManualInput, setShowManualInput] = useState(false);
+  const [isUsingImportedData, setIsUsingImportedData] = useState(false);
+  const [allImportedRaces, setAllImportedRaces] = useState([]);
 
   // Ladda data när gameType ändras
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (selectedGameType && !showManualInput) {
+    if (isUsingImportedData) {
+      const filteredRaces = getRacesForGameType(allImportedRaces, selectedGameType);
+      setAllRaces(filteredRaces);
+      if (filteredRaces.length > 0) {
+        setSelectedRaceIndex(0);
+      }
+    } else if (selectedGameType && !showManualInput) {
       handleLoadGameType(selectedGameType);
     }
-  }, [selectedGameType]);
+  }, [selectedGameType, isUsingImportedData]);
 
   // Persist manuell ATG-json mellan pageladdningar
   useEffect(() => {
@@ -77,6 +100,8 @@ const RaceAnalyzer = () => {
         });
 
         setAllRaces(parsedRaces);
+        setAllImportedRaces(parsedRaces);
+        setIsUsingImportedData(true);
         setSelectedRaceIndex(0);
       } catch (err) {
         console.error('Failed to auto-import saved ATG JSON', err);
@@ -93,6 +118,7 @@ const RaceAnalyzer = () => {
 
   const handleLoadGameType = async (gameType) => {
     try {
+      setIsUsingImportedData(false);
       // Step 1: Fetch raw game data
       const rawData = await fetchGameData(gameType);
 
@@ -187,6 +213,8 @@ const RaceAnalyzer = () => {
       });
 
       setAllRaces(parsedRaces);
+      setAllImportedRaces(parsedRaces);
+      setIsUsingImportedData(true);
       setSelectedRaceIndex(0);
       setShowManualInput(false);
       setJsonInput('');
@@ -456,6 +484,8 @@ const RaceAnalyzer = () => {
   const clearData = () => {
     setJsonInput('');
     setAllRaces([]);
+    setAllImportedRaces([]);
+    setIsUsingImportedData(false);
     setSelectedRaceIndex(0);
     setAnalyzedHorses([]);
     setError(null);
