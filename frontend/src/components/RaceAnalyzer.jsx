@@ -34,6 +34,7 @@ const RaceAnalyzer = () => {
   const [jsonInput, setJsonInput] = useState('');
   const [allRaces, setAllRaces] = useState([]);
   const [selectedRaceIndex, setSelectedRaceIndex] = useState(0);
+  const [selectedRace, setSelectedRace] = useState(null);
   const [analyzedHorses, setAnalyzedHorses] = useState([]);
   const [error, setError] = useState(null);
   
@@ -47,15 +48,19 @@ const RaceAnalyzer = () => {
   // Ladda data när gameType ändras
   useEffect(() => {
     if (isUsingImportedData) {
-      const filteredRaces = getRacesForGameType(allImportedRaces, selectedGameType);
+      let filteredRaces = getRacesForGameType(allImportedRaces, selectedGameType);
+      if (!filteredRaces || filteredRaces.length === 0) {
+        filteredRaces = allImportedRaces;
+      }
       setAllRaces(filteredRaces);
       if (filteredRaces.length > 0) {
         setSelectedRaceIndex(0);
+        setSelectedRace(filteredRaces[0]);
       }
     } else if (selectedGameType && !showManualInput) {
       handleLoadGameType(selectedGameType);
     }
-  }, [selectedGameType, isUsingImportedData]);
+  }, [selectedGameType, isUsingImportedData, allImportedRaces]);
 
   // Persist manuell ATG-json mellan pageladdningar
   useEffect(() => {
@@ -103,6 +108,7 @@ const RaceAnalyzer = () => {
         setAllImportedRaces(parsedRaces);
         setIsUsingImportedData(true);
         setSelectedRaceIndex(0);
+        setSelectedRace(parsedRaces[0]);
       } catch (err) {
         console.error('Failed to auto-import saved ATG JSON', err);
       }
@@ -111,10 +117,10 @@ const RaceAnalyzer = () => {
 
   // Update analyzed horses when selected race changes
   useEffect(() => {
-    if (allRaces.length > 0 && selectedRaceIndex < allRaces.length) {
-      setAnalyzedHorses(allRaces[selectedRaceIndex].horses);
+    if (selectedRace) {
+      setAnalyzedHorses(selectedRace.horses);
     }
-  }, [selectedRaceIndex, allRaces]);
+  }, [selectedRace]);
 
   const handleLoadGameType = async (gameType) => {
     try {
@@ -145,8 +151,9 @@ const RaceAnalyzer = () => {
 
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);
+      setSelectedRace(parsedRaces[0]);
 
-      // analyzedHorses will be set by useEffect when selectedRaceIndex changes
+      // analyzedHorses will be set by useEffect when selectedRace changes
 
       toast.success(`${gameType} loaded`, {
         description: `${parsedRaces.length} races available`
@@ -216,6 +223,7 @@ const RaceAnalyzer = () => {
       setAllImportedRaces(parsedRaces);
       setIsUsingImportedData(true);
       setSelectedRaceIndex(0);
+      setSelectedRace(parsedRaces[0]);
       setShowManualInput(false);
       setJsonInput('');
 
@@ -466,6 +474,7 @@ const RaceAnalyzer = () => {
 
     setTimeout(() => {
       setSelectedRaceIndex(raceIndex);
+      setSelectedRace(allRaces[raceIndex]);
       // analyzedHorses will be updated by useEffect
 
       toast.info(`Visar lopp ${raceIndex + 1}`, {
@@ -487,6 +496,7 @@ const RaceAnalyzer = () => {
     setAllImportedRaces([]);
     setIsUsingImportedData(false);
     setSelectedRaceIndex(0);
+    setSelectedRace(null);
     setAnalyzedHorses([]);
     setError(null);
   };
