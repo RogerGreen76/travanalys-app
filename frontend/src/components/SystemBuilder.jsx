@@ -82,9 +82,11 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       const finalScore = Number(horse.finalScore) || 0;
       const rankingScore = Number(horse.rankingScore) || 0;
       const odds = Number(horse.odds) || 0;
+      const streckPercent = Number(horse.streckPercent) || 0;
+      const valueRatio = Number(horse.valueRatio) || 0;
 
       // Clamp value ratio so extreme outliers do not dominate the system suggestion.
-      const cappedValueRatio = Math.min(Math.max(Number(horse.valueRatio) || 0, 0.8), 1.8);
+      const cappedValueRatio = Math.min(Math.max(valueRatio, 0.8), 1.8);
 
       const systemScore =
         (finalScore * 0.55) +
@@ -94,10 +96,26 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       const isExtremeLongshot =
         odds > 40 || rankingScore < 60 || finalScore < 80;
 
+      const isOverExtremeSkrall = odds > 35 && finalScore < 90;
+      const isSkrallbud =
+        valueRatio >= 1.15 &&
+        streckPercent <= 0.12 &&
+        odds >= 5 &&
+        odds <= 35 &&
+        finalScore >= 60 &&
+        !isOverExtremeSkrall;
+
+      const skrallScore =
+        (valueRatio * 100 * 0.45) +
+        (finalScore * 0.35) +
+        (rankingScore * 0.20);
+
       return {
         ...horse,
         systemScore,
-        isExtremeLongshot
+        isExtremeLongshot,
+        isSkrallbud,
+        skrallScore
       };
     });
 
@@ -137,7 +155,12 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       )
       .slice(0, 5);
 
-    setAutoSuggestion({ spik, las, gardering });
+    const skrallbud = enriched
+      .filter(h => h.isSkrallbud)
+      .sort((a, b) => b.skrallScore - a.skrallScore)
+      .slice(0, 4);
+
+    setAutoSuggestion({ spik, las, gardering, skrallbud });
   };
 
   const toggleHorseInManual = (horse, category) => {
@@ -386,6 +409,24 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                       icon={Shield}
                       label="Gardering"
                       color="bg-gray-700/30 border-gray-600/30"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {autoSuggestion.skrallbud?.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-yellow-300 uppercase flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Skrallbud ({autoSuggestion.skrallbud.length})
+                  </h3>
+                  {autoSuggestion.skrallbud.map(horse => (
+                    <HorseCard
+                      key={`skrall-${horse.number}`}
+                      horse={horse}
+                      icon={Sparkles}
+                      label="Skrallbud"
+                      color="bg-yellow-500/10 border-yellow-500/30"
                     />
                   ))}
                 </div>
