@@ -87,6 +87,7 @@ const RaceAnalyzer = () => {
         race: {
           id: race.id,
           number: race.number,
+          actualRaceNumber: race.actualRaceNumber || null,
           name: race.name,
           track: race.track || '',
           date: race.date || new Date().toISOString().split('T')[0],
@@ -532,6 +533,9 @@ const RaceAnalyzer = () => {
                     >
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{`${selectedGameType}-${raceItem.race.number || index + 1}`}</span>
+                        {raceItem.race.actualRaceNumber && (
+                          <span className="text-xs text-gray-400">Avd {raceItem.race.actualRaceNumber}</span>
+                        )}
                         <span className="text-xs text-gray-400">({raceItem.horses.length})</span>
                       </div>
                     </TabsTrigger>

@@ -162,9 +162,12 @@ export const fetchGameData = async (selectedGameType) => {
         }).races[0].horses
       : normalizedHorses;
 
+    const actualRaceNumber = Number(String(raceId).split('_').pop()) || null;
+
     return {
       id: raceId,
       number: index + 1,
+      actualRaceNumber,
       name: `${selectedGameType}-${index + 1}`,
       track: fullRace?.track?.name || '',
       date: fullRace?.startTime?.split('T')[0] || today,
