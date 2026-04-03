@@ -88,7 +88,7 @@ const PerformanceDashboard = () => {
         <CardContent>
           {completedHistory.length === 0 ? (
             <div className="text-sm text-gray-400" data-testid="performance-empty-state">
-              Ingen historik med både prediction och resultat ännu.
+              Ingen historik sparad ännu.
             </div>
           ) : (
             <div className="overflow-x-auto">

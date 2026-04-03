@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner';
 import HorseTable from './HorseTable';
 import SystemBuilder from './SystemBuilder';
+import PerformanceDashboard from './PerformanceDashboard';
 import { AlertCircle, Upload, FileJson, ChevronRight, TrendingUp } from 'lucide-react';
 
 // Import the new data pipeline services
@@ -700,6 +701,12 @@ const RaceAnalyzer = () => {
               allRaces={allRaces}
               selectedRaceIndex={selectedRaceIndex}
             />
+          </div>
+        )}
+
+        {selectedGameType === 'V85' && !showManualInput && (
+          <div className="mt-6">
+            <PerformanceDashboard />
           </div>
         )}
       </div>
