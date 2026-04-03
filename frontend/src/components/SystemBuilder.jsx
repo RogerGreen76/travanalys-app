@@ -79,22 +79,17 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
   const generateAutoSuggestion = () => {
     const enriched = horses.map(horse => {
-      const valueRatio = Number(horse.valueRatio) || 0;
       const finalScore = Number(horse.finalScore) || 0;
       const rankingScore = Number(horse.rankingScore) || 0;
       const odds = Number(horse.odds) || 0;
 
-      // Clamp to avoid ratio outliers dominating the suggestion model.
-      const safeRatio = Math.min(Math.max(valueRatio, 0), 2.0);
-      const playBonus = horse.play === 'Stark play' ? 8 : horse.play === 'Möjlig play' ? 4 : 0;
-      const valueBonus = horse.valueStatus === 'Spelvärd' ? 3 : horse.valueStatus === 'Neutral' ? 1 : 0;
+      // Clamp value ratio so extreme outliers do not dominate the system suggestion.
+      const cappedValueRatio = Math.min(Math.max(Number(horse.valueRatio) || 0, 0.8), 1.8);
 
       const systemScore =
         (finalScore * 0.55) +
         (rankingScore * 0.30) +
-        (safeRatio * 100 * 0.15) +
-        playBonus +
-        valueBonus;
+        (cappedValueRatio * 100 * 0.15);
 
       const isExtremeLongshot =
         odds > 40 || rankingScore < 60 || finalScore < 80;
@@ -355,7 +350,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                   <div className="flex items-center gap-2 text-gray-400">
                     <Target className="w-4 h-4" />
                     <span className="text-sm font-semibold">Ingen spik</span>
-                    <span className="text-xs opacity-80">• Ingen häst har value ratio över 1.20</span>
+                    <span className="text-xs opacity-80">• Ingen häst uppfyller score- och longshot-kraven</span>
                   </div>
                 </div>
               )}
