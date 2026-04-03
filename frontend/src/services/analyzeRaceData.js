@@ -124,11 +124,12 @@ const analyzeHorses = (horses) => {
 
     // ===== FINAL SCORE =====
     const winStrength = (0.65 * rankingScore + 0.35 * horseScore) / 2;
-    const marketEdge = (valueRatio - 1) * 100;
+    const cappedValueRatio = Math.min(Math.max(valueRatio, 0.8), 1.6);
+    const marketEdge = (cappedValueRatio - 1) * 100;
     const adjustedMarketEdge = marketEdge * favoritBiasFactor;
-    const confidence = Math.sqrt(streckPercent * 100);
+    const confidence = Math.sqrt(Math.max(streckPercent, 0));
     const finalScore =
-      winStrength + adjustedMarketEdge * 0.25 + confidence * 1.5 + paceScore * 0.8;
+      winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + paceScore * 0.5;
 
     // Play recommendation - finalScore is the main driver, valueRatio adjusts
     let play = "No play";
