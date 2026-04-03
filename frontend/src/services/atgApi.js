@@ -80,31 +80,44 @@ export const findGameInCalendar = async (gameType, date = null) => {
 };
 
 /**
- * Temporary debug loader: read race IDs directly from calendar only.
+ * Temporary debug loader: read race IDs directly from calendar.
+ * Falls back to calendar.tracks if game.races is missing.
  * @param {string} selectedGameType - The game type (V85, V86, V64, V65, V5, DD)
  * @returns {Promise<Array>} Race objects for tabs
  */
 export const fetchGameData = async (selectedGameType) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   const res = await fetch(`/api/atg/calendar?date=${today}`);
   const calendar = await res.json();
 
-  console.log('Calendar:', calendar);
+  console.log("Calendar:", calendar);
 
   const game = calendar?.games?.[selectedGameType];
-
   if (!game) {
-    throw new Error('Game not found in calendar');
+    throw new Error(`Game ${selectedGameType} not found`);
   }
 
-  const races = (game.races || []).map((raceId, i) => ({
+  let raceIds = game?.races || [];
+
+  if (!raceIds.length && game?.tracks?.length) {
+    raceIds = (calendar.tracks || [])
+      .filter(track => game.tracks.includes(track.id))
+      .flatMap(track => track.races || [])
+      .map(race => race.id || race);
+  }
+
+  if (!raceIds.length) {
+    console.log("Selected game object:", game);
+    console.log("All tracks:", calendar.tracks);
+    throw new Error(`No races found for ${selectedGameType}`);
+  }
+
+  return raceIds.map((raceId, i) => ({
     id: raceId,
     number: i + 1,
     name: `${selectedGameType}-${i + 1}`
   }));
-
-  return races;
 };
 
 /**
