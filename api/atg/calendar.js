@@ -1,5 +1,14 @@
-export default function handler(req, res) {
-  res.status(200).json({ ok: true, route: 'calendar' });
+export default async function handler(req, res) {
+  const { date } = req.query;
+
+  const response = await fetch(
+    `https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/calendar/day/${date}`
+  );
+
+  const data = await response.text();
+
+  res.setHeader("Content-Type", "application/json");
+  res.status(response.status).send(data);
 }
 
 // TODO: After confirming route path works, restore ATG proxy below:
