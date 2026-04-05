@@ -237,13 +237,12 @@ export const saveRaceResult = (result) => {
   return mergedEntry;
 };
 
-export const fetchRaceResult = async (gameType, raceId) => {
-  if (!gameType || !raceId) {
+export const fetchRaceResult = async (gameId) => {
+  if (!gameId) {
     return null;
   }
 
   try {
-    const gameId = `${gameType}_${raceId}`;
     const url = `/api/atg/result?gameId=${encodeURIComponent(gameId)}`;
     console.log('Result URL:', url);
 
@@ -255,11 +254,21 @@ export const fetchRaceResult = async (gameType, raceId) => {
       return null;
     }
 
-    const data = await response.json();
-    console.log('Result response:', data);
+    const text = await response.text();
+    console.log('Frontend result raw text:', text);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      console.error('Failed to parse result JSON:', text);
+      return null;
+    }
+
+    console.log('Frontend result parsed:', data);
     const status = String(data?.status || '').toLowerCase();
     if (status !== 'results') {
-      console.log('No finished result for:', raceId, data?.status);
+      console.log('No finished result for:', gameId, data?.status);
       return null;
     }
 
@@ -306,8 +315,9 @@ export const syncMissingResults = async (historyInput = null) => {
       continue;
     }
 
+    const gameId = `${item.gameType}_${item.raceId}`;
     console.log('Fetching result for:', item.gameType, item.raceId);
-    const fetched = await fetchRaceResult(item.gameType, item.raceId);
+    const fetched = await fetchRaceResult(gameId);
     if (!fetched || safeNumber(fetched.winnerNumber) === null) {
       skipped += 1;
       continue;

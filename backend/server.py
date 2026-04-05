@@ -97,7 +97,17 @@ def atg_result(
     gameId: str = Query(..., description="ATG game ID, e.g. V85_2026-04-05_23_5"),
 ):
     url = f"https://www.atg.se/services/racinginfo/v1/api/games/{gameId}"
-    resp = http_requests.get(url, timeout=15)
+    logger.info("ATG RESULT PROXY URL: %s", url)
+    resp = http_requests.get(
+        url,
+        timeout=15,
+        headers={
+            "accept": "application/json, text/plain, */*",
+            "user-agent": "Mozilla/5.0",
+        },
+    )
+    logger.info("ATG RESULT PROXY STATUS: %s", resp.status_code)
+    logger.info("ATG RESULT PROXY TEXT: %s", resp.text[:500])
     return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
 
 
