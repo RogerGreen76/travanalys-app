@@ -5,7 +5,8 @@ import { Input } from './ui/input';
 import {
   getPerformanceHistory,
   getPerformanceStats,
-  saveRaceResult
+  saveRaceResult,
+  syncMissingResults
 } from '../services/performanceTracker';
 
 const formatMetric = (value) => {
@@ -27,6 +28,8 @@ const PerformanceDashboard = () => {
   const [editingId, setEditingId] = useState(null);
   const [winnerInput, setWinnerInput] = useState('');
   const [top3Input, setTop3Input] = useState('');
+  const [isAutoSyncing, setIsAutoSyncing] = useState(false);
+  const [autoSyncSummary, setAutoSyncSummary] = useState('');
 
   const stats = useMemo(() => getPerformanceStats(), [refreshKey]);
   const history = useMemo(() => getPerformanceHistory(), [refreshKey]);
@@ -69,6 +72,22 @@ const PerformanceDashboard = () => {
     setRefreshKey(prev => prev + 1);
   };
 
+  const handleAutoSyncResults = async () => {
+    setIsAutoSyncing(true);
+    setAutoSyncSummary('');
+
+    try {
+      const summary = await syncMissingResults(history);
+      setAutoSyncSummary(`Kontrollerade ${summary.checked}, uppdaterade ${summary.updated}, hoppade över ${summary.skipped}.`);
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.warn('[PerformanceDashboard] Auto result sync failed:', error);
+      setAutoSyncSummary('Kunde inte hämta resultat automatiskt.');
+    } finally {
+      setIsAutoSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6" data-testid="performance-dashboard">
       <Card className="bg-[#151923] border-gray-800">
@@ -88,9 +107,21 @@ const PerformanceDashboard = () => {
             >
               Uppdatera
             </Button>
+            <Button
+              variant="outline"
+              className="border-gray-700 hover:bg-gray-800"
+              onClick={handleAutoSyncResults}
+              disabled={isAutoSyncing}
+              data-testid="auto-sync-results-button"
+            >
+              {isAutoSyncing ? 'Hämtar...' : 'Hämta resultat automatiskt'}
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
+          {autoSyncSummary && (
+            <div className="text-sm text-gray-300 mb-3">{autoSyncSummary}</div>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {statCards.map(card => (
               <div key={card.key} className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">

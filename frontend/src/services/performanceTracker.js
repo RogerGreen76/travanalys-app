@@ -237,6 +237,115 @@ export const saveRaceResult = (result) => {
   return mergedEntry;
 };
 
+export const fetchRaceResult = async (raceId) => {
+  if (!raceId) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`/api/atg/race?raceId=${encodeURIComponent(raceId)}`, {
+      headers: { accept: 'application/json' }
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const race = await response.json();
+    const status = String(race?.status || '').toLowerCase();
+
+    // Only save results when race status is finalized.
+    if (status !== 'results') {
+      return null;
+    }
+
+    const starts = Array.isArray(race?.starts) ? race.starts : [];
+    const placedStarts = starts
+      .map(start => {
+        const place = safeNumber(start?.result?.place);
+        const finishOrder = safeNumber(start?.result?.finishOrder);
+        const number = safeNumber(start?.number ?? start?.postPosition ?? start?.result?.startNumber);
+
+        return {
+          number,
+          place,
+          finishOrder: finishOrder ?? place
+        };
+      })
+      .filter(entry => entry.number !== null && entry.place !== null && entry.place >= 1)
+      .sort((a, b) => {
+        if (a.place !== b.place) {
+          return a.place - b.place;
+        }
+        return (a.finishOrder || 999) - (b.finishOrder || 999);
+      });
+
+    if (placedStarts.length === 0) {
+      return null;
+    }
+
+    const winnerNumber = placedStarts.find(entry => entry.place === 1)?.number ?? null;
+    if (winnerNumber === null) {
+      return null;
+    }
+
+    const top3Numbers = placedStarts.slice(0, 3).map(entry => entry.number);
+
+    return {
+      winnerNumber,
+      top3Numbers,
+      resultFetchedAt: new Date().toISOString()
+    };
+  } catch (error) {
+    console.warn('[PerformanceTracker] fetchRaceResult failed:', error);
+    return null;
+  }
+};
+
+export const syncMissingResults = async (historyInput = null) => {
+  const history = Array.isArray(historyInput) ? historyInput : getPerformanceHistory();
+  const candidates = history.filter(item =>
+    item?.prediction && safeNumber(item?.result?.winnerNumber) === null
+  );
+
+  let checked = 0;
+  let updated = 0;
+  let skipped = 0;
+
+  for (const item of candidates) {
+    checked += 1;
+
+    if (!item?.raceId) {
+      skipped += 1;
+      continue;
+    }
+
+    const fetched = await fetchRaceResult(item.raceId);
+    if (!fetched || safeNumber(fetched.winnerNumber) === null) {
+      skipped += 1;
+      continue;
+    }
+
+    saveRaceResult({
+      date: item.date,
+      gameType: item.gameType,
+      raceId: item.raceId,
+      raceLabel: item.raceLabel,
+      winnerNumber: fetched.winnerNumber,
+      top3Numbers: fetched.top3Numbers,
+      resultFetchedAt: fetched.resultFetchedAt || new Date().toISOString()
+    });
+
+    updated += 1;
+  }
+
+  return {
+    checked,
+    updated,
+    skipped
+  };
+};
+
 export const getPerformanceHistory = () => {
   const history = readHistory();
   console.log('Loaded history from localStorage:', history);

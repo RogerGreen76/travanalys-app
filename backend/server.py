@@ -82,6 +82,13 @@ def atg_game(gameId: str = Query(..., description="ATG game ID")):
     return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
 
 
+@api_router.get("/atg/race")
+def atg_race(raceId: str = Query(..., description="ATG race ID")):
+    url = f"https://www.atg.se/services/racinginfo/v1/api/races/{raceId}"
+    resp = http_requests.get(url, timeout=15)
+    return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
