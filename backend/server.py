@@ -83,8 +83,11 @@ def atg_game(gameId: str = Query(..., description="ATG game ID")):
 
 
 @api_router.get("/atg/race")
-def atg_race(raceId: str = Query(..., description="ATG race ID")):
-    url = f"https://www.atg.se/services/racinginfo/v1/api/races/{raceId}"
+def atg_race(
+    gameType: str = Query(..., description="ATG game type, e.g. V85"),
+    raceId: str = Query(..., description="ATG race ID"),
+):
+    url = f"https://www.atg.se/services/racinginfo/v1/api/games/{gameType}_{raceId}"
     resp = http_requests.get(url, timeout=15)
     return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
 

@@ -237,59 +237,41 @@ export const saveRaceResult = (result) => {
   return mergedEntry;
 };
 
-export const fetchRaceResult = async (raceId) => {
-  if (!raceId) {
+export const fetchRaceResult = async (gameType, raceId) => {
+  if (!gameType || !raceId) {
     return null;
   }
 
   try {
-    const response = await fetch(`/api/atg/race?raceId=${encodeURIComponent(raceId)}`, {
+    const response = await fetch(
+      `/api/atg/race?gameType=${encodeURIComponent(gameType)}&raceId=${encodeURIComponent(raceId)}`,
+      {
       headers: { accept: 'application/json' }
-    });
+      }
+    );
 
     if (!response.ok) {
       return null;
     }
 
-    const race = await response.json();
-    const status = String(race?.status || '').toLowerCase();
-
-    // Only save results when race status is finalized.
+    const data = await response.json();
+    const status = String(data?.status || '').toLowerCase();
     if (status !== 'results') {
       return null;
     }
 
-    const starts = Array.isArray(race?.starts) ? race.starts : [];
-    const placedStarts = starts
-      .map(start => {
-        const place = safeNumber(start?.result?.place);
-        const finishOrder = safeNumber(start?.result?.finishOrder);
-        const number = safeNumber(start?.number ?? start?.postPosition ?? start?.result?.startNumber);
-
-        return {
-          number,
-          place,
-          finishOrder: finishOrder ?? place
-        };
-      })
-      .filter(entry => entry.number !== null && entry.place !== null && entry.place >= 1)
-      .sort((a, b) => {
-        if (a.place !== b.place) {
-          return a.place - b.place;
-        }
-        return (a.finishOrder || 999) - (b.finishOrder || 999);
-      });
-
-    if (placedStarts.length === 0) {
-      return null;
-    }
-
-    const winnerNumber = placedStarts.find(entry => entry.place === 1)?.number ?? null;
+    const winnerNumber = safeNumber(
+      data?.pools?.vinnare?.result?.winners?.[0]?.number
+    );
     if (winnerNumber === null) {
       return null;
     }
 
-    const top3Numbers = placedStarts.slice(0, 3).map(entry => entry.number);
+    const first = safeNumber(data?.pools?.plats?.result?.winners?.first?.[0]?.number);
+    const second = safeNumber(data?.pools?.plats?.result?.winners?.second?.[0]?.number);
+    const third = safeNumber(data?.pools?.plats?.result?.winners?.third?.[0]?.number);
+
+    const top3Numbers = [first, second, third].filter(v => v !== null);
 
     return {
       winnerNumber,
@@ -315,12 +297,12 @@ export const syncMissingResults = async (historyInput = null) => {
   for (const item of candidates) {
     checked += 1;
 
-    if (!item?.raceId) {
+    if (!item?.raceId || !item?.gameType) {
       skipped += 1;
       continue;
     }
 
-    const fetched = await fetchRaceResult(item.raceId);
+    const fetched = await fetchRaceResult(item.gameType, item.raceId);
     if (!fetched || safeNumber(fetched.winnerNumber) === null) {
       skipped += 1;
       continue;

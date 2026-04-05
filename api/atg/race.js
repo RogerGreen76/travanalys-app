@@ -1,13 +1,13 @@
 export default async function handler(req, res) {
-  const { raceId } = req.query;
+  const { gameType, raceId } = req.query;
 
-  if (!raceId) {
-    res.status(400).json({ error: 'raceId is required' });
+  if (!gameType || !raceId) {
+    res.status(400).json({ error: 'gameType and raceId are required' });
     return;
   }
 
   const response = await fetch(
-    `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}`
+    `https://www.atg.se/services/racinginfo/v1/api/games/${gameType}_${raceId}`
   );
 
   const data = await response.text();
