@@ -237,8 +237,8 @@ export const saveRaceResult = (result) => {
   return mergedEntry;
 };
 
-export const fetchRaceResult = async (gameId) => {
-  if (!gameId) {
+export const fetchRaceResult = async (gameId, raceId) => {
+  if (!gameId || !raceId) {
     return null;
   }
 
@@ -272,18 +272,26 @@ export const fetchRaceResult = async (gameId) => {
       return null;
     }
 
+    const race = Array.isArray(data?.races)
+      ? data.races.find(r => r?.id === raceId)
+      : null;
+
+    console.log('Matched race for result extraction:', race);
+
     const winnerNumber = safeNumber(
-      data?.pools?.vinnare?.result?.winners?.[0]?.number
+      race?.pools?.vinnare?.result?.winners?.[0]?.number
     );
     if (winnerNumber === null) {
       return null;
     }
 
-    const first = safeNumber(data?.pools?.plats?.result?.winners?.first?.[0]?.number);
-    const second = safeNumber(data?.pools?.plats?.result?.winners?.second?.[0]?.number);
-    const third = safeNumber(data?.pools?.plats?.result?.winners?.third?.[0]?.number);
+    const first = safeNumber(race?.pools?.plats?.result?.winners?.first?.[0]?.number);
+    const second = safeNumber(race?.pools?.plats?.result?.winners?.second?.[0]?.number);
+    const third = safeNumber(race?.pools?.plats?.result?.winners?.third?.[0]?.number);
 
     const top3Numbers = [first, second, third].filter(v => v !== null);
+
+    console.log('Extracted result:', { raceId, winnerNumber, top3Numbers });
 
     return {
       winnerNumber,
@@ -317,7 +325,7 @@ export const syncMissingResults = async (historyInput = null) => {
 
     const gameId = `${item.gameType}_${item.raceId}`;
     console.log('Fetching result for:', item.gameType, item.raceId);
-    const fetched = await fetchRaceResult(gameId);
+    const fetched = await fetchRaceResult(gameId, item.raceId);
     if (!fetched || safeNumber(fetched.winnerNumber) === null) {
       skipped += 1;
       continue;
