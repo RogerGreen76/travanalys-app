@@ -55,14 +55,6 @@ const RaceAnalyzer = () => {
     }
   }, [selectedGameType]);
 
-  // Clean up: Remove auto-import from localStorage on mount
-  // Data should come ONLY from fresh ATG API or manual import
-  useEffect(() => {
-    console.log('[RaceAnalyzer] Mount effect: Clearing cached localStorage data to force fresh API fetch');
-    localStorage.removeItem('atgRawData');
-    // Fresh data will be loaded via selectedGameType useEffect
-  }, []);
-
   // Update analyzed horses when selected race changes
   useEffect(() => {
     if (selectedRace) {
