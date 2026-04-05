@@ -105,6 +105,7 @@ const RaceAnalyzer = () => {
           return;
         }
 
+        console.log('About to save prediction for race:', race?.id);
         saveRacePrediction({
           date: race?.date,
           gameType: selectedGameType,

@@ -163,6 +163,8 @@ export const mergePredictionWithResult = (prediction, result) => {
 };
 
 export const saveRacePrediction = (snapshot) => {
+  console.log('saveRacePrediction called with:', snapshot);
+
   if (!snapshot || typeof snapshot !== 'object') {
     return null;
   }
@@ -194,6 +196,7 @@ export const saveRacePrediction = (snapshot) => {
   }
 
   writeHistory(history);
+  console.log('Saved history:', JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'));
   return mergedEntry;
 };
 
@@ -236,6 +239,7 @@ export const saveRaceResult = (result) => {
 
 export const getPerformanceHistory = () => {
   const history = readHistory();
+  console.log('Loaded history from localStorage:', history);
 
   return [...history].sort((a, b) => {
     const aTime = new Date(a?.result?.resultFetchedAt || a?.prediction?.createdAt || a?.updatedAt || 0).getTime();
@@ -246,9 +250,10 @@ export const getPerformanceHistory = () => {
 
 export const getPerformanceStats = () => {
   const history = getPerformanceHistory();
+  // completed = entries that have both prediction and result (for accuracy metrics)
   const completed = history.filter(item => item?.prediction && item?.result && item?.winnerModelRank !== null);
-
-  const totalRaces = completed.length;
+  // totalRaces counts every stored prediction, not just resolved ones
+  const totalRaces = history.filter(item => item?.prediction).length;
   const winnerTop1 = completed.filter(item => item.winnerInTop1).length;
   const winnerTop3 = completed.filter(item => item.winnerInTop3).length;
   const winnerTop5 = completed.filter(item => item.winnerInTop5).length;

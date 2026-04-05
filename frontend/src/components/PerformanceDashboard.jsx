@@ -26,7 +26,11 @@ const PerformanceDashboard = () => {
   const stats = useMemo(() => getPerformanceStats(), [refreshKey]);
   const history = useMemo(() => getPerformanceHistory(), [refreshKey]);
 
-  const completedHistory = history.filter(item => item?.prediction && item?.result);
+  console.log('Dashboard history:', history);
+  console.log('Dashboard stats:', stats);
+
+  // Show all entries that have at least a prediction (result optional)
+  const completedHistory = history.filter(item => item?.prediction);
 
   return (
     <div className="space-y-6" data-testid="performance-dashboard">
