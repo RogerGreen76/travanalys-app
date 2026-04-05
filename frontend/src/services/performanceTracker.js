@@ -88,6 +88,22 @@ const writeHistory = (history) => {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
 };
 
+export const hasMissingGameIds = (history = []) => {
+  if (!Array.isArray(history)) {
+    return false;
+  }
+
+  return history.some(row => row?.prediction && !row?.gameId);
+};
+
+export const clearPerformanceHistory = () => {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  window.localStorage.removeItem(STORAGE_KEY);
+};
+
 const computeWinnerModelData = (prediction, result) => {
   const horses = Array.isArray(prediction?.horses) ? prediction.horses : [];
   const winnerNumber = safeNumber(result?.winnerNumber);
