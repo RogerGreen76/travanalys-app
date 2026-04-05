@@ -245,6 +245,7 @@ export const fetchGameData = async (selectedGameType) => {
     const linkedV85Number = v85Index >= 0 ? v85Index + 1 : null;
 
     return {
+      gameId: gameId || null,
       id: raceId,
       number: index + 1,
       actualRaceNumber,

@@ -101,6 +101,7 @@ const RaceAnalyzer = () => {
         saveRacePrediction({
           date: race?.date,
           gameType: selectedGameType,
+          gameId: race?.gameId,
           raceId: race?.id,
           raceLabel: `${selectedGameType}-${raceIndex + 1}`,
           track: race?.track,
@@ -144,6 +145,7 @@ const RaceAnalyzer = () => {
 
       const parsedRaces = races.map(race => ({
         race: {
+          gameId: race.gameId || null,
           id: race.id,
           number: race.number,
           actualRaceNumber: race.actualRaceNumber || null,

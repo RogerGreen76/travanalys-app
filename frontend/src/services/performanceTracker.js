@@ -152,6 +152,7 @@ export const mergePredictionWithResult = (prediction, result) => {
   return {
     date: normalizedPrediction?.date || normalizedResult?.date || '',
     gameType: normalizedPrediction?.gameType || normalizedResult?.gameType || '',
+    gameId: normalizedPrediction?.gameId || normalizedResult?.gameId || null,
     raceId: normalizedPrediction?.raceId || normalizedResult?.raceId || null,
     raceLabel: normalizedPrediction?.raceLabel || normalizedResult?.raceLabel || '',
     track: normalizedPrediction?.track || '',
@@ -174,6 +175,7 @@ export const saveRacePrediction = (snapshot) => {
   const normalizedPrediction = {
     date: snapshot.date || '',
     gameType: snapshot.gameType || '',
+    gameId: snapshot.gameId || null,
     raceId: snapshot.raceId || null,
     raceLabel: snapshot.raceLabel || '',
     track: snapshot.track || '',
@@ -210,6 +212,7 @@ export const saveRaceResult = (result) => {
   const normalizedResult = {
     date: result.date || '',
     gameType: result.gameType || '',
+    gameId: result.gameId || null,
     raceId: result.raceId || null,
     raceLabel: result.raceLabel || '',
     winnerNumber: safeNumber(result.winnerNumber),
@@ -277,6 +280,7 @@ export const fetchRaceResult = async (gameId, raceId) => {
       : null;
 
     console.log('Matched race for result extraction:', race);
+    console.log('Matched race:', race);
 
     const winnerNumber = safeNumber(
       race?.pools?.vinnare?.result?.winners?.[0]?.number
@@ -318,14 +322,15 @@ export const syncMissingResults = async (historyInput = null) => {
     console.log('Checking history row:', item);
     checked += 1;
 
-    if (!item?.raceId || !item?.gameType) {
+    if (!item?.raceId || !item?.gameId) {
       skipped += 1;
       continue;
     }
 
-    const gameId = `${item.gameType}_${item.raceId}`;
+    console.log('Using saved gameId:', item.gameId);
+    console.log('Target raceId:', item.raceId);
     console.log('Fetching result for:', item.gameType, item.raceId);
-    const fetched = await fetchRaceResult(gameId, item.raceId);
+    const fetched = await fetchRaceResult(item.gameId, item.raceId);
     if (!fetched || safeNumber(fetched.winnerNumber) === null) {
       skipped += 1;
       continue;
@@ -340,6 +345,7 @@ export const syncMissingResults = async (historyInput = null) => {
     saveRaceResult({
       date: item.date,
       gameType: item.gameType,
+      gameId: item.gameId,
       raceId: item.raceId,
       raceLabel: item.raceLabel,
       winnerNumber: fetched.winnerNumber,
