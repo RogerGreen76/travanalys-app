@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'travanalys_performance_history';
+let hasLoggedGameIdMigrationCheck = false;
 
 const canUseStorage = () => typeof window !== 'undefined' && !!window.localStorage;
 
@@ -310,6 +311,15 @@ export const fetchRaceResult = async (gameId, raceId) => {
 
 export const syncMissingResults = async (historyInput = null) => {
   const history = Array.isArray(historyInput) ? historyInput : getPerformanceHistory();
+
+  if (!hasLoggedGameIdMigrationCheck) {
+    const missingGameIdRows = history.filter(item => item?.prediction && !item?.gameId).length;
+    if (missingGameIdRows > 0) {
+      console.log('[PerformanceTracker] Migration check: rows missing gameId are left unchanged to avoid unsafe overwrite:', missingGameIdRows);
+    }
+    hasLoggedGameIdMigrationCheck = true;
+  }
+
   const candidates = history.filter(item =>
     item?.prediction && safeNumber(item?.result?.winnerNumber) === null
   );
@@ -322,15 +332,17 @@ export const syncMissingResults = async (historyInput = null) => {
     console.log('Checking history row:', item);
     checked += 1;
 
-    if (!item?.raceId || !item?.gameId) {
+    if (!item?.raceId || !item?.gameType) {
       skipped += 1;
       continue;
     }
 
+    const resolvedGameId = item.gameId || `${item.gameType}_${item.raceId}`;
+    console.log('Resolved gameId for sync:', resolvedGameId);
     console.log('Using saved gameId:', item.gameId);
     console.log('Target raceId:', item.raceId);
     console.log('Fetching result for:', item.gameType, item.raceId);
-    const fetched = await fetchRaceResult(item.gameId, item.raceId);
+    const fetched = await fetchRaceResult(resolvedGameId, item.raceId);
     if (!fetched || safeNumber(fetched.winnerNumber) === null) {
       skipped += 1;
       continue;
@@ -345,7 +357,7 @@ export const syncMissingResults = async (historyInput = null) => {
     saveRaceResult({
       date: item.date,
       gameType: item.gameType,
-      gameId: item.gameId,
+      gameId: resolvedGameId,
       raceId: item.raceId,
       raceLabel: item.raceLabel,
       winnerNumber: fetched.winnerNumber,

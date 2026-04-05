@@ -101,7 +101,7 @@ const RaceAnalyzer = () => {
         saveRacePrediction({
           date: race?.date,
           gameType: selectedGameType,
-          gameId: race?.gameId,
+          gameId: race?.gameId || gameData?.gameId || null,
           raceId: race?.id,
           raceLabel: `${selectedGameType}-${raceIndex + 1}`,
           track: race?.track,
@@ -163,7 +163,7 @@ const RaceAnalyzer = () => {
       setSelectedRace(parsedRaces[0] || null);
       setError(null);
       setLoading(false);
-      setGameData({ gameType, races: parsedRaces });
+      setGameData({ gameType, gameId: races?.[0]?.gameId || null, races: parsedRaces });
       setAnalyzedHorses(parsedRaces[0]?.horses || []);
 
       toast.success(`${gameType} loaded`, {

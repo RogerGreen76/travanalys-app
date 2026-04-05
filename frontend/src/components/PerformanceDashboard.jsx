@@ -39,6 +39,7 @@ const PerformanceDashboard = () => {
 
   // Show all entries that have at least a prediction (result optional)
   const completedHistory = history.filter(item => item?.prediction);
+  const missingGameIdCount = completedHistory.filter(item => !item?.gameId).length;
 
   const openEditor = (item) => {
     const rowKey = item.raceId || item.raceLabel;
@@ -59,6 +60,7 @@ const PerformanceDashboard = () => {
     saveRaceResult({
       date: item.date,
       gameType: item.gameType,
+      gameId: item.gameId || null,
       raceId: item.raceId,
       raceLabel: item.raceLabel,
       winnerNumber,
@@ -126,6 +128,11 @@ const PerformanceDashboard = () => {
         <CardContent>
           {autoSyncSummary && (
             <div className="text-sm text-gray-300 mb-3">{autoSyncSummary}</div>
+          )}
+          {missingGameIdCount > 0 && (
+            <div className="text-sm text-amber-300 mb-3">
+              Äldre historikrader saknar gameId och kan därför inte alltid få resultat automatiskt
+            </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {statCards.map(card => (
