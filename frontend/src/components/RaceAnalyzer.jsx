@@ -14,7 +14,7 @@ import { AlertCircle, Upload, FileJson, ChevronRight, TrendingUp } from 'lucide-
 import { fetchGameData, parseManualImport } from '../services/atgApi';
 import { normalizeRaceData } from '../services/normalizeRaceData';
 import { analyzeRaceData } from '../services/analyzeRaceData';
-import { saveRacePrediction, getPerformanceHistory } from '../services/performanceTracker';
+import { saveRacePrediction } from '../services/performanceTracker';
 
 /**
  * Filter races for a specific game type based on horse pools
@@ -85,12 +85,12 @@ const RaceAnalyzer = () => {
     }
 
     try {
-      const history = getPerformanceHistory();
+      const rawHistory = localStorage.getItem('travanalys_performance_history');
+      const parsedHistory = rawHistory ? JSON.parse(rawHistory) : [];
       const existingRaceIds = new Set(
-        history.map(item => item?.raceId).filter(Boolean)
-      );
-      const existingFallbackKeys = new Set(
-        history.map(item => `${item?.date || ''}__${item?.gameType || ''}__${item?.raceLabel || ''}`)
+        Array.isArray(parsedHistory)
+          ? parsedHistory.map(item => item?.raceId).filter(Boolean)
+          : []
       );
 
       allRaces.forEach((raceItem, raceIndex) => {
@@ -101,21 +101,16 @@ const RaceAnalyzer = () => {
           return;
         }
 
-        const raceLabel = `${selectedGameType}-${race.number || raceIndex + 1}`;
-        const date = race.date || new Date().toISOString().split('T')[0];
-        const raceId = race.id || null;
-        const fallbackKey = `${date}__${selectedGameType}__${raceLabel}`;
-
-        if ((raceId && existingRaceIds.has(raceId)) || existingFallbackKeys.has(fallbackKey)) {
+        if (race?.id && existingRaceIds.has(race.id)) {
           return;
         }
 
         saveRacePrediction({
-          date,
+          date: race?.date,
           gameType: selectedGameType,
-          raceId,
-          raceLabel,
-          track: race.track || '',
+          raceId: race?.id,
+          raceLabel: `${selectedGameType}-${raceIndex + 1}`,
+          track: race?.track,
           horses: horses.map(h => ({
             number: h.number,
             name: h.name,
@@ -129,10 +124,9 @@ const RaceAnalyzer = () => {
           }))
         });
 
-        if (raceId) {
-          existingRaceIds.add(raceId);
+        if (race?.id) {
+          existingRaceIds.add(race.id);
         }
-        existingFallbackKeys.add(fallbackKey);
       });
     } catch (saveError) {
       console.warn('[RaceAnalyzer] Could not save performance snapshot:', saveError);
