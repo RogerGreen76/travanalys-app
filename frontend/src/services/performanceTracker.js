@@ -243,20 +243,22 @@ export const fetchRaceResult = async (gameType, raceId) => {
   }
 
   try {
-    const response = await fetch(
-      `/api/atg/race?gameType=${encodeURIComponent(gameType)}&raceId=${encodeURIComponent(raceId)}`,
-      {
+    const url = `/api/atg/result?gameType=${encodeURIComponent(gameType)}&raceId=${encodeURIComponent(raceId)}`;
+    console.log('Result URL:', url);
+
+    const response = await fetch(url, {
       headers: { accept: 'application/json' }
-      }
-    );
+    });
 
     if (!response.ok) {
       return null;
     }
 
     const data = await response.json();
+    console.log('Result response:', data);
     const status = String(data?.status || '').toLowerCase();
     if (status !== 'results') {
+      console.log('No finished result for:', raceId, data?.status);
       return null;
     }
 
@@ -295,6 +297,7 @@ export const syncMissingResults = async (historyInput = null) => {
   let skipped = 0;
 
   for (const item of candidates) {
+    console.log('Checking history row:', item);
     checked += 1;
 
     if (!item?.raceId || !item?.gameType) {
@@ -302,11 +305,18 @@ export const syncMissingResults = async (historyInput = null) => {
       continue;
     }
 
+    console.log('Fetching result for:', item.gameType, item.raceId);
     const fetched = await fetchRaceResult(item.gameType, item.raceId);
     if (!fetched || safeNumber(fetched.winnerNumber) === null) {
       skipped += 1;
       continue;
     }
+
+    console.log('Saving result:', {
+      raceId: item.raceId,
+      winnerNumber: fetched.winnerNumber,
+      top3Numbers: fetched.top3Numbers
+    });
 
     saveRaceResult({
       date: item.date,

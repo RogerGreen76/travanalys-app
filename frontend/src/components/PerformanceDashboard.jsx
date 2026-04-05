@@ -73,11 +73,16 @@ const PerformanceDashboard = () => {
   };
 
   const handleAutoSyncResults = async () => {
+    console.log('AUTO RESULT SYNC STARTED');
     setIsAutoSyncing(true);
     setAutoSyncSummary('');
 
     try {
       const summary = await syncMissingResults(history);
+      const reloadedHistory = getPerformanceHistory();
+      const recalculatedStats = getPerformanceStats();
+      console.log('Reloaded history after sync:', reloadedHistory);
+      console.log('Recalculated stats after sync:', recalculatedStats);
       setAutoSyncSummary(`Kontrollerade ${summary.checked}, uppdaterade ${summary.updated}, hoppade över ${summary.skipped}.`);
       setRefreshKey(prev => prev + 1);
     } catch (error) {
