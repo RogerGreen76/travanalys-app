@@ -250,10 +250,10 @@ export const getPerformanceHistory = () => {
 
 export const getPerformanceStats = () => {
   const history = getPerformanceHistory();
-  // completed = entries that have both prediction and result (for accuracy metrics)
-  const completed = history.filter(item => item?.prediction && item?.result && item?.winnerModelRank !== null);
-  // totalRaces counts every stored prediction, not just resolved ones
+  // totalRaces = every stored prediction regardless of result
   const totalRaces = history.filter(item => item?.prediction).length;
+  // completed = entries where a winner number has been recorded
+  const completed = history.filter(item => item?.prediction && safeNumber(item?.result?.winnerNumber) !== null);
   const winnerTop1 = completed.filter(item => item.winnerInTop1).length;
   const winnerTop3 = completed.filter(item => item.winnerInTop3).length;
   const winnerTop5 = completed.filter(item => item.winnerInTop5).length;
