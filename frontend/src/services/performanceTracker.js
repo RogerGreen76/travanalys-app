@@ -243,7 +243,8 @@ export const fetchRaceResult = async (gameType, raceId) => {
   }
 
   try {
-    const url = `/api/atg/result?gameType=${encodeURIComponent(gameType)}&raceId=${encodeURIComponent(raceId)}`;
+    const gameId = `${gameType}_${raceId}`;
+    const url = `/api/atg/result?gameId=${encodeURIComponent(gameId)}`;
     console.log('Result URL:', url);
 
     const response = await fetch(url, {
