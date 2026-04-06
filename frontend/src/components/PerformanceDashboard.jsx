@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
-  clearPerformanceHistory,
   getPerformanceHistory,
   getPerformanceStats,
   hasMissingGameIds,
@@ -100,15 +99,6 @@ const PerformanceDashboard = () => {
     }
   };
 
-  const handleClearOldHistory = () => {
-    clearPerformanceHistory();
-    setEditingId(null);
-    setWinnerInput('');
-    setTop3Input('');
-    setAutoSyncSummary('Historik rensad. Analysera loppen igen för att spara nya rader med gameId.');
-    setRefreshKey(prev => prev + 1);
-  };
-
   return (
     <div className="space-y-6" data-testid="performance-dashboard">
       <Card className="bg-[#151923] border-gray-800">
@@ -123,27 +113,11 @@ const PerformanceDashboard = () => {
             <Button
               variant="outline"
               className="border-gray-700 hover:bg-gray-800"
-              onClick={() => setRefreshKey(prev => prev + 1)}
-              data-testid="refresh-performance-button"
-            >
-              Uppdatera
-            </Button>
-            <Button
-              variant="outline"
-              className="border-gray-700 hover:bg-gray-800"
               onClick={handleAutoSyncResults}
               disabled={isAutoSyncing}
               data-testid="auto-sync-results-button"
             >
               {isAutoSyncing ? 'Hämtar...' : 'Hämta resultat automatiskt'}
-            </Button>
-            <Button
-              variant="outline"
-              className="border-gray-700 hover:bg-gray-800"
-              onClick={handleClearOldHistory}
-              data-testid="clear-old-history-button"
-            >
-              Rensa gammal historik
             </Button>
           </div>
         </CardHeader>

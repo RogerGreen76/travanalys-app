@@ -56,6 +56,7 @@ const GAME_CONFIGS = {
   'V64': { races: 6 },
   'V65': { races: 6 },
   'V5': { races: 5 },
+  'GS75': { races: 7 },
   'DD': { races: 2 }
 };
 

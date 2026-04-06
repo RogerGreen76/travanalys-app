@@ -565,6 +565,9 @@ const RaceAnalyzer = () => {
                 <TabsTrigger value="V5" className="data-[state=active]:bg-blue-600" data-testid="tab-v5">
                   V5
                 </TabsTrigger>
+                <TabsTrigger value="GS75" className="data-[state=active]:bg-blue-600" data-testid="tab-gs75">
+                  GS75
+                </TabsTrigger>
                 <TabsTrigger value="DD" className="data-[state=active]:bg-blue-600" data-testid="tab-dd">
                   DD
                 </TabsTrigger>
