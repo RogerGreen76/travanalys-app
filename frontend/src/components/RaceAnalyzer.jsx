@@ -112,6 +112,7 @@ const RaceAnalyzer = () => {
             streckPercent: h.streckPercent,
             rankingScore: h.rankingScore,
             finalScore: h.finalScore,
+            calibratedFinalScore: h.calibratedFinalScore,
             valueRatio: h.valueRatio,
             play: h.play,
             valueStatus: h.valueStatus

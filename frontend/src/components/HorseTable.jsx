@@ -11,6 +11,9 @@ const formatNumber = (value, decimals = 1) => {
   return Number.isFinite(num) ? num.toFixed(decimals) : '-';
 };
 
+const getEffectiveFinalScore = (horse) =>
+  Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
+
 const HorseTable = ({ horses }) => {
   const [sortField, setSortField] = useState('finalScore');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -20,6 +23,31 @@ const HorseTable = ({ horses }) => {
   // Loppklassificering
   const getRaceClassification = () => {
     if (!horses || horses.length === 0) return null;
+
+    const existingRaceType = horses[0]?.raceType;
+    if (existingRaceType === 'Favoritlopp') {
+      return {
+        type: 'Favoritlopp',
+        description: 'Tydlig favorit eller favoriter',
+        color: 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+      };
+    }
+
+    if (existingRaceType === 'Värdelopp') {
+      return {
+        type: 'Värdelopp',
+        description: 'Flera hästar med bra value',
+        color: 'bg-green-500/20 text-green-400 border-green-500/40'
+      };
+    }
+
+    if (existingRaceType === 'Rörigt lopp') {
+      return {
+        type: 'Rörigt lopp',
+        description: 'Många jämna hästar',
+        color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40'
+      };
+    }
 
     // Sortera efter streck
     const byStreck = [...horses].sort((a, b) => b.streckPercent - a.streckPercent);
@@ -87,6 +115,11 @@ const HorseTable = ({ horses }) => {
     // Sortera
 filtered.sort((a, b) => {
   if (sortField === 'finalScore') {
+    const scoreDiff = getEffectiveFinalScore(b) - getEffectiveFinalScore(a);
+    if (scoreDiff !== 0) {
+      return sortDirection === 'asc' ? -scoreDiff : scoreDiff;
+    }
+
     const playPriority = {
       'Stark play': 3,
       'Möjlig play': 2,
@@ -141,7 +174,7 @@ filtered.sort((a, b) => {
       formatNumber(h.valueRatio, 2),
       formatNumber(h.rankingScore, 2),
       formatNumber(h.horseScore, 1),
-      formatNumber(h.finalScore, 1),
+      formatNumber(getEffectiveFinalScore(h), 1),
       h.valueStatus,
       h.play
     ]);
@@ -321,11 +354,11 @@ filtered.sort((a, b) => {
                   
                   <td className="text-center font-bold font-mono w-24 py-3">
                     <span className={`text-lg ${
-                      horse.finalScore > 80 ? 'text-green-400' :
-                      horse.finalScore > 60 ? 'text-yellow-400' :
+                      getEffectiveFinalScore(horse) > 80 ? 'text-green-400' :
+                      getEffectiveFinalScore(horse) > 60 ? 'text-yellow-400' :
                       'text-gray-400'
                     }`}>
-                      {formatNumber(horse.finalScore, 1)}
+                      {formatNumber(getEffectiveFinalScore(horse), 1)}
                     </span>
                   </td>
                   <td className="text-center w-32 py-3">

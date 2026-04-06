@@ -16,6 +16,9 @@ const formatMetric = (value) => {
   return Number.isFinite(num) ? num.toFixed(2) : '-';
 };
 
+const getEffectiveFinalScore = (horse) =>
+  Number(horse?.calibratedFinalScore ?? horse?.finalScore);
+
 const statCards = [
   { key: 'totalRaces', label: 'Total lopp' },
   { key: 'winnerTop1', label: 'Vinnare topp 1' },
@@ -172,7 +175,7 @@ const PerformanceDashboard = () => {
               </div>
             </div>
             <div className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Snitt finalScore (vinnare)</div>
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Snitt kalibrerad score (vinnare)</div>
               <div className="text-xl font-semibold text-white mt-1">
                 {formatMetric(stats.averageWinnerFinalScore)}
               </div>
@@ -202,7 +205,7 @@ const PerformanceDashboard = () => {
                     <th className="text-left py-2 pr-3">Lopp</th>
                     <th className="text-left py-2 pr-3">Vinnare</th>
                     <th className="text-left py-2 pr-3">Modellrank</th>
-                    <th className="text-left py-2 pr-3">FinalScore</th>
+                    <th className="text-left py-2 pr-3">Kalibrerad score</th>
                     <th className="text-left py-2 pr-3">Play</th>
                     <th className="text-left py-2 pr-3">Resultat</th>
                   </tr>
@@ -222,7 +225,7 @@ const PerformanceDashboard = () => {
                         <td className="py-2 pr-3 text-white">{item.raceLabel || item.raceId || '-'}</td>
                         <td className="py-2 pr-3 text-white">{item.result?.winnerNumber ?? '-'}</td>
                         <td className="py-2 pr-3 text-white">{item.winnerModelRank ?? '-'}</td>
-                        <td className="py-2 pr-3 text-white">{formatMetric(winner?.finalScore)}</td>
+                        <td className="py-2 pr-3 text-white">{formatMetric(getEffectiveFinalScore(winner))}</td>
                         <td className="py-2 pr-3 text-gray-300">{winner?.play || '-'}</td>
                         <td className="py-2 pr-3">
                           {isEditing ? (

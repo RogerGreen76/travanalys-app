@@ -13,6 +13,9 @@ const formatNumber = (value, decimals = 1) => {
   return Number.isFinite(num) ? num.toFixed(decimals) : '-';
 };
 
+const getEffectiveFinalScore = (horse) =>
+  Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
+
 const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIndex = 0 }) => {
   const [autoSuggestion, setAutoSuggestion] = useState(null);
   const [manualSelection, setManualSelection] = useState({
@@ -42,15 +45,15 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
     const race1Horses = allRaces[0].horses.map(h => ({ ...h, raceNumber: 1 }));
     const race2Horses = allRaces[1].horses.map(h => ({ ...h, raceNumber: 2 }));
 
-    // Take top 3 from each race based on finalScore (which includes pace analysis)
+    // Take top 3 from each race based on calibrated score (fallback to finalScore)
     const topRace1 = [...race1Horses]
-      .filter(h => h.finalScore !== undefined)
-      .sort((a, b) => b.finalScore - a.finalScore)
+      .filter(h => h.calibratedFinalScore !== undefined || h.finalScore !== undefined)
+      .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a))
       .slice(0, 3);
 
     const topRace2 = [...race2Horses]
-      .filter(h => h.finalScore !== undefined)
-      .sort((a, b) => b.finalScore - a.finalScore)
+      .filter(h => h.calibratedFinalScore !== undefined || h.finalScore !== undefined)
+      .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a))
       .slice(0, 3);
 
     // Generera kombinationer
@@ -60,7 +63,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         combinations.push({
           race1Horse: h1,
           race2Horse: h2,
-          combinedScore: h1.finalScore + h2.finalScore,
+          combinedScore: getEffectiveFinalScore(h1) + getEffectiveFinalScore(h2),
           combinedRatio: (h1.valueRatio + h2.valueRatio) / 2
         });
       });
@@ -79,7 +82,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
   const generateAutoSuggestion = () => {
     const enriched = horses.map(horse => {
-      const finalScore = Number(horse.finalScore) || 0;
+      const finalScore = getEffectiveFinalScore(horse);
       const rankingScore = Number(horse.rankingScore) || 0;
       const odds = Number(horse.odds) || 0;
       const streckPercent = Number(horse.streckPercent) || 0;

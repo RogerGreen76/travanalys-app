@@ -8,6 +8,14 @@ const safeNumber = (value) => {
   return Number.isFinite(num) ? num : null;
 };
 
+const getEffectiveFinalScore = (horse) => {
+  if (!horse) {
+    return null;
+  }
+
+  return safeNumber(horse?.calibratedFinalScore) ?? safeNumber(horse?.finalScore);
+};
+
 const buildFallbackKey = (obj = {}) => {
   const date = obj.date || '';
   const gameType = obj.gameType || '';
@@ -50,6 +58,7 @@ const normalizeHorses = (horses = []) => {
     streckPercent: safeNumber(horse?.streckPercent),
     rankingScore: safeNumber(horse?.rankingScore),
     finalScore: safeNumber(horse?.finalScore),
+    calibratedFinalScore: safeNumber(horse?.calibratedFinalScore),
     valueRatio: safeNumber(horse?.valueRatio),
     play: horse?.play || 'No play',
     valueStatus: horse?.valueStatus || 'Neutral'
@@ -119,7 +128,7 @@ const computeWinnerModelData = (prediction, result) => {
   }
 
   const sortedByModel = [...horses].sort((a, b) => {
-    const finalDiff = (safeNumber(b.finalScore) || 0) - (safeNumber(a.finalScore) || 0);
+    const finalDiff = getEffectiveFinalScore(b) - getEffectiveFinalScore(a);
     if (finalDiff !== 0) {
       return finalDiff;
     }
@@ -420,7 +429,7 @@ export const getPerformanceStats = () => {
     .filter(v => v !== null);
 
   const winnerFinalScores = completed
-    .map(item => safeNumber(item?.winnerHorse?.finalScore))
+    .map(item => getEffectiveFinalScore(item?.winnerHorse))
     .filter(v => v !== null);
 
   const averageWinnerRank = winnerRanks.length

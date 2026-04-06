@@ -47,6 +47,9 @@ export const analyzeRaceData = (normalizedData) => {
  * @returns {Array} Array of analyzed horse objects with scoring metrics
  */
 const analyzeHorses = (horses) => {
+  const raceType = classifyRaceType(horses);
+  const { modelWeight, marketWeight } = getCalibrationWeights(raceType);
+
   // Calculate average odds in the race
   const avgOdds = horses.reduce((sum, h) => sum + h.odds, 0) / horses.length;
 
@@ -131,6 +134,12 @@ const analyzeHorses = (horses) => {
     const finalScore =
       winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + paceScore * 0.5;
 
+    const calibratedFinalScore =
+      winStrength * modelWeight +
+      adjustedMarketEdge * 0.25 * marketWeight +
+      confidence * 1.0 * marketWeight +
+      paceScore * 0.6 * modelWeight;
+
     // Play recommendation - finalScore is the main driver, valueRatio adjusts
     let play = "No play";
 
@@ -169,9 +178,78 @@ const analyzeHorses = (horses) => {
       spetsChanceScore: spetsChanceScore,
       paceScore: paceScore,
       finalScore: finalScore,
+      calibratedFinalScore: calibratedFinalScore,
+      raceType: raceType,
+      modelWeight: modelWeight,
+      marketWeight: marketWeight,
       play: play,
       valueStatus: valueStatus,
       skrallSignal: skrallSignal
     };
   });
+};
+
+const classifyRaceType = (horses = []) => {
+  if (!Array.isArray(horses) || horses.length === 0) {
+    return 'Rörigt lopp';
+  }
+
+  const marketSignals = horses
+    .map(horse => {
+      const oddsDecimal = Number(horse?.odds) / 100;
+      const streckPercent = Number(horse?.betDistribution) / 100;
+
+      if (!Number.isFinite(oddsDecimal) || oddsDecimal <= 0 || !Number.isFinite(streckPercent) || streckPercent <= 0) {
+        return null;
+      }
+
+      const impliedProbability = (1 / oddsDecimal) * 100;
+      const valueRatio = impliedProbability / streckPercent;
+
+      return {
+        streckPercent,
+        valueRatio
+      };
+    })
+    .filter(Boolean);
+
+  if (marketSignals.length === 0) {
+    return 'Rörigt lopp';
+  }
+
+  const byStreck = [...marketSignals].sort((a, b) => b.streckPercent - a.streckPercent);
+  const topStreck = byStreck[0]?.streckPercent || 0;
+  const secondStreck = byStreck[1]?.streckPercent || 0;
+  const goodValueCount = marketSignals.filter(signal => signal.valueRatio > 1.20).length;
+
+  if (topStreck > 30 && (topStreck - secondStreck) > 10) {
+    return 'Favoritlopp';
+  }
+
+  if (goodValueCount >= 3) {
+    return 'Värdelopp';
+  }
+
+  return 'Rörigt lopp';
+};
+
+const getCalibrationWeights = (raceType) => {
+  let modelWeight = 1.0;
+  let marketWeight = 1.0;
+
+  if (raceType === 'Favoritlopp') {
+    modelWeight = 0.9;
+    marketWeight = 1.15;
+  } else if (raceType === 'Rörigt lopp') {
+    modelWeight = 1.15;
+    marketWeight = 0.9;
+  } else if (raceType === 'Värdelopp') {
+    modelWeight = 1.1;
+    marketWeight = 1.0;
+  }
+
+  return {
+    modelWeight,
+    marketWeight
+  };
 };
