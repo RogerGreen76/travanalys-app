@@ -4,7 +4,6 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
   getPerformanceHistory,
-  getPerformanceStats,
   hasMissingGameIds,
   saveRaceResult,
   syncMissingResults
@@ -27,6 +26,8 @@ const statCards = [
   { key: 'starkPlayWinners', label: 'Stark play-vinnare' }
 ];
 
+const GAME_TYPE_FILTERS = ['Alla', 'V85', 'V86', 'V64', 'V65', 'V5', 'GS75', 'DD'];
+
 const PerformanceDashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [editingId, setEditingId] = useState(null);
@@ -34,15 +35,90 @@ const PerformanceDashboard = () => {
   const [top3Input, setTop3Input] = useState('');
   const [isAutoSyncing, setIsAutoSyncing] = useState(false);
   const [autoSyncSummary, setAutoSyncSummary] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [selectedGameTypeFilter, setSelectedGameTypeFilter] = useState('Alla');
+  const [selectedTrack, setSelectedTrack] = useState('Alla banor');
+  const [resultFilter, setResultFilter] = useState('all');
+  const [onlyValueWinners, setOnlyValueWinners] = useState(false);
+  const [onlyStarkPlayWinners, setOnlyStarkPlayWinners] = useState(false);
 
-  const stats = useMemo(() => getPerformanceStats(), [refreshKey]);
   const history = useMemo(() => getPerformanceHistory(), [refreshKey]);
 
-  console.log('Dashboard history:', history);
-  console.log('Dashboard stats:', stats);
-
   // Show all entries that have at least a prediction (result optional)
-  const completedHistory = history.filter(item => item?.prediction);
+  const allPredictionRows = useMemo(
+    () => history.filter(item => item?.prediction),
+    [history]
+  );
+
+  const availableTracks = useMemo(() => {
+    const trackSet = new Set(
+      allPredictionRows
+        .map(item => String(item?.track || '').trim())
+        .filter(Boolean)
+    );
+
+    return [...trackSet].sort((a, b) => a.localeCompare(b, 'sv-SE'));
+  }, [allPredictionRows]);
+
+  const filteredHistory = useMemo(() => {
+    return allPredictionRows.filter(row => {
+      const rowDate = row?.date || '';
+      const hasResult = row?.result?.winnerNumber != null;
+      const rowGameType = String(row?.gameType || '').toUpperCase();
+      const rowTrack = String(row?.track || '').trim();
+
+      if (fromDate && rowDate < fromDate) return false;
+      if (toDate && rowDate > toDate) return false;
+      if (selectedGameTypeFilter !== 'Alla' && rowGameType !== selectedGameTypeFilter.toUpperCase()) return false;
+      if (selectedTrack !== 'Alla banor' && rowTrack !== selectedTrack) return false;
+      if (resultFilter === 'withResults' && !hasResult) return false;
+      if (resultFilter === 'withoutResults' && hasResult) return false;
+      if (onlyValueWinners && row?.winnerHorse?.valueStatus !== 'Spelvärd') return false;
+      if (onlyStarkPlayWinners && row?.winnerHorse?.play !== 'Stark play') return false;
+
+      return true;
+    });
+  }, [
+    allPredictionRows,
+    fromDate,
+    toDate,
+    selectedGameTypeFilter,
+    selectedTrack,
+    resultFilter,
+    onlyValueWinners,
+    onlyStarkPlayWinners
+  ]);
+
+  const filteredStats = useMemo(() => {
+    const completed = filteredHistory.filter(item => item?.result?.winnerNumber != null);
+    const winnerRanks = completed
+      .map(item => Number(item?.winnerModelRank))
+      .filter(Number.isFinite);
+    const winnerFinalScores = completed
+      .map(item => getEffectiveFinalScore(item?.winnerHorse))
+      .filter(Number.isFinite);
+
+    const averageWinnerRank = winnerRanks.length
+      ? Number((winnerRanks.reduce((sum, v) => sum + v, 0) / winnerRanks.length).toFixed(2))
+      : null;
+
+    const averageWinnerFinalScore = winnerFinalScores.length
+      ? Number((winnerFinalScores.reduce((sum, v) => sum + v, 0) / winnerFinalScores.length).toFixed(2))
+      : null;
+
+    return {
+      totalRaces: filteredHistory.length,
+      winnerTop1: completed.filter(item => item.winnerInTop1).length,
+      winnerTop3: completed.filter(item => item.winnerInTop3).length,
+      winnerTop5: completed.filter(item => item.winnerInTop5).length,
+      valueWinners: completed.filter(item => item?.winnerHorse?.valueStatus === 'Spelvärd').length,
+      starkPlayWinners: completed.filter(item => item?.winnerHorse?.play === 'Stark play').length,
+      averageWinnerRank,
+      averageWinnerFinalScore
+    };
+  }, [filteredHistory]);
+
   const hasLegacyRowsMissingGameId = hasMissingGameIds(history);
 
   const openEditor = (item) => {
@@ -86,9 +162,7 @@ const PerformanceDashboard = () => {
     try {
       const summary = await syncMissingResults(history);
       const reloadedHistory = getPerformanceHistory();
-      const recalculatedStats = getPerformanceStats();
       console.log('Reloaded history after sync:', reloadedHistory);
-      console.log('Recalculated stats after sync:', recalculatedStats);
       setAutoSyncSummary(`Kontrollerade ${summary.checked}, uppdaterade ${summary.updated}, hoppade över ${summary.skipped}.`);
       setRefreshKey(prev => prev + 1);
     } catch (error) {
@@ -122,6 +196,92 @@ const PerformanceDashboard = () => {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+            <div className="space-y-1">
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Från datum</div>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="bg-[#0a0e1a] border-gray-700"
+                data-testid="filter-from-date"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Till datum</div>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="bg-[#0a0e1a] border-gray-700"
+                data-testid="filter-to-date"
+              />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Spelform</div>
+              <select
+                value={selectedGameTypeFilter}
+                onChange={(e) => setSelectedGameTypeFilter(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-700 bg-[#0a0e1a] px-3 text-sm text-white"
+                data-testid="filter-game-type"
+              >
+                {GAME_TYPE_FILTERS.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Bana</div>
+              <select
+                value={selectedTrack}
+                onChange={(e) => setSelectedTrack(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-700 bg-[#0a0e1a] px-3 text-sm text-white"
+                data-testid="filter-track"
+              >
+                <option value="Alla banor">Alla banor</option>
+                {availableTracks.map(track => (
+                  <option key={track} value={track}>{track}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="space-y-1">
+              <div className="text-xs text-gray-400 uppercase tracking-wide">Resultatstatus</div>
+              <select
+                value={resultFilter}
+                onChange={(e) => setResultFilter(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-700 bg-[#0a0e1a] px-3 text-sm text-white"
+                data-testid="filter-result-status"
+              >
+                <option value="all">Alla</option>
+                <option value="withResults">Endast lopp med resultat</option>
+                <option value="withoutResults">Endast lopp utan resultat</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-300 mt-6">
+              <input
+                type="checkbox"
+                checked={onlyValueWinners}
+                onChange={(e) => setOnlyValueWinners(e.target.checked)}
+                className="rounded border-gray-600 bg-[#0a0e1a]"
+                data-testid="filter-value-winners"
+              />
+              Endast spelvärda vinnare
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-300 mt-6">
+              <input
+                type="checkbox"
+                checked={onlyStarkPlayWinners}
+                onChange={(e) => setOnlyStarkPlayWinners(e.target.checked)}
+                className="rounded border-gray-600 bg-[#0a0e1a]"
+                data-testid="filter-stark-winners"
+              />
+              Endast Stark play-vinnare
+            </label>
+          </div>
+
           {autoSyncSummary && (
             <div className="text-sm text-gray-300 mb-3">{autoSyncSummary}</div>
           )}
@@ -135,7 +295,7 @@ const PerformanceDashboard = () => {
               <div key={card.key} className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
                 <div className="text-xs text-gray-400 uppercase tracking-wide">{card.label}</div>
                 <div className="text-2xl font-semibold text-white mt-1">
-                  {stats[card.key] ?? 0}
+                  {filteredStats[card.key] ?? 0}
                 </div>
               </div>
             ))}
@@ -145,13 +305,13 @@ const PerformanceDashboard = () => {
             <div className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Snitt rank (vinnare)</div>
               <div className="text-xl font-semibold text-white mt-1">
-                {formatMetric(stats.averageWinnerRank)}
+                {formatMetric(filteredStats.averageWinnerRank)}
               </div>
             </div>
             <div className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Snitt kalibrerad score (vinnare)</div>
               <div className="text-xl font-semibold text-white mt-1">
-                {formatMetric(stats.averageWinnerFinalScore)}
+                {formatMetric(filteredStats.averageWinnerFinalScore)}
               </div>
             </div>
           </div>
@@ -166,9 +326,12 @@ const PerformanceDashboard = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {completedHistory.length === 0 ? (
+          <div className="text-sm text-gray-400 mb-3" data-testid="filtered-history-summary">
+            Visar {filteredHistory.length} av {allPredictionRows.length} lopp
+          </div>
+          {filteredHistory.length === 0 ? (
             <div className="text-sm text-gray-400" data-testid="performance-empty-state">
-              Ingen historik sparad ännu.
+              Inga lopp matchar valda filter.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -185,7 +348,7 @@ const PerformanceDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {completedHistory.map((item, index) => {
+                  {filteredHistory.map((item, index) => {
                     const winner = item.winnerHorse;
                     const rowKey = item.raceId || item.raceLabel;
                     const isEditing = editingId === rowKey;
