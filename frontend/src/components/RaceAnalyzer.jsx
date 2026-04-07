@@ -742,7 +742,7 @@ const RaceAnalyzer = () => {
                   <div>
                     <span className="text-gray-400">Distans:</span>
                     <span className="ml-2 text-white font-semibold">
-                      {currentRace.race.distance}m{currentRace.race.startMethod && ` ${currentRace.race.startMethod.toLowerCase() === 'volt' ? 'Volt' : 'Auto'}`}
+                      {currentRace.race.distance}m{currentRace.race.startMethod && ` ${currentRace.race.startMethod.toLowerCase().includes('volt') ? 'Volt' : 'Auto'}`}
                     </span>
                   </div>
                 )}
