@@ -55,7 +55,8 @@ const analyzeHorses = (horses, raceContext) => {
 const buildRaceContext = (race, horses) => {
   const raceType = classifyRaceType(horses);
   const { modelWeight, marketWeight } = getCalibrationWeights(raceType);
-  const avgOdds = horses.reduce((sum, h) => sum + h.odds, 0) / horses.length;
+  const avgOdds = horses.filter(h => h.odds).reduce((sum, h) => sum + h.odds, 0) /
+    Math.max(horses.filter(h => h.odds).length, 1);
 
   return {
     raceType,
@@ -68,6 +69,15 @@ const buildRaceContext = (race, horses) => {
 };
 
 const analyzeHorse = (horse, raceContext, horses) => {
+  // If this horse has no odds, skip full analysis and return with partial data only
+  if (!horse.odds) {
+    return {
+      ...horse,
+      play: 'Ej tillgängligt',
+      valueStatus: 'Ej tillgängligt'
+    };
+  }
+
   const componentScores = getComponentScores(horse, raceContext, horses);
   const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext);
 

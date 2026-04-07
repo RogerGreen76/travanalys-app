@@ -105,9 +105,9 @@ export const normalizeHorse = (start, gameType) => {
       }
     }
 
-    if (odds === null || isNaN(odds) || odds <= 0) {
-      console.warn(`Horse ${number} (${name}) missing or invalid odds, skipping`);
-      return null;
+    if (odds !== null && (isNaN(odds) || odds <= 0)) {
+      console.warn(`Horse ${number} (${name}) has invalid odds value, clearing to null`);
+      odds = null;
     }
 
     // Extract driver info
