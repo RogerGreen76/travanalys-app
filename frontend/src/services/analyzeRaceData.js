@@ -404,7 +404,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
   if (finalScore >= 95 && valueRatio >= 1.20) {
     play = "Stark play";
   } 
-  else if (finalScore >= 65 && valueRatio >= 1.08) {
+  else if (finalScore >= 60 && valueRatio >= 1.08) {
     play = "Möjlig play";
   } 
   else {
