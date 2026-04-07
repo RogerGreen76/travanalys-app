@@ -401,10 +401,10 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
   // Play recommendation - finalScore is the main driver, valueRatio adjusts
   let play = "No play";
 
-  if (finalScore >= 95 && valueRatio >= 1.15) {
+  if (finalScore >= 95 && valueRatio >= 1.20) {
     play = "Stark play";
   } 
-  else if (finalScore >= 65 && valueRatio >= 1.05) {
+  else if (finalScore >= 65 && valueRatio >= 1.08) {
     play = "Möjlig play";
   } 
   else {
