@@ -88,7 +88,14 @@ const analyzeHorse = (horse, raceContext, horses) => {
     strength: componentScores.strengthScore,
     pace: componentScores.paceScenarioScore,
     ranking: aggregateScores.rankingScore,
-    final: aggregateScores.finalScore
+    final: aggregateScores.finalScore,
+    calibrated: aggregateScores.calibratedFinalScore,
+    valueRatio: aggregateScores.valueRatio,
+    streckPercent: aggregateScores.streckPercent,
+    upsetScore: aggregateScores.upsetScore,
+    isPotentialUpset: aggregateScores.isPotentialUpset,
+    positionPotential: componentScores.positionPotentialScore,
+    leadPotential: componentScores.leadPotentialScore
   }
 );
 
