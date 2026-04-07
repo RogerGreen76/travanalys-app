@@ -21,8 +21,10 @@ export const analyzeRaceData = (normalizedData) => {
         return race;
       }
 
+      const raceContext = buildRaceContext(race, race.horses);
+
       // Analyze horses in this race
-      const analyzedHorses = analyzeHorses(race.horses);
+      const analyzedHorses = analyzeHorses(race.horses, raceContext);
 
       return {
         ...race,
@@ -46,147 +48,235 @@ export const analyzeRaceData = (normalizedData) => {
  * @param {Array} horses - Array of normalized horse objects
  * @returns {Array} Array of analyzed horse objects with scoring metrics
  */
-const analyzeHorses = (horses) => {
+const analyzeHorses = (horses, raceContext) => {
+  return horses.map(horse => analyzeHorse(horse, raceContext));
+};
+
+const buildRaceContext = (race, horses) => {
   const raceType = classifyRaceType(horses);
   const { modelWeight, marketWeight } = getCalibrationWeights(raceType);
-
-  // Calculate average odds in the race
   const avgOdds = horses.reduce((sum, h) => sum + h.odds, 0) / horses.length;
 
-  return horses.map(horse => {
-    // Basic calculations
-    const odds = horse.odds / 100; // e.g. 450 -> 4.50
-    const streckPercent = horse.betDistribution / 100; // e.g. 1405 -> 14.05%
-    const impliedProbability = (1 / odds) * 100; // in percent
-    const streckDecimal = streckPercent / 100;
-    const valueGap = (impliedProbability / 100) - streckDecimal;
+  return {
+    raceType,
+    modelWeight,
+    marketWeight,
+    avgOdds,
+    distance: race?.distance ?? null,
+    startMethod: race?.startMethod ?? null
+  };
+};
 
-    // Market probability
-    const marketProbability = (1 / odds) * 100;
+const analyzeHorse = (horse, raceContext) => {
+  const componentScores = getComponentScores(horse, raceContext);
+  const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext);
 
-    // Value ratio as decimal (e.g. 1.18 instead of 118.27)
-    const valueRatio = impliedProbability / streckPercent;
+  return {
+    ...horse,
+    ...aggregateScores,
+    startSpeedScore: componentScores.startSpeedScore,
+    strengthScore: componentScores.strengthScore,
+    distanceScore: componentScores.distanceScore,
+    formScore: componentScores.formScore,
+    driverScore: componentScores.driverScore,
+    paceScenarioScore: componentScores.paceScenarioScore,
+    gallopRiskScore: componentScores.gallopRiskScore
+  };
+};
 
-    // Relative strength compared to the field
-    const relativeStrength = avgOdds / horse.odds;
+const getHorseBaseMetrics = (horse, raceContext) => {
+  const odds = horse.odds / 100; // e.g. 450 -> 4.50
+  const streckPercent = horse.betDistribution / 100; // e.g. 1405 -> 14.05%
+  const impliedProbability = (1 / odds) * 100; // in percent
+  const streckDecimal = streckPercent / 100;
+  const valueGap = (impliedProbability / 100) - streckDecimal;
 
-    // Ranking Score
-    const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8;
+  // Market probability
+  const marketProbability = (1 / odds) * 100;
 
-    // ===== HORSE SCORE (Sports ranking 0-100) =====
-    let horseScore = 0;
+  // Value ratio as decimal (e.g. 1.18 instead of 118.27)
+  const valueRatio = impliedProbability / streckPercent;
 
-    // 1. Post position (0-25 points) - Lower positions = better
-    if (horse.postPosition) {
-      const postScore = Math.max(0, 25 - (horse.postPosition - 1) * 2);
-      horseScore += postScore;
+  // Relative strength compared to the field
+  const relativeStrength = raceContext.avgOdds / horse.odds;
+
+  return {
+    odds,
+    streckPercent,
+    impliedProbability,
+    streckDecimal,
+    valueGap,
+    marketProbability,
+    valueRatio,
+    relativeStrength
+  };
+};
+
+const getStartSpeedScore = (horse) => {
+  const startPosition = horse.postPosition || horse.number || 0;
+
+  if (startPosition === 2 || startPosition === 3) {
+    return 5;
+  }
+
+  if (startPosition >= 4 && startPosition <= 6) {
+    return 4;
+  }
+
+  if (startPosition === 1) {
+    return 3;
+  }
+
+  if (startPosition === 7 || startPosition === 8) {
+    return 1;
+  }
+
+  if (startPosition >= 9) {
+    return 0;
+  }
+
+  return 0;
+};
+
+const getOptionalNumericValue = (...values) => {
+  for (const value of values) {
+    if (Number.isFinite(value)) {
+      return value;
     }
+  }
 
-    // Normalize Horse Score to 0-100
-    horseScore = Math.min(100, Math.max(0, horseScore));
+  return null;
+};
 
-    // ===== PACE / SPETS MODEL =====
-    const startPosition = horse.postPosition || horse.number || 0;
-    let startSpeedScore = 0;
-    if (startPosition === 2 || startPosition === 3) {
-      startSpeedScore = 5;
-    } else if (startPosition >= 4 && startPosition <= 6) {
-      startSpeedScore = 4;
-    } else if (startPosition === 1) {
-      startSpeedScore = 3;
-    } else if (startPosition === 7 || startPosition === 8) {
-      startSpeedScore = 1;
-    } else if (startPosition >= 9) {
-      startSpeedScore = 0;
-    }
+const getComponentScores = (horse, raceContext) => {
+  const { relativeStrength } = getHorseBaseMetrics(horse, raceContext);
+  const startSpeedScore = getStartSpeedScore(horse);
+  const spetsChanceScore = startSpeedScore + relativeStrength * 2;
 
-    const spetsChanceScore = startSpeedScore + relativeStrength * 2;
+  let paceBonus = 0;
+  if (spetsChanceScore > 7) {
+    paceBonus = 8;
+  } else if (spetsChanceScore > 5) {
+    paceBonus = 4;
+  }
 
-    let paceBonus = 0;
-    if (spetsChanceScore > 7) {
-      paceBonus = 8;
-    } else if (spetsChanceScore > 5) {
-      paceBonus = 4;
-    }
+  const paceScore = startSpeedScore * 3 + spetsChanceScore * 2 + paceBonus;
 
-    const paceScore = startSpeedScore * 3 + spetsChanceScore * 2 + paceBonus;
+  return {
+    startSpeedScore,
+    strengthScore: relativeStrength * 15,
+    distanceScore: getOptionalNumericValue(horse.distanceScore, horse.analysis?.distanceScore),
+    formScore: getOptionalNumericValue(horse.formScore, horse.analysis?.formScore),
+    driverScore: getOptionalNumericValue(horse.driverScore, horse.analysis?.driverScore),
+    paceScenarioScore: paceScore,
+    gallopRiskScore: getOptionalNumericValue(horse.gallopRiskScore, horse.analysis?.gallopRiskScore),
+    spetsChanceScore,
+    paceBonus,
+    paceScore
+  };
+};
 
-    // ===== FAVORITE BIAS CORRECTION =====
-    // Reduce exaggerated value effects for horses with extremely low streck
-    let favoritBiasFactor = 1.0;
-    
-    if (streckPercent < 1) {
-      favoritBiasFactor = 0.35;
-    } else if (streckPercent < 2) {
-      favoritBiasFactor = 0.5;
-    } else if (streckPercent < 5) {
-      favoritBiasFactor = 0.75;
-    } else {
-      favoritBiasFactor = 1.0;
-    }
+const getExistingAggregateScores = (horse, componentScores, raceContext) => {
+  const {
+    odds,
+    streckPercent,
+    impliedProbability,
+    valueGap,
+    marketProbability,
+    valueRatio,
+    relativeStrength
+  } = getHorseBaseMetrics(horse, raceContext);
+  const { modelWeight, marketWeight, raceType } = raceContext;
 
-    // ===== FINAL SCORE =====
-    const winStrength = (0.65 * rankingScore + 0.35 * horseScore) / 2;
-    const cappedValueRatio = Math.min(Math.max(valueRatio, 0.8), 1.6);
-    const marketEdge = (cappedValueRatio - 1) * 100;
-    const adjustedMarketEdge = marketEdge * favoritBiasFactor;
-    const confidence = Math.sqrt(Math.max(streckPercent, 0));
-    const finalScore =
-      winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + paceScore * 0.5;
+  // Ranking Score
+  const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8;
 
-    const calibratedFinalScore =
-      winStrength * modelWeight +
-      adjustedMarketEdge * 0.25 * marketWeight +
-      confidence * 1.0 * marketWeight +
-      paceScore * 0.6 * modelWeight;
+  // ===== HORSE SCORE (Sports ranking 0-100) =====
+  let horseScore = 0;
 
-    // Play recommendation - finalScore is the main driver, valueRatio adjusts
-    let play = "No play";
+  // 1. Post position (0-25 points) - Lower positions = better
+  if (horse.postPosition) {
+    const postScore = Math.max(0, 25 - (horse.postPosition - 1) * 2);
+    horseScore += postScore;
+  }
 
-    if (finalScore >= 250 && valueRatio >= 1.15) {
-      play = "Stark play";
-    } 
-    else if (finalScore >= 120 && valueRatio >= 1.05) {
-      play = "Möjlig play";
-    } 
-    else {
-      play = "No play";
-    }
+  // Normalize Horse Score to 0-100
+  horseScore = Math.min(100, Math.max(0, horseScore));
 
-    // Value status - adjusted thresholds
-    let valueStatus = 'Neutral';
-    if (valueRatio > 1.20) {
-      valueStatus = 'Spelvärd';
-    } else if (valueRatio < 1.05) {
-      valueStatus = 'Överspelad';
-    }
+  // ===== FAVORITE BIAS CORRECTION =====
+  // Reduce exaggerated value effects for horses with extremely low streck
+  let favoritBiasFactor = 1.0;
+  
+  if (streckPercent < 1) {
+    favoritBiasFactor = 0.35;
+  } else if (streckPercent < 2) {
+    favoritBiasFactor = 0.5;
+  } else if (streckPercent < 5) {
+    favoritBiasFactor = 0.75;
+  } else {
+    favoritBiasFactor = 1.0;
+  }
 
-    // Surprise indicator
-    const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
+  // ===== FINAL SCORE =====
+  const winStrength = (0.65 * rankingScore + 0.35 * horseScore) / 2;
+  const cappedValueRatio = Math.min(Math.max(valueRatio, 0.8), 1.6);
+  const marketEdge = (cappedValueRatio - 1) * 100;
+  const adjustedMarketEdge = marketEdge * favoritBiasFactor;
+  const confidence = Math.sqrt(Math.max(streckPercent, 0));
+  const finalScore =
+    winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + componentScores.paceScore * 0.5;
 
-    return {
-      ...horse,
-      odds: odds,
-      streckPercent: streckPercent,
-      impliedProbability: impliedProbability,
-      marketProbability: marketProbability,
-      valueGap: valueGap,
-      valueRatio: valueRatio,
-      rankingScore: rankingScore,
-      horseScore: horseScore,
-      startSpeedScore: startSpeedScore,
-      spetsChanceScore: spetsChanceScore,
-      paceScore: paceScore,
-      finalScore: finalScore,
-      calibratedFinalScore: calibratedFinalScore,
-      raceType: raceType,
-      modelWeight: modelWeight,
-      marketWeight: marketWeight,
-      play: play,
-      valueStatus: valueStatus,
-      skrallSignal: skrallSignal
-    };
-  });
+  const calibratedFinalScore =
+    winStrength * modelWeight +
+    adjustedMarketEdge * 0.25 * marketWeight +
+    confidence * 1.0 * marketWeight +
+    componentScores.paceScore * 0.6 * modelWeight;
+
+  // Play recommendation - finalScore is the main driver, valueRatio adjusts
+  let play = "No play";
+
+  if (finalScore >= 250 && valueRatio >= 1.15) {
+    play = "Stark play";
+  } 
+  else if (finalScore >= 120 && valueRatio >= 1.05) {
+    play = "Möjlig play";
+  } 
+  else {
+    play = "No play";
+  }
+
+  // Value status - adjusted thresholds
+  let valueStatus = 'Neutral';
+  if (valueRatio > 1.20) {
+    valueStatus = 'Spelvärd';
+  } else if (valueRatio < 1.05) {
+    valueStatus = 'Överspelad';
+  }
+
+  // Surprise indicator
+  const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
+
+  return {
+    odds,
+    streckPercent,
+    impliedProbability,
+    marketProbability,
+    valueGap,
+    valueRatio,
+    rankingScore,
+    horseScore,
+    startSpeedScore: componentScores.startSpeedScore,
+    spetsChanceScore: componentScores.spetsChanceScore,
+    paceScore: componentScores.paceScore,
+    finalScore,
+    calibratedFinalScore,
+    raceType,
+    modelWeight,
+    marketWeight,
+    play,
+    valueStatus,
+    skrallSignal
+  };
 };
 
 const classifyRaceType = (horses = []) => {
