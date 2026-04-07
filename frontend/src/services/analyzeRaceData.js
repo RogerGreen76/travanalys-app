@@ -436,7 +436,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     effectiveStrength >= 55 &&
     valueRatio >= 1.10 &&
     streckPercent >= 2 &&
-    streckPercent <= 25 &&
+      streckPercent < 10 &&
     upsetScore >= 42;
 
   // Play recommendation - finalScore is the main driver, valueRatio adjusts
