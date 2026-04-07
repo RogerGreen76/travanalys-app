@@ -432,12 +432,17 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     normalizedLead * 2 -
     (streckPercent > 45 ? 12 : 0)
   ).toFixed(2));
+  const hasRaceShapeSupport =
+    leadPotentialScore >= 7.5 ||
+    positionPotentialScore >= 7.5 ||
+    paceScenarioScore >= 60;
   const isPotentialUpset =
     effectiveStrength >= 55 &&
     valueRatio >= 1.10 &&
     streckPercent >= 2 &&
-      streckPercent < 10 &&
-    upsetScore >= 42;
+    streckPercent < 10 &&
+    upsetScore >= 42 &&
+    hasRaceShapeSupport;
 
   // Play recommendation - finalScore is the main driver, valueRatio adjusts
   let play = "No play";
