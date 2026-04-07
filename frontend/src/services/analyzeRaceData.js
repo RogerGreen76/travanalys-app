@@ -188,8 +188,11 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
   } = getHorseBaseMetrics(horse, raceContext);
   const { modelWeight, marketWeight, raceType } = raceContext;
 
-  // Ranking Score
-  const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8;
+  // Ranking Score (minimal additive pace/start influence, bounded to avoid dominance)
+  const startSpeedContribution = componentScores.startSpeedScore * 0.4;
+  const normalizedPaceScenario = Math.min(Math.max(componentScores.paceScenarioScore, 0), 30) / 30;
+  const paceScenarioContribution = normalizedPaceScenario * 0.8;
+  const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8 + startSpeedContribution + paceScenarioContribution;
 
   // ===== HORSE SCORE (Sports ranking 0-100) =====
   let horseScore = 0;
