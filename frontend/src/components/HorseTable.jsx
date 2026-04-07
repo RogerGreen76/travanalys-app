@@ -97,6 +97,10 @@ const HorseTable = ({ horses }) => {
   const sortedAndFilteredHorses = useMemo(() => {
     let filtered = [...horses];
 
+    // Detect whether any horse in this race has real analysis scores.
+    // When all finalScores are 0/missing, betting data was not published yet.
+    const hasRealScores = horses.some(h => getEffectiveFinalScore(h) > 0);
+
     // Filtrera baserat på namn
     if (filterValue) {
       filtered = filtered.filter(h => 
@@ -113,7 +117,13 @@ const HorseTable = ({ horses }) => {
     }
 
     // Sortera
-filtered.sort((a, b) => {
+    // When no real analysis scores exist, always sort by ascending horse number.
+    if (!hasRealScores) {
+      filtered.sort((a, b) => (a.number || 0) - (b.number || 0));
+      return filtered;
+    }
+
+    filtered.sort((a, b) => {
   if (sortField === 'finalScore') {
     const scoreDiff = getEffectiveFinalScore(b) - getEffectiveFinalScore(a);
     if (scoreDiff !== 0) {
@@ -134,7 +144,9 @@ filtered.sort((a, b) => {
         ? aPlay - bPlay
         : bPlay - aPlay;
     }
-  }
+      // Tie-break: keep a stable ascending order within equal play tiers
+      return (a.number || 0) - (b.number || 0);
+    }
 
   let aVal = a[sortField];
   let bVal = b[sortField];
