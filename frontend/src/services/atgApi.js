@@ -198,6 +198,15 @@ export const fetchGameData = async (selectedGameType) => {
     }
   }
 
+  // Warn when calendar race IDs are absent from the game detail response
+  const missingFromDetail = raceIds.filter(id => !fullRaceMap[id]);
+  if (missingFromDetail.length > 0) {
+    console.warn(
+      `[ATG] ${selectedGameType}: ${missingFromDetail.length} race(s) from calendar not found in game detail (starts may not be published yet):`,
+      missingFromDetail
+    );
+  }
+
   // Compute DD horse-level market share from comboOdds (raw response already logged above)
   const ddDistributions = isDD ? computeDdDistributions(ddComboOdds) : null;
   if (isDD) {

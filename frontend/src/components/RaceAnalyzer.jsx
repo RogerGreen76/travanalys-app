@@ -89,12 +89,21 @@ const RaceAnalyzer = () => {
         const race = raceItem?.race || {};
         const horses = Array.isArray(raceItem?.horses) ? raceItem.horses : [];
 
-        if (horses.length === 0) {
+        if (!race?.id) {
           return;
         }
 
-        if (race?.id && existingRaceIds.has(race.id)) {
-          return;
+        if (existingRaceIds.has(race.id)) {
+          // Only re-save if the existing entry has no horse predictions but we now have horses
+          if (horses.length === 0) {
+            return; // Nothing new to contribute
+          }
+          const existingEntry = parsedHistory.find(item => item?.raceId === race.id);
+          const existingHasHorses = (existingEntry?.prediction?.horses?.length ?? 0) > 0;
+          if (existingHasHorses) {
+            return; // Already has predictions, don't overwrite
+          }
+          // Fall through: placeholder exists, now we have horses → update it
         }
 
         console.log('About to save prediction for race:', race?.id);
