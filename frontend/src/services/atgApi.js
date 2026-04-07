@@ -75,6 +75,17 @@ function getSwedenDate() {
   });
 }
 
+function getSwedenDateOffset(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toLocaleDateString('sv-SE', {
+    timeZone: 'Europe/Stockholm',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
 /**
  * Fetch calendar for a specific date and find the game matching the game type
  * @param {string} gameType - The game type (V85, V86, V64, V65, V5, DD)
@@ -128,23 +139,42 @@ export const findGameInCalendar = async (gameType, date = null) => {
 
 export const fetchGameData = async (selectedGameType) => {
   const isDD = selectedGameType?.toUpperCase() === 'DD';
-  const today = new Date().toLocaleDateString("sv-SE", {
-    timeZone: "Europe/Stockholm"
-  });
+  const today = getSwedenDate();
 
-  // Step 1: Calendar – resolve game key, race IDs, and master game ID
-  const calRes = await fetch(`/api/atg/calendar?date=${today}`);
-  const calendar = await calRes.json();
+  // Step 1: Calendar – resolve game key, race IDs, and master game ID.
+  // Try today first; if this game type is not scheduled today, look ahead up to 6 days.
+  let games = {};
+  let matchedKey = null;
+  let rawGame = null;
+  let gameDate = today;
 
-  const games = calendar?.games || {};
-  const matchedKey =
-    Object.keys(games).find(key => key === selectedGameType) ||
-    Object.keys(games).find(key => key.toLowerCase() === selectedGameType.toLowerCase());
+  for (let offset = 0; offset <= 6; offset++) {
+    const candidateDate = offset === 0 ? today : getSwedenDateOffset(offset);
+    try {
+      const calRes = await fetch(`/api/atg/calendar?date=${candidateDate}`);
+      if (!calRes.ok) continue;
+      const calendar = await calRes.json();
+      const candidateGames = calendar?.games || {};
+      const candidateKey =
+        Object.keys(candidateGames).find(key => key === selectedGameType) ||
+        Object.keys(candidateGames).find(key => key.toLowerCase() === selectedGameType.toLowerCase());
+      if (candidateKey) {
+        const entry = candidateGames[candidateKey];
+        const game = Array.isArray(entry) ? entry[0] : entry;
+        if (game) {
+          games = candidateGames;
+          matchedKey = candidateKey;
+          rawGame = game;
+          gameDate = candidateDate;
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn(`[ATG] Calendar fetch failed for ${candidateDate}:`, e.message);
+    }
+  }
 
-  const rawGameEntry = matchedKey ? games[matchedKey] : null;
-  const rawGame = Array.isArray(rawGameEntry) ? rawGameEntry[0] : rawGameEntry;
-
-  if (!rawGame) return [];
+  if (!rawGame) return { races: [], gameDate: today, isToday: true };
 
   const raceIds = Array.isArray(rawGame.races) ? rawGame.races : [];
   const gameId = rawGame.id;
@@ -216,7 +246,7 @@ export const fetchGameData = async (selectedGameType) => {
   }
 
   // Step 3: Build race objects with normalized horses
-  return raceIds.map((raceId, index) => {
+  const races = raceIds.map((raceId, index) => {
     const fullRace = fullRaceMap[raceId];
 
     const normalizedHorses = (fullRace?.starts || [])
@@ -262,12 +292,14 @@ export const fetchGameData = async (selectedGameType) => {
       linkedV85Number,
       name: `${selectedGameType}-${index + 1}`,
       track: fullRace?.track?.name || '',
-      date: fullRace?.startTime?.split('T')[0] || today,
+      date: fullRace?.startTime?.split('T')[0] || gameDate,
       distance: fullRace?.distance || null,
       startMethod: fullRace?.startMethod || null,
       horses
     };
   });
+
+  return { races, gameDate, isToday: gameDate === today };
 };
 
 /**

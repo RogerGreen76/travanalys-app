@@ -47,6 +47,7 @@ const RaceAnalyzer = () => {
   const [selectedGameType, setSelectedGameType] = useState('V85');
   const [gameData, setGameData] = useState(null);
   const [showManualInput, setShowManualInput] = useState(false);
+  const [gameRoundInfo, setGameRoundInfo] = useState({ date: null, isToday: true });
 
   // Ladda data när gameType ändras
   useEffect(() => {
@@ -151,7 +152,8 @@ const RaceAnalyzer = () => {
       setError(null);
       setLoading(true);
 
-      const races = await fetchGameData(gameType);
+      const { races, gameDate, isToday } = await fetchGameData(gameType);
+      setGameRoundInfo({ date: gameDate, isToday });
 
       const parsedRaces = races.map(race => ({
         race: {
@@ -178,7 +180,9 @@ const RaceAnalyzer = () => {
       setAnalyzedHorses(parsedRaces[0]?.horses || []);
 
       toast.success(`${gameType} loaded`, {
-        description: `${parsedRaces.length} races, ${parsedRaces[0]?.horses?.length || 0} horses in race 1`
+        description: isToday
+          ? `${parsedRaces.length} races, ${parsedRaces[0]?.horses?.length || 0} horses in race 1`
+          : `Nästa omgång ${gameDate} — ${parsedRaces.length} lopp`
       });
     } catch (err) {
       console.error(`[RaceAnalyzer] Error loading game type ${gameType}:`, err);
@@ -593,6 +597,11 @@ const RaceAnalyzer = () => {
                 </Button>
               </TabsList>
             </Tabs>
+            {!gameRoundInfo.isToday && gameRoundInfo.date && (
+              <p className="mt-2 text-xs text-yellow-400">
+                Nästa omgång: {gameRoundInfo.date}
+              </p>
+            )}
           </CardContent>
         </Card>
 
