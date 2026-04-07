@@ -435,6 +435,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
   const isPotentialUpset =
     effectiveStrength >= 55 &&
     valueRatio >= 1.10 &&
+    streckPercent >= 2 &&
     streckPercent <= 25 &&
     upsetScore >= 42;
 
