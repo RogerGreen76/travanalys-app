@@ -345,6 +345,11 @@ const HorseTable = ({ horses }) => {
                         {horse.skrallSignal}
                       </div>
                     )}
+                    {horse.isPotentialUpset && (
+                      <span className="inline-block mt-1 px-1.5 py-0.5 text-xs rounded bg-purple-600/30 text-purple-300 border border-purple-500/40">
+                        ⚡ Skrällbud
+                      </span>
+                    )}
                   </td>
                   <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.streckPercent, 1)}%</td>
