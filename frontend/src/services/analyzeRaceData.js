@@ -71,6 +71,17 @@ const analyzeHorse = (horse, raceContext) => {
   const componentScores = getComponentScores(horse, raceContext);
   const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext);
 
+  console.log(
+  horse.name,
+  {
+    startSpeed: componentScores.startSpeedScore,
+    strength: componentScores.strengthScore,
+    pace: componentScores.paceScenarioScore,
+    ranking: aggregateScores.rankingScore,
+    final: aggregateScores.finalScore
+  }
+);
+
   return {
     ...horse,
     ...aggregateScores,
