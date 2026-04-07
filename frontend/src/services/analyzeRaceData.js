@@ -49,7 +49,7 @@ export const analyzeRaceData = (normalizedData) => {
  * @returns {Array} Array of analyzed horse objects with scoring metrics
  */
 const analyzeHorses = (horses, raceContext) => {
-  return horses.map(horse => analyzeHorse(horse, raceContext));
+  return horses.map(horse => analyzeHorse(horse, raceContext, horses));
 };
 
 const buildRaceContext = (race, horses) => {
@@ -67,8 +67,8 @@ const buildRaceContext = (race, horses) => {
   };
 };
 
-const analyzeHorse = (horse, raceContext) => {
-  const componentScores = getComponentScores(horse, raceContext);
+const analyzeHorse = (horse, raceContext, horses) => {
+  const componentScores = getComponentScores(horse, raceContext, horses);
   const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext);
 
   console.log(
@@ -91,7 +91,8 @@ const analyzeHorse = (horse, raceContext) => {
     formScore: componentScores.formScore,
     driverScore: componentScores.driverScore,
     paceScenarioScore: componentScores.paceScenarioScore,
-    gallopRiskScore: componentScores.gallopRiskScore
+    gallopRiskScore: componentScores.gallopRiskScore,
+    leadPotentialScore: componentScores.leadPotentialScore
   };
 };
 
@@ -159,7 +160,87 @@ const getOptionalNumericValue = (...values) => {
   return null;
 };
 
-const getComponentScores = (horse, raceContext) => {
+const normalizeStartMethod = (startMethod) => {
+  const normalized = String(startMethod || '').toLowerCase();
+
+  if (normalized.includes('volt')) {
+    return 'VOLT';
+  }
+
+  return 'AUTO';
+};
+
+const calculateLeadPotentialScore = (horse, raceContext, horses, startSpeedScore, paceScenarioScore) => {
+  const postPosition = Number(horse?.postPosition ?? horse?.number ?? 0);
+  const method = normalizeStartMethod(raceContext?.startMethod);
+  const nearbyPressure = (horses || [])
+    .filter(other => other !== horse)
+    .filter(other => {
+      const otherPost = Number(other?.postPosition ?? other?.number ?? 0);
+      if (!Number.isFinite(otherPost) || !Number.isFinite(postPosition)) {
+        return false;
+      }
+
+      const otherStartSpeed = getStartSpeedScore(other);
+      return Math.abs(otherPost - postPosition) <= 2 && otherStartSpeed >= 4;
+    })
+    .length;
+
+  if (method === 'AUTO') {
+    const earlyPositionAdvantage = Number.isFinite(postPosition)
+      ? Math.max(0, 2.2 - Math.max(postPosition - 1, 0) * 0.25)
+      : 0;
+
+    const leadPotentialAuto =
+      startSpeedScore * 1.2 +
+      earlyPositionAdvantage +
+      paceScenarioScore * 0.08 -
+      nearbyPressure * 0.7;
+
+    return Number(Math.min(Math.max(leadPotentialAuto, 0), 10).toFixed(2));
+  }
+
+  const startReliability = getOptionalNumericValue(
+    horse?.startReliabilityScore,
+    horse?.analysis?.startReliabilityScore,
+    horse?.startReliability
+  );
+  const reliabilityBonus = startReliability !== null
+    ? Math.min(Math.max(startReliability, 0), 10) * 0.2
+    : 0;
+
+  const gallopRisk = getOptionalNumericValue(
+    horse?.gallopRiskScore,
+    horse?.analysis?.gallopRiskScore,
+    horse?.galoppRisk,
+    horse?.gallopRisk
+  );
+  const gallopPenalty = gallopRisk !== null
+    ? Math.min(Math.max(gallopRisk, 0), 10) * 0.25
+    : 0;
+
+  const springLaneAdvantage = getOptionalNumericValue(
+    horse?.springLaneAdvantage,
+    horse?.analysis?.springLaneAdvantage,
+    horse?.voltPositionAdvantage,
+    horse?.analysis?.voltPositionAdvantage
+  );
+  const springLaneBonus = springLaneAdvantage !== null
+    ? Math.min(Math.max(springLaneAdvantage, 0), 10) * 0.2
+    : 0;
+
+  const leadPotentialVolt =
+    startSpeedScore * 0.85 +
+    paceScenarioScore * 0.04 +
+    reliabilityBonus +
+    springLaneBonus -
+    gallopPenalty -
+    nearbyPressure * 0.4;
+
+  return Number(Math.min(Math.max(leadPotentialVolt, 0), 10).toFixed(2));
+};
+
+const getComponentScores = (horse, raceContext, horses) => {
   const { relativeStrength } = getHorseBaseMetrics(horse, raceContext);
   const startSpeedScore = getStartSpeedScore(horse);
   const spetsChanceScore = startSpeedScore + relativeStrength * 2;
@@ -172,6 +253,13 @@ const getComponentScores = (horse, raceContext) => {
   }
 
   const paceScore = startSpeedScore * 3 + spetsChanceScore * 2 + paceBonus;
+  const leadPotentialScore = calculateLeadPotentialScore(
+    horse,
+    raceContext,
+    horses,
+    startSpeedScore,
+    paceScore
+  );
 
   return {
     startSpeedScore,
@@ -181,6 +269,7 @@ const getComponentScores = (horse, raceContext) => {
     driverScore: getOptionalNumericValue(horse.driverScore, horse.analysis?.driverScore),
     paceScenarioScore: paceScore,
     gallopRiskScore: getOptionalNumericValue(horse.gallopRiskScore, horse.analysis?.gallopRiskScore),
+    leadPotentialScore,
     spetsChanceScore,
     paceBonus,
     paceScore
