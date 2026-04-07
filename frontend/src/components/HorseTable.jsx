@@ -332,7 +332,14 @@ const HorseTable = ({ horses }) => {
                 >
                   <td className="font-bold text-white text-center w-12 py-3">{horse.number}</td>
                   <td className="text-white w-48 py-3">
-                    <div className="font-semibold">{horse.name}</div>
+                    <div className="font-semibold flex items-center gap-2">
+                      <span>{horse.name}</span>
+                      {horse.isPotentialUpset && (
+                        <span className="px-2 py-0.5 text-xs rounded bg-amber-900/30 text-amber-300 border border-amber-700/40">
+                          Skrällbud
+                        </span>
+                      )}
+                    </div>
                     {(horse.driver || horse.trainer) && (
                       <div className="text-xs text-gray-400 mt-2">
                         {horse.driver && <span>{horse.driver}</span>}
@@ -344,11 +351,6 @@ const HorseTable = ({ horses }) => {
                       <div className="text-xs text-yellow-400 mt-1 font-medium">
                         {horse.skrallSignal}
                       </div>
-                    )}
-                    {horse.isPotentialUpset && (
-                      <span className="inline-block mt-1 px-1.5 py-0.5 text-xs rounded bg-purple-600/30 text-purple-300 border border-purple-500/40">
-                        ⚡ Skrällbud
-                      </span>
                     )}
                   </td>
                   <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.odds, 2)}</td>
