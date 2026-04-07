@@ -408,6 +408,29 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     confidence * 1.0 * marketWeight +
     componentScores.paceScore * 0.6 * modelWeight;
 
+  // Upset detection reuses existing strength, value and trip signals.
+  const effectiveStrength = Number.isFinite(calibratedFinalScore) ? calibratedFinalScore : finalScore;
+  const normalizedStrength = Math.min(Math.max(effectiveStrength, 0), 120) / 120;
+  const normalizedValue = Math.min(Math.max(valueRatio, 1), 1.8) - 1;
+  const normalizedStreck = Math.min(Math.max(streckPercent, 0), 60) / 60;
+  const normalizedPosition = Math.min(Math.max(componentScores.positionPotentialScore || 0, 0), 10) / 10;
+  const normalizedLead = Math.min(Math.max(componentScores.leadPotentialScore || 0, 0), 10) / 10;
+
+  // Low-to-medium streck is a plus; heavily backed horses get a clear minus.
+  const upsetScore = Number((
+    normalizedStrength * 45 +
+    normalizedValue * 30 +
+    (1 - normalizedStreck) * 20 +
+    normalizedPosition * 3 +
+    normalizedLead * 2 -
+    (streckPercent > 45 ? 12 : 0)
+  ).toFixed(2));
+  const isPotentialUpset =
+    effectiveStrength >= 55 &&
+    valueRatio >= 1.10 &&
+    streckPercent < 45 &&
+    upsetScore >= 42;
+
   // Play recommendation - finalScore is the main driver, valueRatio adjusts
   let play = "No play";
 
@@ -451,6 +474,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     paceScore: componentScores.paceScore,
     finalScore,
     calibratedFinalScore,
+    upsetScore,
+    isPotentialUpset,
     raceType,
     modelWeight,
     marketWeight,
