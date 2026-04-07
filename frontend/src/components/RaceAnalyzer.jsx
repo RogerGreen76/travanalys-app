@@ -163,7 +163,8 @@ const RaceAnalyzer = () => {
           name: race.name,
           track: race.track || '',
           date: race.date || new Date().toISOString().split('T')[0],
-          distance: race.distance || null
+          distance: race.distance || null,
+          startMethod: race.startMethod || null
         },
         horses: race.horses || []
       }));
@@ -740,7 +741,9 @@ const RaceAnalyzer = () => {
                 {currentRace.race.distance && (
                   <div>
                     <span className="text-gray-400">Distans:</span>
-                    <span className="ml-2 text-white font-semibold">{currentRace.race.distance}m</span>
+                    <span className="ml-2 text-white font-semibold">
+                      {currentRace.race.distance}m{currentRace.race.startMethod && ` ${currentRace.race.startMethod.toLowerCase() === 'volt' ? 'Volt' : 'Auto'}`}
+                    </span>
                   </div>
                 )}
                 {selectedGameType === 'DD' && currentRace.race.actualRaceNumber && (

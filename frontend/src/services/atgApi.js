@@ -264,6 +264,7 @@ export const fetchGameData = async (selectedGameType) => {
       track: fullRace?.track?.name || '',
       date: fullRace?.startTime?.split('T')[0] || today,
       distance: fullRace?.distance || null,
+      startMethod: fullRace?.startMethod || null,
       horses
     };
   });
