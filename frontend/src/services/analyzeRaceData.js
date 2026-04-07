@@ -432,10 +432,13 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     normalizedLead * 2 -
     (streckPercent > 45 ? 12 : 0)
   ).toFixed(2));
+  const leadPotential = componentScores?.leadPotentialScore ?? 0;
+  const positionPotential = componentScores?.positionPotentialScore ?? 0;
+  const paceScenario = componentScores?.paceScenarioScore ?? 0;
   const hasRaceShapeSupport =
-    leadPotentialScore >= 7.5 ||
-    positionPotentialScore >= 7.5 ||
-    paceScenarioScore >= 60;
+    leadPotential >= 7.5 ||
+    positionPotential >= 7.5 ||
+    paceScenario >= 60;
   const isPotentialUpset =
     effectiveStrength >= 55 &&
     valueRatio >= 1.10 &&
