@@ -57,12 +57,20 @@ const buildRaceContext = (race, horses) => {
   const { modelWeight, marketWeight } = getCalibrationWeights(raceType);
   const avgOdds = horses.filter(h => h.odds).reduce((sum, h) => sum + h.odds, 0) /
     Math.max(horses.filter(h => h.odds).length, 1);
+  const streckValues = horses
+    .map(h => Number(h?.betDistribution) / 100)
+    .filter(v => Number.isFinite(v) && v >= 0)
+    .sort((a, b) => b - a);
+  const highestStreckPercent = streckValues[0] || 0;
+  const secondHighestStreckPercent = streckValues[1] || 0;
+  const raceFavoriteGap = highestStreckPercent - secondHighestStreckPercent;
 
   return {
     raceType,
     modelWeight,
     marketWeight,
     avgOdds,
+    raceFavoriteGap,
     distance: race?.distance ?? null,
     startMethod: race?.startMethod ?? null
   };
@@ -366,7 +374,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     valueRatio,
     relativeStrength
   } = getHorseBaseMetrics(horse, raceContext);
-  const { modelWeight, marketWeight, raceType } = raceContext;
+  const { modelWeight, marketWeight, raceType, raceFavoriteGap } = raceContext;
 
   // Ranking Score (minimal additive pace/start influence, bounded to avoid dominance)
   const startSpeedContribution = componentScores.startSpeedScore * 0.4;
@@ -422,6 +430,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
   const normalizedStreck = Math.min(Math.max(streckPercent, 0), 60) / 60;
   const normalizedPosition = Math.min(Math.max(componentScores.positionPotentialScore || 0, 0), 10) / 10;
   const normalizedLead = Math.min(Math.max(componentScores.leadPotentialScore || 0, 0), 10) / 10;
+  // Bonus when race is over-concentrated on one favorite
+  const favoriteConcentrationBonus = raceFavoriteGap > 20 && streckPercent < 25 ? 6 : 0;
 
   // Low-to-medium streck is a plus; heavily backed horses get a clear minus.
   const upsetScore = Number((
@@ -430,7 +440,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     (1 - normalizedStreck) * 20 +
     normalizedPosition * 3 +
     normalizedLead * 2 -
-    (streckPercent > 45 ? 12 : 0)
+    (streckPercent > 45 ? 12 : 0) +
+    favoriteConcentrationBonus
   ).toFixed(2));
   const isPotentialUpset =
     effectiveStrength >= 55 &&
