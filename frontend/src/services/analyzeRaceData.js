@@ -93,7 +93,8 @@ const analyzeHorse = (horse, raceContext, horses) => {
     paceScenarioScore: componentScores.paceScenarioScore,
     gallopRiskScore: componentScores.gallopRiskScore,
     leadPotentialScore: componentScores.leadPotentialScore,
-    leadCompetitionScore: componentScores.leadCompetitionScore
+    leadCompetitionScore: componentScores.leadCompetitionScore,
+    positionPotentialScore: componentScores.positionPotentialScore
   };
 };
 
@@ -251,6 +252,45 @@ const calculateLeadPotentialScore = (horse, raceContext, horses, startSpeedScore
   return Number(Math.min(Math.max(leadPotentialVolt, 0), 10).toFixed(2));
 };
 
+const calculatePositionPotentialScore = (
+  horse,
+  raceContext,
+  startSpeedScore,
+  paceScenarioScore,
+  leadPotentialScore,
+  leadCompetitionScore
+) => {
+  const postPosition = Number(horse?.postPosition ?? horse?.number ?? 0);
+  const method = normalizeStartMethod(raceContext?.startMethod);
+  const safePost = Number.isFinite(postPosition) && postPosition > 0 ? postPosition : 12;
+
+  // Base reusable signals from existing race-shape helpers
+  const leadSignal = Math.min(Math.max(leadPotentialScore, 0), 10) * 0.42;
+  const startSignal = Math.min(Math.max(startSpeedScore, 0), 5) * 0.55;
+  const paceSignal = Math.min(Math.max(paceScenarioScore, 0), 30) / 30 * 2.1;
+
+  // Pocket/favorable early trip tendencies differ between AUTO and VOLT
+  const pocketBonus = method === 'AUTO'
+    ? (safePost >= 1 && safePost <= 4 ? 0.9 : safePost <= 6 ? 0.35 : 0)
+    : (safePost >= 1 && safePost <= 3 ? 0.75 : safePost <= 5 ? 0.25 : 0);
+
+  // Penalize likely difficult trips when pressure is high and lane is wide
+  const outsidePenalty = method === 'AUTO'
+    ? (safePost >= 8 ? (safePost - 7) * 0.45 : 0)
+    : (safePost >= 6 ? (safePost - 5) * 0.3 : 0);
+  const pressurePenalty = Math.min(Math.max(leadCompetitionScore, 0), 1) * 1.3;
+
+  const positionPotential =
+    leadSignal +
+    startSignal +
+    paceSignal +
+    pocketBonus -
+    outsidePenalty -
+    pressurePenalty;
+
+  return Number(Math.min(Math.max(positionPotential, 0), 10).toFixed(2));
+};
+
 const getComponentScores = (horse, raceContext, horses) => {
   const { relativeStrength } = getHorseBaseMetrics(horse, raceContext);
   const startSpeedScore = getStartSpeedScore(horse);
@@ -273,6 +313,14 @@ const getComponentScores = (horse, raceContext, horses) => {
     paceScore,
     leadCompetitionScore
   );
+  const positionPotentialScore = calculatePositionPotentialScore(
+    horse,
+    raceContext,
+    startSpeedScore,
+    paceScore,
+    leadPotentialScore,
+    leadCompetitionScore
+  );
 
   return {
     startSpeedScore,
@@ -284,6 +332,7 @@ const getComponentScores = (horse, raceContext, horses) => {
     gallopRiskScore: getOptionalNumericValue(horse.gallopRiskScore, horse.analysis?.gallopRiskScore),
     leadCompetitionScore,
     leadPotentialScore,
+    positionPotentialScore,
     spetsChanceScore,
     paceBonus,
     paceScore
