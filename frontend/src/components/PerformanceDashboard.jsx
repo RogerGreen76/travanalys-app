@@ -135,6 +135,14 @@ const PerformanceDashboard = () => {
         totalReturn: totals.totalReturn + raceReturn
       };
     }, { totalStake: 0, totalReturn: 0 });
+    const clvDiagnostics = {
+      totalRecords: completed.length,
+      totalValueSelections: 0,
+      recordsWithModelOdds: 0,
+      recordsWithStartOdds: 0,
+      recordsWithBoth: 0,
+      sample: []
+    };
     const clvValues = completed.reduce((values, item) => {
       const horses = Array.isArray(item?.prediction?.horses) ? item.prediction.horses : [];
       const valueSelections = horses.filter(horse => horse?.valueStatus === 'Spelvärd');
@@ -151,6 +159,30 @@ const PerformanceDashboard = () => {
           item?.result?.startOddsByHorse?.[horseNumber] ??
           item?.result?.closingOddsByHorse?.[horseNumber]
         );
+        const hasModelOdds = Number.isFinite(modelOdds) && modelOdds > 0;
+        const hasStartOdds = Number.isFinite(startOdds) && startOdds > 0;
+
+        clvDiagnostics.totalValueSelections += 1;
+        if (hasModelOdds) {
+          clvDiagnostics.recordsWithModelOdds += 1;
+        }
+        if (hasStartOdds) {
+          clvDiagnostics.recordsWithStartOdds += 1;
+        }
+        if (hasModelOdds && hasStartOdds) {
+          clvDiagnostics.recordsWithBoth += 1;
+        }
+        if (clvDiagnostics.sample.length < 5) {
+          clvDiagnostics.sample.push({
+            raceId: item?.raceId || item?.raceLabel || null,
+            horseNumber,
+            modelOdds,
+            startOdds,
+            hasModelOdds,
+            hasStartOdds,
+            hasBoth: hasModelOdds && hasStartOdds
+          });
+        }
 
         if (!Number.isFinite(modelOdds) || modelOdds <= 0 || !Number.isFinite(startOdds) || startOdds <= 0) {
           return;
@@ -161,6 +193,7 @@ const PerformanceDashboard = () => {
 
       return values;
     }, []);
+    console.log('CLV diagnostics', clvDiagnostics);
 
     const averageWinnerRank = winnerRanks.length
       ? Number((winnerRanks.reduce((sum, v) => sum + v, 0) / winnerRanks.length).toFixed(2))
