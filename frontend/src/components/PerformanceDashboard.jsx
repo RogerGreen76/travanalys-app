@@ -24,6 +24,9 @@ const statCards = [
   { key: 'winnerTop5', label: 'Vinnare topp 5' },
   { key: 'valueWinners', label: 'Spelvärda vinnare' },
   { key: 'starkPlayWinners', label: 'Stark play-vinnare' },
+  { key: 'totalStrongPlays', label: 'Antal Stark play' },
+  { key: 'strongPlayHitRate', label: 'Träff% Stark play' },
+  { key: 'strongPlayROI', label: 'ROI Stark play' },
   { key: 'averageWinnerOdds', label: 'Snittodds vinnare' },
   { key: 'roiSpelvarda', label: 'ROI Spelvärda' },
   { key: 'averageCLV', label: 'Snitt CLV' }
@@ -135,6 +138,31 @@ const PerformanceDashboard = () => {
         totalReturn: totals.totalReturn + raceReturn
       };
     }, { totalStake: 0, totalReturn: 0 });
+    const strongPlayTotals = completed.reduce((totals, item) => {
+      const winnerNumber = Number(item?.result?.winnerNumber);
+      const horses = Array.isArray(item?.prediction?.horses) ? item.prediction.horses : [];
+      const strongSelections = horses.filter(horse => horse?.play === 'Stark play');
+      const raceReturn = strongSelections.reduce((sum, horse) => {
+        const horseNumber = Number(horse?.number);
+        const horseOdds = Number(horse?.odds);
+        const isWinningStrongSelection =
+          Number.isFinite(winnerNumber) &&
+          Number.isFinite(horseNumber) &&
+          horseNumber === winnerNumber;
+
+        if (!isWinningStrongSelection || !Number.isFinite(horseOdds) || horseOdds <= 0) {
+          return sum;
+        }
+
+        return sum + horseOdds;
+      }, 0);
+
+      return {
+        totalStrongPlays: totals.totalStrongPlays + strongSelections.length,
+        strongPlayWinners: totals.strongPlayWinners + strongSelections.filter(selection => Number(selection?.number) === winnerNumber).length,
+        totalReturn: totals.totalReturn + raceReturn
+      };
+    }, { totalStrongPlays: 0, strongPlayWinners: 0, totalReturn: 0 });
     const clvDiagnostics = {
       totalRecords: completed.length,
       totalValueSelections: 0,
@@ -217,6 +245,12 @@ const PerformanceDashboard = () => {
     const roiSpelvarda = valueBetTotals.totalStake > 0
       ? `${roiValue.toFixed(2)} (${(roiValue * 100).toFixed(2)}%)`
       : '–';
+    const strongPlayHitRate = strongPlayTotals.totalStrongPlays > 0
+      ? `${((strongPlayTotals.strongPlayWinners / strongPlayTotals.totalStrongPlays) * 100).toFixed(1)}%`
+      : '–';
+    const strongPlayROI = strongPlayTotals.totalStrongPlays > 0
+      ? (strongPlayTotals.totalReturn / strongPlayTotals.totalStrongPlays).toFixed(2)
+      : '–';
     const averageCLVValue = clvValues.length
       ? clvValues.reduce((sum, value) => sum + value, 0) / clvValues.length
       : null;
@@ -231,6 +265,9 @@ const PerformanceDashboard = () => {
       winnerTop5: completed.filter(item => item.winnerInTop5).length,
       valueWinners: completed.filter(item => item?.winnerHorse?.valueStatus === 'Spelvärd').length,
       starkPlayWinners: completed.filter(item => item?.winnerHorse?.play === 'Stark play').length,
+      totalStrongPlays: strongPlayTotals.totalStrongPlays > 0 ? strongPlayTotals.totalStrongPlays : '–',
+      strongPlayHitRate,
+      strongPlayROI,
       averageWinnerOdds,
       roiSpelvarda,
       averageCLV,
