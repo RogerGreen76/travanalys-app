@@ -139,8 +139,16 @@ const PerformanceDashboard = () => {
     const averageWinnerOdds = winnerOdds.length
       ? Number((winnerOdds.reduce((sum, v) => sum + v, 0) / winnerOdds.length).toFixed(2))
       : '–';
+    const roiValue = valueBetTotals.totalStake > 0
+      ? valueBetTotals.totalReturn / valueBetTotals.totalStake
+      : null;
+    console.log({
+      totalValueBets: valueBetTotals.totalStake,
+      totalReturn: valueBetTotals.totalReturn,
+      ROI: roiValue
+    });
     const roiSpelvarda = valueBetTotals.totalStake > 0
-      ? `${(valueBetTotals.totalReturn / valueBetTotals.totalStake).toFixed(2)} (${((valueBetTotals.totalReturn / valueBetTotals.totalStake) * 100).toFixed(2)}%)`
+      ? `${roiValue.toFixed(2)} (${(roiValue * 100).toFixed(2)}%)`
       : '–';
 
     return {
