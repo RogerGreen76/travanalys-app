@@ -550,8 +550,16 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   }
 
   // Value status - adjusted thresholds
+  const horseNumber = Number(horse?.number);
+  const sortedByScore = [...(horses || [])].sort((a, b) => {
+    const scoreA = getEffectiveFinalScore(a);
+    const scoreB = getEffectiveFinalScore(b);
+    return scoreB - scoreA;
+  });
+  const horseRank = sortedByScore.findIndex(h => Number(h?.number) === horseNumber) + 1;
+
   let valueStatus = 'Neutral';
-  if (valueRatio > 1.20 && odds <= 15) {
+  if (valueRatio > 1.20 && odds <= 15 && horseRank <= 6) {
     valueStatus = 'Spelvärd';
   } else if (valueRatio < 1.05) {
     valueStatus = 'Överspelad';
