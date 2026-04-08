@@ -551,7 +551,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
 
   // Value status - adjusted thresholds
   let valueStatus = 'Neutral';
-  if (valueRatio > 1.20) {
+  if (valueRatio > 1.20 && odds <= 15) {
     valueStatus = 'Spelvärd';
   } else if (valueRatio < 1.05) {
     valueStatus = 'Överspelad';
