@@ -29,6 +29,13 @@ const statCards = [
 ];
 
 const GAME_TYPE_FILTERS = ['Alla', 'V85', 'V86', 'V64', 'V65', 'V5', 'GS75', 'DD'];
+const ROI_ODDS_BUCKETS = [
+  { key: '1-3', label: '1-3', min: 1, max: 3 },
+  { key: '3-6', label: '3-6', min: 3, max: 6 },
+  { key: '6-10', label: '6-10', min: 6, max: 10 },
+  { key: '10-20', label: '10-20', min: 10, max: 20 },
+  { key: '20+', label: '20+', min: 20, max: Infinity }
+];
 
 const PerformanceDashboard = () => {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -183,6 +190,59 @@ const PerformanceDashboard = () => {
       starkPlayWinners: toRate(filteredStats.starkPlayWinners)
     };
   }, [filteredStats]);
+
+  const roiByOddsRange = useMemo(() => {
+    const completed = filteredHistory.filter(item => item?.result?.winnerNumber != null);
+    const initialTotals = ROI_ODDS_BUCKETS.reduce((acc, bucket) => {
+      acc[bucket.key] = { totalBets: 0, wins: 0, totalReturn: 0 };
+      return acc;
+    }, {});
+
+    const bucketTotals = completed.reduce((acc, item) => {
+      const winnerNumber = Number(item?.result?.winnerNumber);
+      const horses = Array.isArray(item?.prediction?.horses) ? item.prediction.horses : [];
+      const valueSelections = horses.filter(horse => horse?.valueStatus === 'Spelvärd');
+
+      valueSelections.forEach(horse => {
+        const horseOdds = Number(horse?.odds);
+        const horseNumber = Number(horse?.number);
+
+        if (!Number.isFinite(horseOdds) || horseOdds <= 0) {
+          return;
+        }
+
+        const bucket = ROI_ODDS_BUCKETS.find(range =>
+          horseOdds >= range.min &&
+          (range.max === Infinity ? true : horseOdds < range.max)
+        );
+
+        if (!bucket) {
+          return;
+        }
+
+        const isWin = Number.isFinite(winnerNumber) && Number.isFinite(horseNumber) && horseNumber === winnerNumber;
+        acc[bucket.key].totalBets += 1;
+        if (isWin) {
+          acc[bucket.key].wins += 1;
+          acc[bucket.key].totalReturn += horseOdds;
+        }
+      });
+
+      return acc;
+    }, initialTotals);
+
+    return ROI_ODDS_BUCKETS.map(bucket => {
+      const totals = bucketTotals[bucket.key];
+      const roi = totals.totalBets > 0 ? totals.totalReturn / totals.totalBets : 0;
+
+      return {
+        label: bucket.label,
+        bets: totals.totalBets,
+        wins: totals.wins,
+        roi: roi.toFixed(2)
+      };
+    });
+  }, [filteredHistory]);
 
   const hasLegacyRowsMissingGameId = hasMissingGameIds(history);
 
@@ -379,6 +439,32 @@ const PerformanceDashboard = () => {
               <div className="text-xl font-semibold text-white mt-1">
                 {formatMetric(filteredStats.averageWinnerFinalScore)}
               </div>
+            </div>
+          </div>
+
+          <div className="mt-3 p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
+            <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">ROI per oddsintervall (Spelvärda)</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-400 border-b border-gray-700">
+                    <th className="text-left py-2 pr-3">Odds range</th>
+                    <th className="text-left py-2 pr-3">Bets</th>
+                    <th className="text-left py-2 pr-3">Wins</th>
+                    <th className="text-left py-2 pr-3">ROI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roiByOddsRange.map(row => (
+                    <tr key={row.label} className="border-b border-gray-800/80">
+                      <td className="py-2 pr-3 text-gray-300">{row.label}</td>
+                      <td className="py-2 pr-3 text-white">{row.bets}</td>
+                      <td className="py-2 pr-3 text-white">{row.wins}</td>
+                      <td className="py-2 pr-3 text-white">{row.roi}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </CardContent>
