@@ -24,7 +24,8 @@ const statCards = [
   { key: 'winnerTop5', label: 'Vinnare topp 5' },
   { key: 'valueWinners', label: 'Spelvärda vinnare' },
   { key: 'starkPlayWinners', label: 'Stark play-vinnare' },
-  { key: 'averageWinnerOdds', label: 'Snittodds vinnare' }
+  { key: 'averageWinnerOdds', label: 'Snittodds vinnare' },
+  { key: 'roiSpelvarda', label: 'ROI Spelvärda' }
 ];
 
 const GAME_TYPE_FILTERS = ['Alla', 'V85', 'V86', 'V64', 'V65', 'V5', 'GS75', 'DD'];
@@ -102,6 +103,30 @@ const PerformanceDashboard = () => {
     const winnerOdds = completed
       .map(item => Number(item?.winnerHorse?.odds))
       .filter(odds => Number.isFinite(odds) && odds > 0);
+    const valueBetTotals = completed.reduce((totals, item) => {
+      const winnerNumber = Number(item?.result?.winnerNumber);
+      const horses = Array.isArray(item?.prediction?.horses) ? item.prediction.horses : [];
+      const valueSelections = horses.filter(horse => horse?.valueStatus === 'Spelvärd');
+      const raceReturn = valueSelections.reduce((sum, horse) => {
+        const horseNumber = Number(horse?.number);
+        const horseOdds = Number(horse?.odds);
+        const isWinningValueSelection =
+          Number.isFinite(winnerNumber) &&
+          Number.isFinite(horseNumber) &&
+          horseNumber === winnerNumber;
+
+        if (!isWinningValueSelection || !Number.isFinite(horseOdds) || horseOdds <= 0) {
+          return sum;
+        }
+
+        return sum + horseOdds;
+      }, 0);
+
+      return {
+        totalStake: totals.totalStake + valueSelections.length,
+        totalReturn: totals.totalReturn + raceReturn
+      };
+    }, { totalStake: 0, totalReturn: 0 });
 
     const averageWinnerRank = winnerRanks.length
       ? Number((winnerRanks.reduce((sum, v) => sum + v, 0) / winnerRanks.length).toFixed(2))
@@ -114,6 +139,9 @@ const PerformanceDashboard = () => {
     const averageWinnerOdds = winnerOdds.length
       ? Number((winnerOdds.reduce((sum, v) => sum + v, 0) / winnerOdds.length).toFixed(2))
       : '–';
+    const roiSpelvarda = valueBetTotals.totalStake > 0
+      ? `${(valueBetTotals.totalReturn / valueBetTotals.totalStake).toFixed(2)} (${((valueBetTotals.totalReturn / valueBetTotals.totalStake) * 100).toFixed(2)}%)`
+      : '–';
 
     return {
       totalRaces: filteredHistory.length,
@@ -123,6 +151,7 @@ const PerformanceDashboard = () => {
       valueWinners: completed.filter(item => item?.winnerHorse?.valueStatus === 'Spelvärd').length,
       starkPlayWinners: completed.filter(item => item?.winnerHorse?.play === 'Stark play').length,
       averageWinnerOdds,
+      roiSpelvarda,
       averageWinnerRank,
       averageWinnerFinalScore
     };
