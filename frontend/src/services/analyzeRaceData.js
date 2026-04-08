@@ -552,8 +552,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   // Value status - adjusted thresholds
   const horseNumber = Number(horse?.number);
   const sortedByScore = [...(horses || [])].sort((a, b) => {
-    const scoreA = getEffectiveFinalScore(a);
-    const scoreB = getEffectiveFinalScore(b);
+    const scoreA = Number.isFinite(a.calibratedFinalScore) ? a.calibratedFinalScore : a.finalScore;
+    const scoreB = Number.isFinite(b.calibratedFinalScore) ? b.calibratedFinalScore : b.finalScore;
     return scoreB - scoreA;
   });
   const horseRank = sortedByScore.findIndex(h => Number(h?.number) === horseNumber) + 1;
