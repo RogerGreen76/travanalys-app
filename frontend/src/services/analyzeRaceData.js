@@ -466,6 +466,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     .some(keyword => tipskommentar.includes(keyword));
   const hasPositiveCommentSignal = ["skrällbud", "bra spår", "snabb", "spets", "platschans", "plats"]
     .some(keyword => tipskommentar.includes(keyword));
+  const fieldSize = (horses || []).length;
 
   let upsetScore = Number((
     normalizedStrength * 45 +
@@ -508,6 +509,12 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   }
   if (hasPositiveCommentSignal && streckPercent < 8) {
     upsetScore += 1.5;
+  }
+  if (fieldSize >= 13) {
+    upsetScore += 2;
+  }
+  if (fieldSize <= 8) {
+    upsetScore -= 1;
   }
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
   const positionPotential = componentScores?.positionPotentialScore ?? 0;
