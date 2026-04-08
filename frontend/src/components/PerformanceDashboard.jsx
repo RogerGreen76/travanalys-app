@@ -23,7 +23,8 @@ const statCards = [
   { key: 'winnerTop3', label: 'Vinnare topp 3' },
   { key: 'winnerTop5', label: 'Vinnare topp 5' },
   { key: 'valueWinners', label: 'Spelvärda vinnare' },
-  { key: 'starkPlayWinners', label: 'Stark play-vinnare' }
+  { key: 'starkPlayWinners', label: 'Stark play-vinnare' },
+  { key: 'averageWinnerOdds', label: 'Snittodds vinnare' }
 ];
 
 const GAME_TYPE_FILTERS = ['Alla', 'V85', 'V86', 'V64', 'V65', 'V5', 'GS75', 'DD'];
@@ -98,6 +99,9 @@ const PerformanceDashboard = () => {
     const winnerFinalScores = completed
       .map(item => getEffectiveFinalScore(item?.winnerHorse))
       .filter(Number.isFinite);
+    const winnerOdds = completed
+      .map(item => Number(item?.winnerHorse?.odds))
+      .filter(odds => Number.isFinite(odds) && odds > 0);
 
     const averageWinnerRank = winnerRanks.length
       ? Number((winnerRanks.reduce((sum, v) => sum + v, 0) / winnerRanks.length).toFixed(2))
@@ -107,6 +111,10 @@ const PerformanceDashboard = () => {
       ? Number((winnerFinalScores.reduce((sum, v) => sum + v, 0) / winnerFinalScores.length).toFixed(2))
       : null;
 
+    const averageWinnerOdds = winnerOdds.length
+      ? Number((winnerOdds.reduce((sum, v) => sum + v, 0) / winnerOdds.length).toFixed(2))
+      : '–';
+
     return {
       totalRaces: filteredHistory.length,
       winnerTop1: completed.filter(item => item.winnerInTop1).length,
@@ -114,6 +122,7 @@ const PerformanceDashboard = () => {
       winnerTop5: completed.filter(item => item.winnerInTop5).length,
       valueWinners: completed.filter(item => item?.winnerHorse?.valueStatus === 'Spelvärd').length,
       starkPlayWinners: completed.filter(item => item?.winnerHorse?.play === 'Stark play').length,
+      averageWinnerOdds,
       averageWinnerRank,
       averageWinnerFinalScore
     };
