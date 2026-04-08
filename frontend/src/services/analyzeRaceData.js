@@ -440,6 +440,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   }, null);
 
   const favoriteStreckPercent = Number(favorite?.betDistribution) / 100;
+  const isFavorite = favorite === horse;
   const favoriteLeadCompetitionScore = Number(componentScores?.leadCompetitionScore) * 10;
   const favoriteRisk =
     favoriteStreckPercent > 40 &&
@@ -458,6 +459,9 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     upsetScore += 4;
   }
   if (fastStarters >= 4) {
+    upsetScore += 3;
+  }
+  if (!isFavorite && favoriteStreckPercent >= 55) {
     upsetScore += 3;
   }
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
