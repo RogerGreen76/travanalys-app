@@ -559,7 +559,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const horseRank = sortedByScore.findIndex(h => Number(h?.number) === horseNumber) + 1;
 
   let valueStatus = 'Neutral';
-  if (valueRatio > 1.20 && odds <= 15 && horseRank <= 6) {
+  if (valueRatio > 1.20 && odds <= 15 && horseRank <= 5) {
     valueStatus = 'Spelvärd';
   } else if (valueRatio < 1.05) {
     valueStatus = 'Överspelad';
