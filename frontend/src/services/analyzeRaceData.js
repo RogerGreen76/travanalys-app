@@ -79,7 +79,7 @@ const analyzeHorse = (horse, raceContext, horses) => {
   }
 
   const componentScores = getComponentScores(horse, raceContext, horses);
-  const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext);
+  const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext, horses);
 
   console.log(
   horse.name,
@@ -356,7 +356,7 @@ const getComponentScores = (horse, raceContext, horses) => {
   };
 };
 
-const getExistingAggregateScores = (horse, componentScores, raceContext) => {
+const getExistingAggregateScores = (horse, componentScores, raceContext, horses = []) => {
   const {
     odds,
     streckPercent,
@@ -424,7 +424,28 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
   const normalizedLead = Math.min(Math.max(componentScores.leadPotentialScore || 0, 0), 10) / 10;
 
   // Low-to-medium streck is a plus; heavily backed horses get a clear minus.
-  const upsetScore = Number((
+  const favorite = (horses || []).reduce((highest, candidate) => {
+    const candidateStreckPercent = Number(candidate?.betDistribution) / 100;
+    const highestStreckPercent = Number(highest?.betDistribution) / 100;
+
+    if (!Number.isFinite(candidateStreckPercent)) {
+      return highest;
+    }
+
+    if (!highest || !Number.isFinite(highestStreckPercent) || candidateStreckPercent > highestStreckPercent) {
+      return candidate;
+    }
+
+    return highest;
+  }, null);
+
+  const favoriteStreckPercent = Number(favorite?.betDistribution) / 100;
+  const favoriteLeadCompetitionScore = Number(componentScores?.leadCompetitionScore) * 10;
+  const favoriteRisk =
+    favoriteStreckPercent > 40 &&
+    favoriteLeadCompetitionScore > 7;
+
+  let upsetScore = Number((
     normalizedStrength * 45 +
     normalizedValue * 30 +
     (1 - normalizedStreck) * 20 +
@@ -432,6 +453,9 @@ const getExistingAggregateScores = (horse, componentScores, raceContext) => {
     normalizedLead * 2 -
     (streckPercent > 45 ? 12 : 0)
   ).toFixed(2));
+  if (favoriteRisk) {
+    upsetScore += 4;
+  }
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
   const positionPotential = componentScores?.positionPotentialScore ?? 0;
   const paceScenario = componentScores?.paceScenarioScore ?? 0;
