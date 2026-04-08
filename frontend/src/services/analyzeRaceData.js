@@ -452,6 +452,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const topTwoShare =
     (Number(sortedByStreck[0]?.betDistribution) / 100 || 0) +
     (Number(sortedByStreck[1]?.betDistribution) / 100 || 0);
+  const secondFavoriteStreck = Number(sortedByStreck[1]?.betDistribution) / 100 || 0;
+  const favoriteGap = favoriteStreckPercent - secondFavoriteStreck;
   const currentHorseNumber = Number(horse?.postPosition ?? horse?.number);
   const favoriteNumber = Number(favorite?.postPosition ?? favorite?.number);
   const hasUpsetStrengthValue =
@@ -483,6 +485,9 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     upsetScore += 3;
   }
   if (!isFavorite && topTwoShare >= 70) {
+    upsetScore += 3;
+  }
+  if (!isFavorite && favoriteGap > 25) {
     upsetScore += 3;
   }
   if (
