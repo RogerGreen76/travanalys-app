@@ -119,6 +119,25 @@ const PerformanceDashboard = () => {
     };
   }, [filteredHistory]);
 
+  const hitRateByKey = useMemo(() => {
+    const totalRaces = filteredStats.totalRaces;
+    const toRate = (count) => {
+      if (!totalRaces) {
+        return null;
+      }
+
+      return ((count / totalRaces) * 100).toFixed(1);
+    };
+
+    return {
+      winnerTop1: toRate(filteredStats.winnerTop1),
+      winnerTop3: toRate(filteredStats.winnerTop3),
+      winnerTop5: toRate(filteredStats.winnerTop5),
+      valueWinners: toRate(filteredStats.valueWinners),
+      starkPlayWinners: toRate(filteredStats.starkPlayWinners)
+    };
+  }, [filteredStats]);
+
   const hasLegacyRowsMissingGameId = hasMissingGameIds(history);
 
   const openEditor = (item) => {
@@ -296,6 +315,7 @@ const PerformanceDashboard = () => {
                 <div className="text-xs text-gray-400 uppercase tracking-wide">{card.label}</div>
                 <div className="text-2xl font-semibold text-white mt-1">
                   {filteredStats[card.key] ?? 0}
+                  {hitRateByKey[card.key] != null ? ` (${hitRateByKey[card.key]}%)` : ''}
                 </div>
               </div>
             ))}
