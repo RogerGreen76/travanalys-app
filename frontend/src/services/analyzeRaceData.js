@@ -536,7 +536,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
 
   const meetsStarkBase = finalScore >= 95 && valueRatio >= 1.20;
 
-  if (meetsStarkBase && streckPercent <= 45) {
+  if (meetsStarkBase && streckPercent <= 30) {
     play = "Stark play";
   } 
   else if (meetsStarkBase && streckPercent > 45) {
