@@ -452,6 +452,11 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const topTwoShare =
     (Number(sortedByStreck[0]?.betDistribution) / 100 || 0) +
     (Number(sortedByStreck[1]?.betDistribution) / 100 || 0);
+  const currentHorseNumber = Number(horse?.postPosition ?? horse?.number);
+  const favoriteNumber = Number(favorite?.postPosition ?? favorite?.number);
+  const hasUpsetStrengthValue =
+    effectiveStrength >= 55 &&
+    valueRatio >= 1.10;
 
   let upsetScore = Number((
     normalizedStrength * 45 +
@@ -471,6 +476,16 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     upsetScore += 3;
   }
   if (!isFavorite && topTwoShare >= 70) {
+    upsetScore += 3;
+  }
+  if (
+    !isFavorite &&
+    hasUpsetStrengthValue &&
+    Number.isFinite(currentHorseNumber) &&
+    Number.isFinite(favoriteNumber) &&
+    currentHorseNumber <= 5 &&
+    favoriteNumber >= 8
+  ) {
     upsetScore += 3;
   }
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
