@@ -25,7 +25,8 @@ const statCards = [
   { key: 'valueWinners', label: 'Spelvärda vinnare' },
   { key: 'starkPlayWinners', label: 'Stark play-vinnare' },
   { key: 'averageWinnerOdds', label: 'Snittodds vinnare' },
-  { key: 'roiSpelvarda', label: 'ROI Spelvärda' }
+  { key: 'roiSpelvarda', label: 'ROI Spelvärda' },
+  { key: 'averageCLV', label: 'Snitt CLV' }
 ];
 
 const GAME_TYPE_FILTERS = ['Alla', 'V85', 'V86', 'V64', 'V65', 'V5', 'GS75', 'DD'];
@@ -134,6 +135,32 @@ const PerformanceDashboard = () => {
         totalReturn: totals.totalReturn + raceReturn
       };
     }, { totalStake: 0, totalReturn: 0 });
+    const clvValues = completed.reduce((values, item) => {
+      const horses = Array.isArray(item?.prediction?.horses) ? item.prediction.horses : [];
+      const valueSelections = horses.filter(horse => horse?.valueStatus === 'Spelvärd');
+
+      valueSelections.forEach(horse => {
+        const horseNumber = Number(horse?.number);
+        const modelOdds = Number(horse?.odds);
+        const startOdds = Number(
+          horse?.startOdds ??
+          horse?.closingOdds ??
+          horse?.finalOdds ??
+          horse?.resultOdds ??
+          item?.result?.oddsByHorse?.[horseNumber] ??
+          item?.result?.startOddsByHorse?.[horseNumber] ??
+          item?.result?.closingOddsByHorse?.[horseNumber]
+        );
+
+        if (!Number.isFinite(modelOdds) || modelOdds <= 0 || !Number.isFinite(startOdds) || startOdds <= 0) {
+          return;
+        }
+
+        values.push((modelOdds - startOdds) / modelOdds);
+      });
+
+      return values;
+    }, []);
 
     const averageWinnerRank = winnerRanks.length
       ? Number((winnerRanks.reduce((sum, v) => sum + v, 0) / winnerRanks.length).toFixed(2))
@@ -157,6 +184,12 @@ const PerformanceDashboard = () => {
     const roiSpelvarda = valueBetTotals.totalStake > 0
       ? `${roiValue.toFixed(2)} (${(roiValue * 100).toFixed(2)}%)`
       : '–';
+    const averageCLVValue = clvValues.length
+      ? clvValues.reduce((sum, value) => sum + value, 0) / clvValues.length
+      : null;
+    const averageCLV = Number.isFinite(averageCLVValue)
+      ? `${averageCLVValue > 0 ? '+' : ''}${(averageCLVValue * 100).toFixed(1)}%`
+      : '–';
 
     return {
       totalRaces: filteredHistory.length,
@@ -167,6 +200,8 @@ const PerformanceDashboard = () => {
       starkPlayWinners: completed.filter(item => item?.winnerHorse?.play === 'Stark play').length,
       averageWinnerOdds,
       roiSpelvarda,
+      averageCLV,
+      averageCLVValue,
       averageWinnerRank,
       averageWinnerFinalScore
     };
@@ -419,7 +454,11 @@ const PerformanceDashboard = () => {
             {statCards.map(card => (
               <div key={card.key} className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
                 <div className="text-xs text-gray-400 uppercase tracking-wide">{card.label}</div>
-                <div className="text-2xl font-semibold text-white mt-1">
+                <div className={`text-2xl font-semibold mt-1 ${
+                  card.key === 'averageCLV' && Number.isFinite(filteredStats.averageCLVValue)
+                    ? (filteredStats.averageCLVValue > 0 ? 'text-green-400' : filteredStats.averageCLVValue < 0 ? 'text-red-400' : 'text-white')
+                    : 'text-white'
+                }`}>
                   {filteredStats[card.key] ?? 0}
                   {hitRateByKey[card.key] != null ? ` (${hitRateByKey[card.key]}%)` : ''}
                 </div>
