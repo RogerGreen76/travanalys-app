@@ -457,6 +457,13 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const hasUpsetStrengthValue =
     effectiveStrength >= 55 &&
     valueRatio >= 1.10;
+  const tipskommentar = String(horse?.tipskommentar || '').toLowerCase();
+  const hasFastStartSignal = ["snabb", "laddning", "spets", "bra spår"]
+    .some(keyword => tipskommentar.includes(keyword));
+  const hasPositionRiskSignal = ["svårt spår", "bakspår", "måste få lopp"]
+    .some(keyword => tipskommentar.includes(keyword));
+  const hasPositiveCommentSignal = ["skrällbud", "bra spår", "snabb", "spets", "platschans", "plats"]
+    .some(keyword => tipskommentar.includes(keyword));
 
   let upsetScore = Number((
     normalizedStrength * 45 +
@@ -487,6 +494,15 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     favoriteNumber >= 8
   ) {
     upsetScore += 3;
+  }
+  if (hasFastStartSignal) {
+    upsetScore += 1.5;
+  }
+  if (hasPositionRiskSignal) {
+    upsetScore -= 1;
+  }
+  if (hasPositiveCommentSignal && streckPercent < 8) {
+    upsetScore += 1.5;
   }
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
   const positionPotential = componentScores?.positionPotentialScore ?? 0;
