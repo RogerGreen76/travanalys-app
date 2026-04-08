@@ -444,6 +444,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const favoriteRisk =
     favoriteStreckPercent > 40 &&
     favoriteLeadCompetitionScore > 7;
+  const fastStarters = (horses || []).filter(h => h.startSpeedScore >= 4).length;
 
   let upsetScore = Number((
     normalizedStrength * 45 +
@@ -455,6 +456,9 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   ).toFixed(2));
   if (favoriteRisk) {
     upsetScore += 4;
+  }
+  if (fastStarters >= 4) {
+    upsetScore += 3;
   }
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
   const positionPotential = componentScores?.positionPotentialScore ?? 0;
