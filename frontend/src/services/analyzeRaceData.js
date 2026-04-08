@@ -446,6 +446,12 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     favoriteStreckPercent > 40 &&
     favoriteLeadCompetitionScore > 7;
   const fastStarters = (horses || []).filter(h => h.startSpeedScore >= 4).length;
+  const sortedByStreck = [...(horses || [])].sort(
+    (a, b) => (Number(b?.betDistribution) / 100) - (Number(a?.betDistribution) / 100)
+  );
+  const topTwoShare =
+    (Number(sortedByStreck[0]?.betDistribution) / 100 || 0) +
+    (Number(sortedByStreck[1]?.betDistribution) / 100 || 0);
 
   let upsetScore = Number((
     normalizedStrength * 45 +
@@ -462,6 +468,9 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     upsetScore += 3;
   }
   if (!isFavorite && favoriteStreckPercent >= 55) {
+    upsetScore += 3;
+  }
+  if (!isFavorite && topTwoShare >= 70) {
     upsetScore += 3;
   }
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
