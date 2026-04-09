@@ -462,7 +462,29 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const startSpeedContribution = componentScores.startSpeedScore * 0.4 * earlySpeedContextMultiplier;
   const leadPotentialContribution = normalizedLeadPotential * 0.6 * earlySpeedContextMultiplier;
   const paceScenarioContribution = normalizedPaceScenario * 0.8 * paceContextMultiplier;
-  const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8 + startSpeedContribution + leadPotentialContribution + paceScenarioContribution;
+
+  // Old rankingScore (kept for debug comparison only)
+  const rankingScore_old = impliedProbability + relativeStrength * 15 + valueRatio * 8 + startSpeedContribution + leadPotentialContribution + paceScenarioContribution;
+
+  // Normalize market-derived terms to [0,1] before aggregation to reduce scale dominance
+  const normImpliedProbability = Math.min(Math.max(impliedProbability / 100, 0), 1);
+  const normRelativeStrength   = Math.min(Math.max(relativeStrength / 3, 0), 1);
+  const normValueRatio         = Math.min(Math.max(valueRatio / 3, 0), 1);
+  const ipContribution  = normImpliedProbability * 4;
+  const rsContribution  = normRelativeStrength   * 3;
+  const vrContribution  = normValueRatio         * 3;
+  const rankingScore = ipContribution + rsContribution + vrContribution + startSpeedContribution + leadPotentialContribution + paceScenarioContribution;
+
+  console.log('[RankingScaleDebug]', horse.name, {
+    old: rankingScore_old.toFixed(2),
+    new: rankingScore.toFixed(2),
+    ipContribution:           ipContribution.toFixed(3),
+    rsContribution:           rsContribution.toFixed(3),
+    vrContribution:           vrContribution.toFixed(3),
+    startSpeedContribution:   startSpeedContribution.toFixed(3),
+    leadPotentialContribution: leadPotentialContribution.toFixed(3),
+    paceScenarioContribution: paceScenarioContribution.toFixed(3),
+  });
 
   // ===== HORSE SCORE (Sports ranking 0-100) =====
   let horseScore = 0;
