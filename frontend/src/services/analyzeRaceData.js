@@ -424,11 +424,19 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   } = getHorseBaseMetrics(horse, raceContext);
   const { modelWeight, marketWeight, raceType } = raceContext;
 
-  // Ranking Score (minimal additive pace/start influence, bounded to avoid dominance)
-  const startSpeedContribution = componentScores.startSpeedScore * 0.4;
+  // Ranking Score (context-sensitive early speed/lead influence, bounded to avoid dominance)
   const normalizedPaceScenario = Math.min(Math.max(componentScores.paceScenarioScore, 0), 30) / 30;
-  const paceScenarioContribution = normalizedPaceScenario * 0.8;
-  const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8 + startSpeedContribution + paceScenarioContribution;
+  const normalizedLeadPotential = Math.min(Math.max(componentScores.leadPotentialScore || 0, 0), 10) / 10;
+  const normalizedLeadCompetition = Math.min(Math.max(componentScores.leadCompetitionScore || 0, 0), 1);
+  const leaderAdvantageSignal = normalizedPaceScenario * (1 - normalizedLeadCompetition);
+  const contestedPaceSignal = normalizedLeadCompetition * (1 - normalizedPaceScenario * 0.5);
+  const earlySpeedContextMultiplier = Math.min(Math.max(1 + leaderAdvantageSignal * 0.15 - contestedPaceSignal * 0.10, 0.9), 1.15);
+  const paceContextMultiplier = Math.min(Math.max(1 + leaderAdvantageSignal * 0.08 - contestedPaceSignal * 0.06, 0.92), 1.06);
+
+  const startSpeedContribution = componentScores.startSpeedScore * 0.4 * earlySpeedContextMultiplier;
+  const leadPotentialContribution = normalizedLeadPotential * 0.6 * earlySpeedContextMultiplier;
+  const paceScenarioContribution = normalizedPaceScenario * 0.8 * paceContextMultiplier;
+  const rankingScore = impliedProbability + relativeStrength * 15 + valueRatio * 8 + startSpeedContribution + leadPotentialContribution + paceScenarioContribution;
 
   // ===== HORSE SCORE (Sports ranking 0-100) =====
   let horseScore = 0;
