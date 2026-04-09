@@ -264,52 +264,52 @@ const HorseTable = ({ horses }) => {
 
         <table className="table-fixed w-full text-sm" data-testid="horses-table">
             <thead>
-              <tr>
-                <th onClick={() => handleSort('number')} className="cursor-pointer text-center w-12">
+              <tr className="border-b border-white/10 text-xs text-gray-500 uppercase tracking-wider">
+                <th onClick={() => handleSort('number')} className="cursor-pointer text-center w-12 pb-3">
                   <div className="flex items-center justify-center gap-1">
                     #
                     {getSortIcon('number')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('name')} className="cursor-pointer w-48">
+                <th onClick={() => handleSort('name')} className="cursor-pointer w-48 pb-3">
                   <div className="flex items-center gap-1">
                     Häst
                     {getSortIcon('name')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('odds')} className="cursor-pointer text-center w-20">
+                <th onClick={() => handleSort('odds')} className="cursor-pointer text-center w-20 pb-3">
                   <div className="flex items-center justify-center gap-1">
                     Odds
                     {getSortIcon('odds')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('streckPercent')} className="cursor-pointer text-center w-20">
+                <th onClick={() => handleSort('streckPercent')} className="cursor-pointer text-center w-20 pb-3">
                   <div className="flex items-center justify-center gap-1">
                     Streck %
                     {getSortIcon('streckPercent')}
                   </div>
                 </th>
                 
-                <th onClick={() => handleSort('valueRatio')} className="cursor-pointer w-32 text-center">
+                <th onClick={() => handleSort('valueRatio')} className="cursor-pointer w-32 text-center pb-3">
                   <div className="flex items-center justify-center gap-1">
                     Spelvärde
                     {getSortIcon('valueRatio')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('rankingScore')} className="cursor-pointer text-center w-24">
+                <th onClick={() => handleSort('rankingScore')} className="cursor-pointer text-center w-24 pb-3">
                   <div className="flex items-center justify-center gap-1">
                     Ranking Score
                     {getSortIcon('rankingScore')}
                   </div>
                 </th>
                 
-                <th onClick={() => handleSort('finalScore')} className="cursor-pointer text-center w-24">
+                <th onClick={() => handleSort('finalScore')} className="cursor-pointer text-center w-24 pb-3">
                   <div className="flex items-center justify-center gap-1">
                     Final Score
                     {getSortIcon('finalScore')}
                   </div>
                 </th>
-                <th onClick={() => handleSort('play')} className="cursor-pointer w-32 text-center">
+                <th onClick={() => handleSort('play')} className="cursor-pointer w-32 text-center pb-3">
                   <div className="flex items-center justify-center gap-1">
                     Play
                     {getSortIcon('play')}
@@ -321,67 +321,67 @@ const HorseTable = ({ horses }) => {
               {sortedAndFilteredHorses.map((horse) => (
                 <tr
                   key={horse.number}
-                  className={
+                  className={`border-b border-white/5 last:border-0 transition-colors duration-150 hover:bg-white/[0.025] ${
                       horse.play === 'Stark play'
-                        ? 'bg-green-500/20'
+                        ? 'bg-green-500/15'
                         : horse.play === 'Möjlig play'
-                        ? 'bg-blue-500/10'
+                        ? 'bg-sky-500/[0.08]'
                         : ''
-                    }
+                    }`}
                   data-testid={`horse-row-${horse.number}`}
                 >
-                  <td className="font-bold text-white text-center w-12 py-3">{horse.number}</td>
-                  <td className="text-white w-48 py-3">
-                    <div className="font-semibold flex items-center gap-2">
+                  <td className="font-bold text-gray-300 text-center w-12 py-4 tabular-nums">{horse.number}</td>
+                  <td className="text-white w-48 py-4">
+                    <div className="font-semibold text-[15px] tracking-tight flex items-center gap-2">
                       <span>{horse.name}</span>
                       {horse.isPotentialUpset && (
-                        <span className="px-2 py-0.5 text-xs rounded bg-amber-900/30 text-amber-300 border border-amber-700/40">
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium tracking-wide">
                           Skrällbud
                         </span>
                       )}
                     </div>
                     {(horse.driver || horse.trainer) && (
-                      <div className="text-xs text-gray-400 mt-2">
+                      <div className="text-xs text-gray-500 mt-1 tracking-wide">
                         {horse.driver && <span>{horse.driver}</span>}
                         {horse.driver && horse.trainer && <span> • </span>}
                         {horse.trainer && <span>{horse.trainer}</span>}
                       </div>
                     )}
                   </td>
-                  <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.odds, 2)}</td>
-                  <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.streckPercent, 1)}%</td>
+                  <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
+                  <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>
                   
-                  <td className="text-center w-32 py-3">
+                  <td className="text-center w-32 py-4">
                     <div className="flex justify-center">
-                      <span className={`text-xs px-2 py-0.5 rounded inline-flex justify-center min-w-[92px] ${
-                        horse.valueStatus === 'Spelvärd' ? 'bg-green-500/20 text-green-400' :
-                        horse.valueStatus === 'Överspelad' ? 'bg-red-500/20 text-red-400' :
-                        'bg-yellow-500/20 text-yellow-400'
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full border inline-flex justify-center min-w-[92px] font-medium ${
+                        horse.valueStatus === 'Spelvärd' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' :
+                        horse.valueStatus === 'Överspelad' ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+                        'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
                     }`}>
                       {horse.valueStatus}
                   </span>
                 </div>
               </td>
-                  <td className="text-center text-white font-mono font-semibold w-24 py-3">
+                  <td className="text-center text-gray-200 font-mono w-24 py-4 tabular-nums">
                     {formatNumber(horse.rankingScore, 1)}
                   </td>
                   
-                  <td className="text-center font-bold font-mono w-24 py-3">
-                    <span className={`text-lg ${
+                  <td className="text-center font-mono w-24 py-4">
+                    <span className={`text-base font-semibold tabular-nums ${
                       getEffectiveFinalScore(horse) > 80 ? 'text-green-400' :
                       getEffectiveFinalScore(horse) > 60 ? 'text-yellow-400' :
-                      'text-gray-400'
+                      'text-gray-500'
                     }`}>
                       {formatNumber(getEffectiveFinalScore(horse), 1)}
                     </span>
                   </td>
-                  <td className="text-center w-32 py-3">
-                    <span className={`inline-block px-3 py-1 rounded text-xs font-bold whitespace-nowrap ${
+                  <td className="text-center w-32 py-4">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border ${
                       horse.play === 'Stark play' 
-                        ? 'bg-green-500/30 text-green-300 border border-green-500/50' 
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
                         : horse.play === 'Möjlig play'
-                        ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50'
-                        : 'bg-gray-700/30 text-gray-400 border border-gray-600/30'
+                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                        : 'bg-gray-800/50 text-gray-500 border-gray-700/30'
                     }`}>
                       {horse.play}
                     </span>
