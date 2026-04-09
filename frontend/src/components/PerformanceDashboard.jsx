@@ -524,7 +524,7 @@ const PerformanceDashboard = () => {
             {statCards.map(card => (
               <div key={card.key} className="p-4 rounded-xl border border-white/10 bg-[#0d1119]">
                 <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">{card.label}</div>
-                <div className={`text-3xl font-bold mt-2 tabular-nums ${
+                <div className={`text-2xl font-semibold mt-2 tabular-nums ${
                   card.key === 'averageCLV' && Number.isFinite(filteredStats.averageCLVValue)
                     ? (filteredStats.averageCLVValue > 0 ? 'text-green-400' : filteredStats.averageCLVValue < 0 ? 'text-red-400' : 'text-white')
                     : 'text-white'
@@ -539,13 +539,13 @@ const PerformanceDashboard = () => {
           <div className="grid md:grid-cols-2 gap-4 mt-4">
             <div className="p-4 rounded-xl border border-white/10 bg-[#0d1119]">
               <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">Snitt rank (vinnare)</div>
-              <div className="text-2xl font-bold text-white mt-2 tabular-nums">
+              <div className="text-xl font-semibold text-white mt-2 tabular-nums">
                 {formatMetric(filteredStats.averageWinnerRank)}
               </div>
             </div>
             <div className="p-4 rounded-xl border border-white/10 bg-[#0d1119]">
               <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">Snitt kalibrerad score (vinnare)</div>
-              <div className="text-2xl font-bold text-white mt-2 tabular-nums">
+              <div className="text-xl font-semibold text-white mt-2 tabular-nums">
                 {formatMetric(filteredStats.averageWinnerFinalScore)}
               </div>
             </div>
