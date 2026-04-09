@@ -541,11 +541,11 @@ const RaceAnalyzer = () => {
   const currentRace = allRaces.length > 0 ? allRaces[selectedRaceIndex] : null;
 
   return (
-    <div className="min-h-screen px-4 pb-4 pt-16 md:px-8 md:pb-8 md:pt-24">
+    <div className="min-h-screen px-4 pb-4 pt-20 md:px-8 md:pb-8 md:pt-28">
       <div className="max-w-7xl mx-auto space-y-10">
         {/* Header */}
-        <div className="text-center space-y-5">
-          <h1 className="text-4xl md:text-5xl font-bold text-white" style={{ fontFamily: 'Manrope, sans-serif' }}>
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'Manrope, sans-serif' }}>
             Travanalysen
           </h1>
           <p className="text-gray-400 text-lg">Identifiera spelvärda hästar baserat på odds, streck och marknadsedge</p>
