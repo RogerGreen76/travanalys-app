@@ -520,9 +520,12 @@ const PerformanceDashboard = () => {
               Äldre historikrader saknar gameId och kan därför inte alltid få resultat automatiskt
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6 pt-6 border-t border-white/5">
             {statCards.map(card => (
-              <div key={card.key} className="p-5 rounded-xl border border-white/10 bg-[#0d1119]">
+              <div
+                key={card.key}
+                className="p-5 rounded-xl border border-white/10 bg-gradient-to-b from-[#131a26] to-[#0d1119] transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(0,0,0,0.25)]"
+              >
                 <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">{card.label}</div>
                 <div className={`text-2xl font-semibold mt-3 tabular-nums ${
                   card.key === 'averageCLV' && Number.isFinite(filteredStats.averageCLVValue)
@@ -536,7 +539,7 @@ const PerformanceDashboard = () => {
             ))}
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6 mt-6">
+          <div className="grid md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-white/5">
             <div className="p-5 rounded-xl border border-white/10 bg-[#0d1119]">
               <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">Snitt rank (vinnare)</div>
               <div className="text-xl font-semibold text-white mt-3 tabular-nums">
@@ -551,7 +554,7 @@ const PerformanceDashboard = () => {
             </div>
           </div>
 
-          <div className="mt-6 p-5 rounded-xl border border-white/10 bg-[#0d1119]">
+          <div className="mt-6 pt-6 border-t border-white/5 p-5 rounded-xl border border-white/10 bg-[#0d1119]">
             <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium mb-3">ROI per oddsintervall (Spelvärda)</div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
