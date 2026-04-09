@@ -544,7 +544,7 @@ const RaceAnalyzer = () => {
     <div className="min-h-screen px-4 pb-4 pt-20 md:px-8 md:pb-8 md:pt-28">
       <div className="max-w-7xl mx-auto space-y-10">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6" style={{ fontFamily: 'Manrope, sans-serif' }}>
             Travanalysen
           </h1>
@@ -768,7 +768,7 @@ const RaceAnalyzer = () => {
 
         {/* Horse Table */}
         {currentRace && (
-          <div className={`space-y-6 race-content ${isRaceSwitching ? 'loading' : ''}`}>
+          <div className={`space-y-12 race-content ${isRaceSwitching ? 'loading' : ''}`}>
             <HorseTable horses={analyzedHorses || []} />
             <SystemBuilder 
               horses={analyzedHorses || []} 
@@ -780,7 +780,7 @@ const RaceAnalyzer = () => {
         )}
 
         {selectedGameType === 'V85' && !showManualInput && (
-          <div className="mt-6">
+          <div className="mt-12">
             <PerformanceDashboard />
           </div>
         )}
