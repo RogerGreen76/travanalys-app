@@ -25,18 +25,40 @@ export const formatShoes = (shoes) => {
 export const formatSulky = (sulky) => {
   if (sulky == null) return null;
 
-  const rawValue = typeof sulky === 'string'
-    ? sulky
-    : typeof sulky?.type === 'string'
-    ? sulky.type
-    : String(sulky?.type?.text ?? sulky?.type?.engText ?? sulky?.type?.code ?? '');
+  console.log('[EquipmentIndicator DEBUG] raw sulky:', sulky);
+
+  const getFirstMeaningfulValue = (value) => {
+    if (typeof value === 'string') return value;
+    if (!value || typeof value !== 'object') return '';
+
+    const directValue = value?.type?.text ?? value?.type?.engText ?? value?.type?.code ?? value?.type ?? value?.text ?? value?.engText ?? value?.code;
+    if (typeof directValue === 'string' && directValue.trim()) {
+      return directValue;
+    }
+
+    for (const propValue of Object.values(value)) {
+      if (typeof propValue === 'string' && propValue.trim()) {
+        return propValue;
+      }
+      if (propValue && typeof propValue === 'object') {
+        const nestedValue = getFirstMeaningfulValue(propValue);
+        if (nestedValue) {
+          return nestedValue;
+        }
+      }
+    }
+
+    return '';
+  };
+
+  const rawValue = getFirstMeaningfulValue(sulky);
 
   const value = String(rawValue || '').toLowerCase().trim();
   if (!value) return null;
 
   if (value.includes('american') || value.includes('bike')) return 'Bike';
   if (value.includes('hybrid')) return 'Hybrid';
-  if (value.includes('standard')) return 'Vanlig vagn';
+  if (value.includes('standard') || value.includes('std')) return 'Vanlig vagn';
 
   return null;
 };

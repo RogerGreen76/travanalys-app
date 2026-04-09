@@ -348,6 +348,7 @@ const HorseTable = ({ horses }) => {
                     equipment: horse.equipment,
                     allKeys: Object.keys(horse)
                   });
+                  console.log('[HorseTable DEBUG] raw horse.sulky:', horse.sulky);
                 }
                 return (
                 <tr
