@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ArrowUpDown, ArrowUp, ArrowDown, Download, Filter } from 'lucide-react';
 import { toast } from 'sonner';
+import { EquipmentIndicator } from './EquipmentIndicator';
 
 const formatNumber = (value, decimals = 1) => {
   const num = Number(value);
@@ -347,6 +348,7 @@ const HorseTable = ({ horses }) => {
                         {horse.trainer && <span>{horse.trainer}</span>}
                       </div>
                     )}
+                    <EquipmentIndicator horse={horse} />
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>
