@@ -351,14 +351,6 @@ const HorseTable = ({ horses }) => {
                   console.log('[HorseTable DEBUG] raw horse.sulky:', horse.sulky);
                 }
 
-                const leadPotential = Number(horse?.leadPotentialScore ?? 0);
-                const startSpeed = Number(horse?.startSpeedScore ?? 0);
-                const paceLeadLabel = leadPotential >= 4.5
-                  ? 'Spetsfavorit'
-                  : startSpeed >= 4
-                  ? 'Snabb ut'
-                  : null;
-
                 return (
                 <tr
                   key={horse.number}
@@ -393,13 +385,6 @@ const HorseTable = ({ horses }) => {
                       sulky={horse.sulky}
                       horse={horse}
                     />
-                    {paceLeadLabel && (
-                      <div className="mt-1.5">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium border border-emerald-500/40 bg-emerald-500/10 text-emerald-300">
-                          {paceLeadLabel}
-                        </span>
-                      </div>
-                    )}
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>
