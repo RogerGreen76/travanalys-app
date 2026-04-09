@@ -99,6 +99,32 @@ const analyzeHorse = (horse, raceContext, horses) => {
   }
 );
 
+  // rankingScore dominance debug
+  {
+    const _dc = {
+      startSpeedScore: componentScores.startSpeedScore ?? 0,
+      strengthScore: componentScores.strengthScore ?? 0,
+      distanceScore: componentScores.distanceScore ?? 0,
+      formScore: componentScores.formScore ?? 0,
+      driverScore: componentScores.driverScore ?? 0,
+      paceScenarioScore: componentScores.paceScenarioScore ?? 0,
+      leadPotentialScore: componentScores.leadPotentialScore ?? 0,
+      positionPotentialScore: componentScores.positionPotentialScore ?? 0,
+    };
+    const _entries = Object.entries(_dc).map(([k, v]) => [k, Math.abs(v)]);
+    const _sum = _entries.reduce((acc, [, v]) => acc + v, 0);
+    const [_domName, _domVal] = _entries.reduce((a, b) => b[1] > a[1] ? b : a, ['', 0]);
+    const _ratio = _sum > 0 ? _domVal / _sum : 0;
+    console.log(
+      `[RankingDominance] ${horse.name}`,
+      `| rankingScore: ${aggregateScores.rankingScore?.toFixed(2)}`,
+      `| finalScore: ${aggregateScores.finalScore?.toFixed(2) ?? 'n/a'}`,
+      `| dominantComponent: ${_domName}`,
+      `| dominanceRatio: ${_ratio.toFixed(2)}`,
+      _ratio > 0.35 ? '| WARNING: component dominance warning' : ''
+    );
+  }
+
   if ((aggregateScores?.odds ?? 0) > 20) {
     console.info('[LongshotDebug >20]', {
       horse: horse?.name,
