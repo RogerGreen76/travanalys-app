@@ -34,14 +34,14 @@ export const formatShoes = (shoes) => {
   if (typeof shoes === 'string') {
     const text = shoes.toLowerCase().trim();
     if (!text) return null;
-    if (/(barfota\s*runt\s*om|bfro|barefoot\s*all\s*around)/.test(text)) return 'Barfota runt om';
+    if (/(barfota\s*runt\s*om|bfro|barefoot\s*all\s*around)/.test(text)) return 'Barfota';
     if (/(barfota\s*fram|bf\s*fram|bff)/.test(text)) return 'Barfota fram';
     if (/(barfota\s*bak|bf\s*bak|bfb)/.test(text)) return 'Barfota bak';
-    if (/(skor\s*runt\s*om|beskod|beskodd|med\s*skor)/.test(text)) return 'Skor runt om';
+    if (/(skor\s*runt\s*om|beskod|beskodd|med\s*skor)/.test(text)) return 'Skor';
 
     const wholeState = extractShoeState(text);
-    if (wholeState === 'barefoot') return 'Barfota runt om';
-    if (wholeState === 'shoes') return 'Skor runt om';
+    if (wholeState === 'barefoot') return 'Barfota';
+    if (wholeState === 'shoes') return 'Skor';
 
     console.log('RAW SHOES', shoes);
     return null;
@@ -51,14 +51,14 @@ export const formatShoes = (shoes) => {
     const frontState = extractShoeState(shoes?.front ?? shoes?.fore ?? shoes?.fram);
     const backState = extractShoeState(shoes?.back ?? shoes?.hind ?? shoes?.rear ?? shoes?.bak);
 
-    if (frontState === 'barefoot' && backState === 'barefoot') return 'Barfota runt om';
+    if (frontState === 'barefoot' && backState === 'barefoot') return 'Barfota';
     if (frontState === 'barefoot' && backState === 'shoes') return 'Barfota fram';
     if (frontState === 'shoes' && backState === 'barefoot') return 'Barfota bak';
-    if (frontState === 'shoes' && backState === 'shoes') return 'Skor runt om';
+    if (frontState === 'shoes' && backState === 'shoes') return 'Skor';
 
     const wholeState = extractShoeState(shoes);
-    if (wholeState === 'barefoot') return 'Barfota runt om';
-    if (wholeState === 'shoes') return 'Skor runt om';
+    if (wholeState === 'barefoot') return 'Barfota';
+    if (wholeState === 'shoes') return 'Skor';
 
     console.log('RAW SHOES', shoes);
     return null;
@@ -93,10 +93,7 @@ export const formatSulky = (sulky) => {
   if (!value) return null;
 
   if (value.includes('american') || value.includes('bike')) return 'Bike';
-  if (value.includes('hybrid')) return 'Hybrid';
-  if (value.includes('standard') || value.includes('std')) return 'Vanlig vagn';
-
-  return null;
+  return 'Vanlig';
 };
 
 export const EquipmentIndicator = ({ shoes, sulky }) => {
