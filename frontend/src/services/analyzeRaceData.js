@@ -523,7 +523,9 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     leadPotential >= 7.5 ||
     positionPotential >= 7.5 ||
     paceScenario >= 60;
+  const isExtremeOdds = odds > 20;
   const isPotentialUpset =
+    !isExtremeOdds &&
     effectiveStrength >= 55 &&
     valueRatio >= 1.10 &&
     streckPercent >= 2 &&
@@ -536,7 +538,10 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
 
   const meetsStarkBase = finalScore >= 95 && valueRatio >= 1.20;
 
-  if (meetsStarkBase && streckPercent <= 30) {
+  if (isExtremeOdds) {
+    play = "No play";
+  }
+  else if (meetsStarkBase && streckPercent <= 30) {
     play = "Stark play";
   } 
   else if (meetsStarkBase && streckPercent > 45) {
@@ -566,7 +571,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   }
 
   // Surprise indicator
-  const skrallSignal = (valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
+  const skrallSignal = (!isExtremeOdds && valueRatio > 1.20 && streckPercent < 0.08) ? "💎 Skrällbud" : null;
 
   return {
     odds,
