@@ -378,7 +378,10 @@ const HorseTable = ({ horses }) => {
                         {horse.trainer && <span>{horse.trainer}</span>}
                       </div>
                     )}
-                    <EquipmentIndicator horse={horse} />
+                    <EquipmentIndicator
+                      shoes={horse.shoes}
+                      sulky={horse.sulky}
+                    />
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>
