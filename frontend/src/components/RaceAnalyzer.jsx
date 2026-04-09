@@ -541,10 +541,10 @@ const RaceAnalyzer = () => {
   const currentRace = allRaces.length > 0 ? allRaces[selectedRaceIndex] : null;
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen px-4 pb-4 pt-16 md:px-8 md:pb-8 md:pt-24">
+      <div className="max-w-7xl mx-auto space-y-10">
         {/* Header */}
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-5">
           <h1 className="text-4xl md:text-5xl font-bold text-white" style={{ fontFamily: 'Manrope, sans-serif' }}>
             Travanalysen
           </h1>
