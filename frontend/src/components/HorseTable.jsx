@@ -21,6 +21,19 @@ const HorseTable = ({ horses }) => {
   const [filterValue, setFilterValue] = useState('');
   const [showFilter, setShowFilter] = useState('all'); // all, positive, favorites
 
+  // DEBUG: Log first horse to check what fields are available
+  if (horses && horses.length > 0) {
+    const firstHorse = horses[0];
+    console.log('[HorseTable INIT DEBUG] First horse from props:', {
+      number: firstHorse.number,
+      name: firstHorse.name,
+      shoes: firstHorse.shoes,
+      sulky: firstHorse.sulky,
+      equipment: firstHorse.equipment,
+      hasEquipmentData: !!firstHorse.shoes || !!firstHorse.sulky || !!firstHorse.equipment
+    });
+  }
+
   // Loppklassificering
   const getRaceClassification = () => {
     if (!horses || horses.length === 0) return null;
@@ -319,7 +332,24 @@ const HorseTable = ({ horses }) => {
               </tr>
             </thead>
             <tbody>
-              {sortedAndFilteredHorses.map((horse) => (
+              {sortedAndFilteredHorses.map((horse, idx) => {
+                // DEBUG: Log first 3 horses to check equipment fields
+                if (idx === 0) {
+                  console.log('[HorseTable DEBUG] First horse object received:', {
+                    number: horse.number,
+                    name: horse.name,
+                    shoes: horse.shoes,
+                    shoeInfo: horse.shoeInfo,
+                    sko: horse.sko,
+                    sulky: horse.sulky,
+                    vagn: horse.vagn,
+                    cart: horse.cart,
+                    bike: horse.bike,
+                    equipment: horse.equipment,
+                    allKeys: Object.keys(horse)
+                  });
+                }
+                return (
                 <tr
                   key={horse.number}
                   className={`border-b border-white/5 last:border-0 transition-colors duration-150 hover:bg-white/[0.025] ${
@@ -389,7 +419,8 @@ const HorseTable = ({ horses }) => {
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
 

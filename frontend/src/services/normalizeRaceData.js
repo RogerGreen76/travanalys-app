@@ -80,6 +80,22 @@ export const normalizeHorse = (start, gameType) => {
     const number = start.number || start.postPosition;
     const name = start.horse.name;
 
+    // DEBUG: Log raw start object (first 3 horses per race)
+    if (number <= 3) {
+      console.log('[normalizeHorse DEBUG] Raw start object for', name, {
+        number,
+        shoes: start.shoes,
+        shoeInfo: start.shoeInfo,
+        sko: start.sko,
+        sulky: start.sulky,
+        vagn: start.vagn,
+        cart: start.cart,
+        bike: start.bike,
+        equipment: start.equipment,
+        _allKeys: Object.keys(start).filter(k => ![postPosition, horse, driver, pools, form, distance, startMethod].includes(k))
+      });
+    }
+
     // Extract odds
     let odds = null;
     if (start.pools?.vinnare?.odds !== undefined) {
@@ -129,15 +145,38 @@ export const normalizeHorse = (start, gameType) => {
     // Extract post position
     const postPosition = start.postPosition || start.number;
 
-    return {
+    const normalized = {
       number,
       name,
       driver,
       trainer,
       odds,
       betDistribution,
-      postPosition
+      postPosition,
+      // Forward equipment fields without transformation - let downstream components interpret
+      shoes: start.shoes || null,
+      shoeInfo: start.shoeInfo || null,
+      sko: start.sko || null,
+      sulky: start.sulky || null,
+      vagn: start.vagn || null,
+      cart: start.cart || null,
+      bike: start.bike || null,
+      equipment: start.equipment || null
     };
+
+    // DEBUG: Log normalized object (first 3 horses per race)
+    if (number <= 3) {
+      console.log('[normalizeHorse DEBUG] Normalized horse:', name, {
+        normalizedKeys: Object.keys(normalized),
+        hasShoes: !!normalized.shoes,
+        hasSulky: !!normalized.sulky,
+        shoes: normalized.shoes,
+        sulky: normalized.sulky,
+        equipment: normalized.equipment
+      });
+    }
+
+    return normalized;
 
   } catch (error) {
     console.warn('Error normalizing horse:', error);

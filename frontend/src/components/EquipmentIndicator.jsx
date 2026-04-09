@@ -24,6 +24,17 @@ const parseEquipmentData = (horse) => {
 
   const combined = `${shoesText} ${sulkyText}`;
   
+  // DEBUG: Log what we're parsing (first call per render)
+  if (!parseEquipmentData.debugLogged) {
+    console.log('[EquipmentIndicator DEBUG] Parsing equipment for', horse?.name, {
+      shoesText,
+      sulkyText,
+      combined,
+      hasData: combined.trim().length > 0
+    });
+    parseEquipmentData.debugLogged = true;
+  }
+  
   // Empty if no data
   if (!combined.trim()) {
     return null;
