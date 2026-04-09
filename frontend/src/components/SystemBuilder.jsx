@@ -81,12 +81,23 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   };
 
   const generateAutoSuggestion = () => {
+    const horseRankByNumber = new Map(
+      [...horses]
+        .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a))
+        .map((horse, index) => [Number(horse?.number), index + 1])
+    );
+
     const enriched = horses.map(horse => {
       const finalScore = getEffectiveFinalScore(horse);
       const rankingScore = Number(horse.rankingScore) || 0;
       const odds = Number(horse.odds) || 0;
       const streckPercent = Number(horse.streckPercent) || 0;
       const valueRatio = Number(horse.valueRatio) || 0;
+      const upsetScore = Number(horse.upsetScore) || 0;
+      const leadPotentialScore = Number(horse.leadPotentialScore) || 0;
+      const positionPotentialScore = Number(horse.positionPotentialScore) || 0;
+      const paceScenarioScore = Number(horse.paceScenarioScore) || 0;
+      const horseRank = horseRankByNumber.get(Number(horse?.number)) || 999;
 
       // Clamp value ratio so extreme outliers do not dominate the system suggestion.
       const cappedValueRatio = Math.min(Math.max(valueRatio, 0.8), 1.8);
@@ -99,14 +110,26 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       const isExtremeLongshot =
         odds > 20 || rankingScore < 60 || finalScore < 80;
 
-      const isOverExtremeSkrall = odds > 35 && finalScore < 90;
-      const isSkrallbud =
+      const hasRaceShapeSupport =
+        leadPotentialScore >= 7.5 ||
+        positionPotentialScore >= 7.5 ||
+        paceScenarioScore >= 60;
+      const baseSkrallbud =
         valueRatio >= 1.15 &&
         streckPercent <= 0.12 &&
         odds >= 5 &&
         odds <= 20 &&
-        finalScore >= 60 &&
-        !isOverExtremeSkrall;
+        finalScore >= 60;
+      const strictLongshotSkrall =
+        odds > 20 &&
+        odds <= 35 &&
+        horseRank <= 6 &&
+        upsetScore >= 50 &&
+        valueRatio >= 1.20 &&
+        streckPercent >= 2 &&
+        streckPercent <= 10 &&
+        hasRaceShapeSupport;
+      const isSkrallbud = baseSkrallbud || strictLongshotSkrall;
 
       const skrallScore =
         (valueRatio * 100 * 0.45) +
