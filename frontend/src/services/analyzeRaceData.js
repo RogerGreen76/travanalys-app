@@ -49,7 +49,29 @@ export const analyzeRaceData = (normalizedData) => {
  * @returns {Array} Array of analyzed horse objects with scoring metrics
  */
 const analyzeHorses = (horses, raceContext) => {
-  return horses.map(horse => analyzeHorse(horse, raceContext, horses));
+  const results = horses.map(horse => analyzeHorse(horse, raceContext, horses));
+
+  // finalScore distribution debug
+  const finalScores = results
+    .map(h => h.finalScore)
+    .filter(v => Number.isFinite(v))
+    .sort((a, b) => b - a);
+  if (finalScores.length > 0) {
+    const min = finalScores[finalScores.length - 1];
+    const max = finalScores[0];
+    const avg = finalScores.reduce((s, v) => s + v, 0) / finalScores.length;
+    const playCounts = { 'Stark play': 0, 'Möjlig play': 0, 'No play': 0 };
+    results.forEach(h => { if (h.play in playCounts) playCounts[h.play]++; });
+    console.log('[RaceFinalDistribution]', {
+      finalScores: finalScores.map(v => Number(v.toFixed(2))),
+      min: Number(min.toFixed(2)),
+      max: Number(max.toFixed(2)),
+      avg: Number(avg.toFixed(2)),
+      playCounts,
+    });
+  }
+
+  return results;
 };
 
 const buildRaceContext = (race, horses) => {
