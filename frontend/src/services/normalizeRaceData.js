@@ -92,7 +92,7 @@ export const normalizeHorse = (start, gameType) => {
         cart: start.cart,
         bike: start.bike,
         equipment: start.equipment,
-        _allKeys: Object.keys(start).filter(k => ![postPosition, horse, driver, pools, form, distance, startMethod].includes(k))
+        _allKeys: Object.keys(start).filter(k => !['postPosition', 'horse', 'driver', 'pools', 'form', 'distance', 'startMethod'].includes(k))
       });
     }
 
