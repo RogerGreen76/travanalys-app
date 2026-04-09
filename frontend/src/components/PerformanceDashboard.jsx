@@ -404,8 +404,8 @@ const PerformanceDashboard = () => {
   };
 
   return (
-    <div className="space-y-6" data-testid="performance-dashboard">
-      <Card className="bg-[#151923] border-gray-800">
+    <div className="space-y-8" data-testid="performance-dashboard">
+      <Card className="bg-[#151923] border-white/10">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -426,7 +426,7 @@ const PerformanceDashboard = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <div className="space-y-1">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Från datum</div>
               <Input
@@ -476,7 +476,7 @@ const PerformanceDashboard = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="space-y-1">
               <div className="text-xs text-gray-400 uppercase tracking-wide">Resultatstatus</div>
               <select
@@ -520,11 +520,11 @@ const PerformanceDashboard = () => {
               Äldre historikrader saknar gameId och kan därför inte alltid få resultat automatiskt
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {statCards.map(card => (
-              <div key={card.key} className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
-                <div className="text-xs text-gray-400 uppercase tracking-wide">{card.label}</div>
-                <div className={`text-2xl font-semibold mt-1 ${
+              <div key={card.key} className="p-4 rounded-xl border border-white/10 bg-[#0d1119]">
+                <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">{card.label}</div>
+                <div className={`text-3xl font-bold mt-2 tabular-nums ${
                   card.key === 'averageCLV' && Number.isFinite(filteredStats.averageCLVValue)
                     ? (filteredStats.averageCLVValue > 0 ? 'text-green-400' : filteredStats.averageCLVValue < 0 ? 'text-red-400' : 'text-white')
                     : 'text-white'
@@ -536,40 +536,40 @@ const PerformanceDashboard = () => {
             ))}
           </div>
 
-          <div className="grid md:grid-cols-2 gap-3 mt-3">
-            <div className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Snitt rank (vinnare)</div>
-              <div className="text-xl font-semibold text-white mt-1">
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
+            <div className="p-4 rounded-xl border border-white/10 bg-[#0d1119]">
+              <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">Snitt rank (vinnare)</div>
+              <div className="text-2xl font-bold text-white mt-2 tabular-nums">
                 {formatMetric(filteredStats.averageWinnerRank)}
               </div>
             </div>
-            <div className="p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
-              <div className="text-xs text-gray-400 uppercase tracking-wide">Snitt kalibrerad score (vinnare)</div>
-              <div className="text-xl font-semibold text-white mt-1">
+            <div className="p-4 rounded-xl border border-white/10 bg-[#0d1119]">
+              <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium">Snitt kalibrerad score (vinnare)</div>
+              <div className="text-2xl font-bold text-white mt-2 tabular-nums">
                 {formatMetric(filteredStats.averageWinnerFinalScore)}
               </div>
             </div>
           </div>
 
-          <div className="mt-3 p-3 rounded-lg border border-gray-700 bg-[#0f1420]">
-            <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">ROI per oddsintervall (Spelvärda)</div>
+          <div className="mt-4 p-4 rounded-xl border border-white/10 bg-[#0d1119]">
+            <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium mb-3">ROI per oddsintervall (Spelvärda)</div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-700">
-                    <th className="text-left py-2 pr-3">Odds range</th>
-                    <th className="text-left py-2 pr-3">Bets</th>
-                    <th className="text-left py-2 pr-3">Wins</th>
-                    <th className="text-left py-2 pr-3">ROI</th>
+                  <tr className="text-[11px] text-gray-500 uppercase tracking-widest border-b border-white/10">
+                    <th className="text-left pb-3 pr-4">Odds range</th>
+                    <th className="text-left pb-3 pr-4">Bets</th>
+                    <th className="text-left pb-3 pr-4">Wins</th>
+                    <th className="text-left pb-3 pr-4">ROI</th>
                   </tr>
                 </thead>
                 <tbody>
                   {roiByOddsRange.map(row => (
-                    <tr key={row.label} className="border-b border-gray-800/80">
-                      <td className="py-2 pr-3 text-gray-300">{row.label}</td>
-                      <td className="py-2 pr-3 text-white">{row.bets}</td>
-                      <td className="py-2 pr-3 text-white">{row.wins}</td>
-                      <td className="py-2 pr-3 text-white">{row.roi}</td>
+                    <tr key={row.label} className="border-b border-white/5 last:border-0 transition-colors hover:bg-white/[0.02]">
+                      <td className="py-3 pr-4 text-gray-400 tabular-nums">{row.label}</td>
+                      <td className="py-3 pr-4 text-gray-200 tabular-nums">{row.bets}</td>
+                      <td className="py-3 pr-4 text-gray-200 tabular-nums">{row.wins}</td>
+                      <td className="py-3 pr-4 text-gray-200 tabular-nums">{row.roi}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -579,7 +579,7 @@ const PerformanceDashboard = () => {
         </CardContent>
       </Card>
 
-      <Card className="bg-[#151923] border-gray-800">
+      <Card className="bg-[#151923] border-white/10">
         <CardHeader>
           <CardTitle className="text-white">Historik</CardTitle>
           <CardDescription className="text-gray-400">
@@ -598,14 +598,14 @@ const PerformanceDashboard = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm" data-testid="performance-history-table">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-700">
-                    <th className="text-left py-2 pr-3">Datum</th>
-                    <th className="text-left py-2 pr-3">Lopp</th>
-                    <th className="text-left py-2 pr-3">Vinnare</th>
-                    <th className="text-left py-2 pr-3">Modellrank</th>
-                    <th className="text-left py-2 pr-3">Kalibrerad score</th>
-                    <th className="text-left py-2 pr-3">Play</th>
-                    <th className="text-left py-2 pr-3">Resultat</th>
+                  <tr className="text-[11px] text-gray-500 uppercase tracking-widest border-b border-white/10">
+                    <th className="text-left pb-3 pr-4">Datum</th>
+                    <th className="text-left pb-3 pr-4">Lopp</th>
+                    <th className="text-left pb-3 pr-4">Vinnare</th>
+                    <th className="text-left pb-3 pr-4">Modellrank</th>
+                    <th className="text-left pb-3 pr-4">Kalibrerad score</th>
+                    <th className="text-left pb-3 pr-4">Play</th>
+                    <th className="text-left pb-3 pr-4">Resultat</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -617,14 +617,14 @@ const PerformanceDashboard = () => {
                     return (
                       <tr
                         key={`${item.raceId || item.raceLabel || 'race'}-${item.result?.winnerNumber || 'x'}-${index}`}
-                        className="border-b border-gray-800/80"
+                        className="border-b border-white/5 last:border-0 transition-colors hover:bg-white/[0.02]"
                       >
-                        <td className="py-2 pr-3 text-gray-300">{item.date || '-'}</td>
-                        <td className="py-2 pr-3 text-white">{item.raceLabel || item.raceId || '-'}</td>
-                        <td className="py-2 pr-3 text-white">{item.result?.winnerNumber ?? '-'}</td>
-                        <td className="py-2 pr-3 text-white">{item.winnerModelRank ?? '-'}</td>
-                        <td className="py-2 pr-3 text-white">{formatMetric(getEffectiveFinalScore(winner))}</td>
-                        <td className="py-2 pr-3 text-gray-300">{winner?.play || '-'}</td>
+                        <td className="py-3 pr-4 text-gray-500">{item.date || '-'}</td>
+                        <td className="py-3 pr-4 text-gray-200">{item.raceLabel || item.raceId || '-'}</td>
+                        <td className="py-3 pr-4 text-gray-200 tabular-nums">{item.result?.winnerNumber ?? '-'}</td>
+                        <td className="py-3 pr-4 text-gray-200 tabular-nums">{item.winnerModelRank ?? '-'}</td>
+                        <td className="py-3 pr-4 text-gray-200 tabular-nums">{formatMetric(getEffectiveFinalScore(winner))}</td>
+                        <td className="py-3 pr-4 text-gray-400">{winner?.play || '-'}</td>
                         <td className="py-2 pr-3">
                           {isEditing ? (
                             <div className="flex items-center gap-1 flex-wrap">
