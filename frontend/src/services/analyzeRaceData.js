@@ -540,8 +540,10 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const marketEdge = (cappedValueRatio - 1) * 100;
   const adjustedMarketEdge = marketEdge * favoritBiasFactor;
   const confidence = Math.sqrt(Math.max(streckPercent, 0));
+  const fieldSize = (horses || []).length;
+  const normalizedPaceScore = componentScores.paceScore / Math.max(fieldSize, 1);
   const finalScore =
-    winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + componentScores.paceScore * 0.5;
+    winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + normalizedPaceScore * 0.5;
 
   const calibratedFinalScore =
     winStrength * modelWeight +
@@ -601,8 +603,6 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     .some(keyword => tipskommentar.includes(keyword));
   const hasPositiveCommentSignal = ["skrällbud", "bra spår", "snabb", "spets", "platschans", "plats"]
     .some(keyword => tipskommentar.includes(keyword));
-  const fieldSize = (horses || []).length;
-
   let upsetScore = Number((
     normalizedStrength * 45 +
     normalizedValue * 30 +
@@ -673,7 +673,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   // Play recommendation - finalScore is the main driver, valueRatio adjusts
   let play = "No play";
 
-  const meetsStarkBase = finalScore >= 50 && valueRatio >= 1.20;
+  const meetsStarkBase = calibratedFinalScore >= 50 && valueRatio >= 1.20;
 
   if (isExtremeOdds) {
     play = "No play";
@@ -684,7 +684,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   else if (meetsStarkBase && streckPercent > 45) {
     play = "Möjlig play";
   }
-  else if (finalScore >= 34 && valueRatio >= 1.08) {
+  else if (calibratedFinalScore >= 34 && valueRatio >= 1.08) {
     play = "Möjlig play";
   } 
   else {
