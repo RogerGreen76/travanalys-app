@@ -131,6 +131,7 @@ export const EquipmentIndicator = ({ shoes, sulky, horse }) => {
   const shoesLabel = formatShoes(shoes);
   const sulkyLabel = formatSulky(sulky);
   const { hasShoesChange, hasSulkyChange } = getEquipmentChangeFlags(horse, shoes, sulky);
+  const isMaxEquipment = shoesLabel === 'Barfota' && sulkyLabel === 'Bike';
 
   if (!shoesLabel && !sulkyLabel) return null;
 
@@ -138,6 +139,11 @@ export const EquipmentIndicator = ({ shoes, sulky, horse }) => {
     <div className="flex items-center gap-1.5 mt-1.5 opacity-80">
       {shoesLabel && <span className={hasShoesChange ? changedBadgeClass : neutralBadgeClass}>{shoesLabel}</span>}
       {sulkyLabel && <span className={hasSulkyChange ? changedBadgeClass : neutralBadgeClass}>{sulkyLabel}</span>}
+      {isMaxEquipment && (
+        <span className="px-2 py-0.5 rounded-full text-xs font-semibold border border-cyan-500/40 bg-cyan-500/10 text-cyan-300">
+          MAX
+        </span>
+      )}
     </div>
   );
 };
