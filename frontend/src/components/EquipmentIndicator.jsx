@@ -1,6 +1,37 @@
 import React from 'react';
 
-const baseBadgeClass = 'px-2 py-0.5 rounded-full text-xs border border-slate-700 bg-slate-800 text-slate-200';
+const neutralBadgeClass = 'px-2 py-0.5 rounded-full text-xs border border-slate-700 bg-slate-800 text-slate-200';
+const changedBadgeClass = 'px-2 py-0.5 rounded-full text-xs border border-amber-500/40 bg-amber-500/10 text-amber-300';
+
+const hasChangeSignal = (value) => {
+  if (value == null) return false;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase().trim();
+    return ['true', 'changed', 'change', 'yes', 'new'].includes(normalized);
+  }
+  if (typeof value === 'object') {
+    return Object.values(value).some(hasChangeSignal);
+  }
+  return false;
+};
+
+const getEquipmentChangeFlags = (horse, shoes, sulky) => {
+  const globalChange = hasChangeSignal(
+    horse?.equipmentChange ?? horse?.changedEquipment ?? horse?.equipmentChanged ?? null
+  );
+
+  const hasShoesChange = globalChange || hasChangeSignal(
+    horse?.shoesChange ?? horse?.shoeChange ?? shoes?.changed ?? shoes?.front?.changed ?? shoes?.back?.changed
+  );
+
+  const hasSulkyChange = globalChange || hasChangeSignal(
+    horse?.sulkyChange ?? horse?.cartChange ?? horse?.bikeChange ?? sulky?.changed ?? sulky?.type?.changed
+  );
+
+  return { hasShoesChange, hasSulkyChange };
+};
 
 export const extractShoeState = (value) => {
   if (value == null) return null;
@@ -96,16 +127,17 @@ export const formatSulky = (sulky) => {
   return 'Vanlig';
 };
 
-export const EquipmentIndicator = ({ shoes, sulky }) => {
+export const EquipmentIndicator = ({ shoes, sulky, horse }) => {
   const shoesLabel = formatShoes(shoes);
   const sulkyLabel = formatSulky(sulky);
+  const { hasShoesChange, hasSulkyChange } = getEquipmentChangeFlags(horse, shoes, sulky);
 
   if (!shoesLabel && !sulkyLabel) return null;
 
   return (
     <div className="flex items-center gap-1.5 mt-1.5 opacity-80">
-      {shoesLabel && <span className={baseBadgeClass}>{shoesLabel}</span>}
-      {sulkyLabel && <span className={baseBadgeClass}>{sulkyLabel}</span>}
+      {shoesLabel && <span className={hasShoesChange ? changedBadgeClass : neutralBadgeClass}>{shoesLabel}</span>}
+      {sulkyLabel && <span className={hasSulkyChange ? changedBadgeClass : neutralBadgeClass}>{sulkyLabel}</span>}
     </div>
   );
 };

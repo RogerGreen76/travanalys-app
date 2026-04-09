@@ -382,6 +382,7 @@ const HorseTable = ({ horses }) => {
                     <EquipmentIndicator
                       shoes={horse.shoes}
                       sulky={horse.sulky}
+                      horse={horse}
                     />
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
