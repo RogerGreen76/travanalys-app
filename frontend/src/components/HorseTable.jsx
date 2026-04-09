@@ -347,11 +347,6 @@ const HorseTable = ({ horses }) => {
                         {horse.trainer && <span>{horse.trainer}</span>}
                       </div>
                     )}
-                    {horse.skrallSignal && (
-                      <div className="text-xs text-yellow-400 mt-1 font-medium">
-                        {horse.skrallSignal}
-                      </div>
-                    )}
                   </td>
                   <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-white font-mono w-20 py-3">{formatNumber(horse.streckPercent, 1)}%</td>
