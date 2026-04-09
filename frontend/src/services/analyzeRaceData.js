@@ -471,7 +471,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const normRelativeStrength   = Math.min(Math.max(relativeStrength / 3, 0), 1);
   const normValueRatio         = Math.min(Math.max(valueRatio / 3, 0), 1);
   const ipContribution  = normImpliedProbability * 4;
-  const rsContribution  = normRelativeStrength   * 3;
+  const rsContribution  = normRelativeStrength   * 2.2;
   const vrContribution  = normValueRatio         * 3;
   const rankingScore = ipContribution + rsContribution + vrContribution + startSpeedContribution + leadPotentialContribution + paceScenarioContribution;
 
