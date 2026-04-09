@@ -25,13 +25,20 @@ export const formatShoes = (shoes) => {
 export const formatSulky = (sulky) => {
   if (sulky == null) return null;
 
-  const text = typeof sulky === 'object'
-    ? String(sulky?.type?.text ?? sulky?.type?.engText ?? sulky?.type?.code ?? '')
-    : String(sulky ?? '');
+  const rawValue = typeof sulky === 'string'
+    ? sulky
+    : typeof sulky?.type === 'string'
+    ? sulky.type
+    : String(sulky?.type?.text ?? sulky?.type?.engText ?? sulky?.type?.code ?? '');
 
-  if (!text.trim()) return null;
-  if (/(bike|american)/i.test(text)) return 'Bike';
-  return 'Vanlig vagn';
+  const value = String(rawValue || '').toLowerCase().trim();
+  if (!value) return null;
+
+  if (value.includes('american') || value.includes('bike')) return 'Bike';
+  if (value.includes('hybrid')) return 'Hybrid';
+  if (value.includes('standard')) return 'Vanlig vagn';
+
+  return null;
 };
 
 export const EquipmentIndicator = ({ shoes, sulky }) => {
