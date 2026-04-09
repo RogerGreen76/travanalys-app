@@ -99,6 +99,23 @@ const analyzeHorse = (horse, raceContext, horses) => {
   }
 );
 
+  if ((aggregateScores?.odds ?? 0) > 20) {
+    console.info('[LongshotDebug >20]', {
+      horse: horse?.name,
+      odds: aggregateScores?.odds,
+      finalScore: aggregateScores?.finalScore,
+      calibratedFinalScore: aggregateScores?.calibratedFinalScore,
+      rankingScore: aggregateScores?.rankingScore,
+      valueRatio: aggregateScores?.valueRatio,
+      upsetScore: aggregateScores?.upsetScore,
+      leadPotentialScore: componentScores?.leadPotentialScore,
+      positionPotentialScore: componentScores?.positionPotentialScore,
+      paceScenarioScore: componentScores?.paceScenarioScore,
+      play: aggregateScores?.play,
+      isPotentialUpset: aggregateScores?.isPotentialUpset
+    });
+  }
+
   return {
     ...horse,
     ...aggregateScores,

@@ -97,14 +97,14 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         (cappedValueRatio * 100 * 0.15);
 
       const isExtremeLongshot =
-        odds > 40 || rankingScore < 60 || finalScore < 80;
+        odds > 20 || rankingScore < 60 || finalScore < 80;
 
       const isOverExtremeSkrall = odds > 35 && finalScore < 90;
       const isSkrallbud =
         valueRatio >= 1.15 &&
         streckPercent <= 0.12 &&
         odds >= 5 &&
-        odds <= 35 &&
+        odds <= 20 &&
         finalScore >= 60 &&
         !isOverExtremeSkrall;
 
@@ -151,10 +151,12 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         !las.find(l => l.number === h.number)
       )
       .filter(h =>
-        !h.isExtremeLongshot ||
-        h.play === 'Stark play' ||
-        h.play === 'Möjlig play' ||
-        h.valueStatus === 'Spelvärd'
+        h.odds <= 20 && (
+          !h.isExtremeLongshot ||
+          h.play === 'Stark play' ||
+          h.play === 'Möjlig play' ||
+          h.valueStatus === 'Spelvärd'
+        )
       )
       .slice(0, 5);
 
