@@ -2,24 +2,70 @@ import React from 'react';
 
 const baseBadgeClass = 'px-2 py-0.5 rounded-full text-xs border border-slate-700 bg-slate-800 text-slate-200';
 
+export const extractShoeState = (value) => {
+  if (value == null) return null;
+
+  if (typeof value === 'boolean') {
+    return value ? 'shoes' : 'barefoot';
+  }
+
+  if (typeof value === 'object') {
+    if (typeof value?.hasShoe === 'boolean') {
+      return value.hasShoe ? 'shoes' : 'barefoot';
+    }
+
+    const nestedString = value?.type ?? value?.text ?? value?.code ?? null;
+    if (nestedString != null) {
+      return extractShoeState(nestedString);
+    }
+  }
+
+  const text = String(value).toLowerCase().trim();
+  if (!text) return null;
+  if (/(barfota|barefoot|utan\s*skor)/.test(text)) return 'barefoot';
+  if (/(shoe|shoes|skor|sko|beskod|beskodd|med\s*skor)/.test(text)) return 'shoes';
+
+  return null;
+};
+
 export const formatShoes = (shoes) => {
   if (shoes == null) return null;
 
-  if (typeof shoes === 'object') {
-    const frontHasShoe = shoes?.front?.hasShoe;
-    const backHasShoe = shoes?.back?.hasShoe;
-    if (frontHasShoe === false || backHasShoe === false) return 'Barfota';
-    if (frontHasShoe === true || backHasShoe === true) return 'Skor';
+  if (typeof shoes === 'string') {
+    const text = shoes.toLowerCase().trim();
+    if (!text) return null;
+    if (/(barfota\s*runt\s*om|bfro|barefoot\s*all\s*around)/.test(text)) return 'Barfota runt om';
+    if (/(barfota\s*fram|bf\s*fram|bff)/.test(text)) return 'Barfota fram';
+    if (/(barfota\s*bak|bf\s*bak|bfb)/.test(text)) return 'Barfota bak';
+    if (/(skor\s*runt\s*om|beskod|beskodd|med\s*skor)/.test(text)) return 'Skor runt om';
 
-    const typeText = String(shoes?.type?.text ?? shoes?.type?.engText ?? shoes?.type?.code ?? '').toLowerCase();
-    if (/barfota|barefoot/.test(typeText)) return 'Barfota';
-    if (typeText.trim()) return 'Skor';
+    const wholeState = extractShoeState(text);
+    if (wholeState === 'barefoot') return 'Barfota runt om';
+    if (wholeState === 'shoes') return 'Skor runt om';
+
+    console.log('RAW SHOES', shoes);
+    return null;
   }
 
-  const text = String(shoes).toLowerCase();
-  if (!text.trim()) return null;
-  if (/(barfota|bfro|bff|bfb|barefoot)/.test(text)) return 'Barfota';
-  return 'Skor';
+  if (typeof shoes === 'object') {
+    const frontState = extractShoeState(shoes?.front ?? shoes?.fore ?? shoes?.fram);
+    const backState = extractShoeState(shoes?.back ?? shoes?.hind ?? shoes?.rear ?? shoes?.bak);
+
+    if (frontState === 'barefoot' && backState === 'barefoot') return 'Barfota runt om';
+    if (frontState === 'barefoot' && backState === 'shoes') return 'Barfota fram';
+    if (frontState === 'shoes' && backState === 'barefoot') return 'Barfota bak';
+    if (frontState === 'shoes' && backState === 'shoes') return 'Skor runt om';
+
+    const wholeState = extractShoeState(shoes);
+    if (wholeState === 'barefoot') return 'Barfota runt om';
+    if (wholeState === 'shoes') return 'Skor runt om';
+
+    console.log('RAW SHOES', shoes);
+    return null;
+  }
+
+  console.log('RAW SHOES', shoes);
+  return null;
 };
 
 export const extractSulkyValue = (sulky) => {
