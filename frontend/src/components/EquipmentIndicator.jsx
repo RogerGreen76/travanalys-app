@@ -22,38 +22,28 @@ export const formatShoes = (shoes) => {
   return 'Skor';
 };
 
+export const extractSulkyValue = (sulky) => {
+  if (sulky == null) return '';
+  if (typeof sulky === 'string') return sulky;
+  if (typeof sulky?.type === 'string') return sulky.type;
+  if (typeof sulky?.code === 'string') return sulky.code;
+  if (typeof sulky?.text === 'string') return sulky.text;
+
+  for (const value of Object.values(sulky)) {
+    if (typeof value === 'string') {
+      return value;
+    }
+  }
+
+  return JSON.stringify(sulky);
+};
+
 export const formatSulky = (sulky) => {
   if (sulky == null) return null;
 
   console.log('[EquipmentIndicator DEBUG] raw sulky:', sulky);
 
-  const getFirstMeaningfulValue = (value) => {
-    if (typeof value === 'string') return value;
-    if (!value || typeof value !== 'object') return '';
-
-    const directValue = value?.type?.text ?? value?.type?.engText ?? value?.type?.code ?? value?.type ?? value?.text ?? value?.engText ?? value?.code;
-    if (typeof directValue === 'string' && directValue.trim()) {
-      return directValue;
-    }
-
-    for (const propValue of Object.values(value)) {
-      if (typeof propValue === 'string' && propValue.trim()) {
-        return propValue;
-      }
-      if (propValue && typeof propValue === 'object') {
-        const nestedValue = getFirstMeaningfulValue(propValue);
-        if (nestedValue) {
-          return nestedValue;
-        }
-      }
-    }
-
-    return '';
-  };
-
-  const rawValue = getFirstMeaningfulValue(sulky);
-
-  const value = String(rawValue || '').toLowerCase().trim();
+  const value = extractSulkyValue(sulky).toLowerCase().trim();
   if (!value) return null;
 
   if (value.includes('american') || value.includes('bike')) return 'Bike';
