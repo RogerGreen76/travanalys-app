@@ -160,6 +160,45 @@ const getHorseBaseMetrics = (horse, raceContext) => {
   };
 };
 
+const getEquipmentSignal = (horse, tipskommentarText = '') => {
+  const shoesText = String(
+    horse?.shoes ??
+    horse?.shoeInfo ??
+    horse?.sko ??
+    horse?.equipment?.shoes ??
+    ''
+  ).toLowerCase();
+  const sulkyText = String(
+    horse?.sulky ??
+    horse?.vagn ??
+    horse?.cart ??
+    horse?.bike ??
+    horse?.equipment?.sulky ??
+    ''
+  ).toLowerCase();
+  const notes = String(tipskommentarText || '').toLowerCase();
+  const combined = `${shoesText} ${sulkyText} ${notes}`;
+
+  const hasAmericanSulky = /(amerikansk|bike|j[aä]nkarvagn|american)/.test(combined);
+  const isBarefootAllAround = /(barfota\s*runt\s*om|bfro)/.test(combined);
+  const isBarefootFront = /(barfota\s*fram|bf\s*fram|bff)/.test(combined);
+
+  let equipmentScore = 0;
+  if (hasAmericanSulky) {
+    equipmentScore += 2;
+  }
+  if (isBarefootAllAround) {
+    equipmentScore += 3;
+  } else if (isBarefootFront) {
+    equipmentScore += 1.5;
+  }
+  if (hasAmericanSulky && isBarefootAllAround) {
+    equipmentScore += 1;
+  }
+
+  return Number(Math.min(equipmentScore, 6).toFixed(2));
+};
+
 const getStartSpeedScore = (horse) => {
   const startPosition = horse.postPosition || horse.number || 0;
 
@@ -477,6 +516,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     effectiveStrength >= 55 &&
     valueRatio >= 1.10;
   const tipskommentar = String(horse?.tipskommentar || '').toLowerCase();
+  const equipmentScore = getEquipmentSignal(horse, tipskommentar);
   const hasFastStartSignal = ["snabb", "laddning", "spets", "bra spår"]
     .some(keyword => tipskommentar.includes(keyword));
   const hasPositionRiskSignal = ["svårt spår", "bakspår", "måste få lopp"]
@@ -533,6 +573,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   if (fieldSize <= 8) {
     upsetScore -= 1;
   }
+  upsetScore += equipmentScore;
+
   const leadPotential = componentScores?.leadPotentialScore ?? 0;
   const positionPotential = componentScores?.positionPotentialScore ?? 0;
   const paceScenario = componentScores?.paceScenarioScore ?? 0;
@@ -605,6 +647,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     finalScore,
     calibratedFinalScore,
     upsetScore,
+    equipmentScore,
     isPotentialUpset,
     raceType,
     modelWeight,
