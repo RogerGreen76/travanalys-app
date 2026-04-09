@@ -85,18 +85,10 @@ export const normalizeHorse = (start, gameType) => {
       console.log('[normalizeHorse DEBUG] Raw start object for', name, {
         number,
         startKeys: Object.keys(start || {}),
-        shoes: start.shoes,
-        shoeInfo: start.shoeInfo,
-        sko: start.sko,
-        sulky: start.sulky,
-        vagn: start.vagn,
-        cart: start.cart,
-        bike: start.bike,
-        equipment: start.equipment,
         horseKeys: Object.keys(start?.horse || {}),
-        horseShoes: start?.horse?.shoes,
-        horseSulky: start?.horse?.sulky,
-        _allKeys: Object.keys(start).filter(k => !['postPosition', 'horse', 'driver', 'pools', 'form', 'distance', 'startMethod'].includes(k))
+        resolvedShoes: start?.shoes ?? start?.horse?.shoes ?? null,
+        resolvedSulky: start?.sulky ?? start?.horse?.sulky ?? null,
+        resolvedEquipment: start?.equipment ?? start?.horse?.equipment ?? null
       });
     }
 
@@ -158,14 +150,14 @@ export const normalizeHorse = (start, gameType) => {
       betDistribution,
       postPosition,
       // Forward equipment fields without transformation - let downstream components interpret
-      shoes: start.shoes || null,
-      shoeInfo: start.shoeInfo || null,
-      sko: start.sko || null,
-      sulky: start.sulky || null,
-      vagn: start.vagn || null,
-      cart: start.cart || null,
-      bike: start.bike || null,
-      equipment: start.equipment || null
+      shoes: start?.shoes ?? start?.horse?.shoes ?? null,
+      shoeInfo: start?.shoeInfo ?? start?.horse?.shoeInfo ?? null,
+      sko: start?.sko ?? start?.horse?.sko ?? null,
+      sulky: start?.sulky ?? start?.horse?.sulky ?? null,
+      vagn: start?.vagn ?? start?.horse?.vagn ?? null,
+      cart: start?.cart ?? start?.horse?.cart ?? null,
+      bike: start?.bike ?? start?.horse?.bike ?? null,
+      equipment: start?.equipment ?? start?.horse?.equipment ?? null
     };
 
     // DEBUG: Log normalized object (first 3 horses per race)
