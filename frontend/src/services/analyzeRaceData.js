@@ -672,21 +672,14 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
 
   // Play recommendation - finalScore is the main driver, valueRatio adjusts
   let play = "No play";
+  const score = calibratedFinalScore;
 
-  const meetsStarkBase = calibratedFinalScore >= 50 && valueRatio >= 1.20;
-
-  if (isExtremeOdds) {
-    play = "No play";
-  }
-  else if (meetsStarkBase && streckPercent <= 30) {
+  if (score >= 50 && valueRatio >= 1.20) {
     play = "Stark play";
-  } 
-  else if (meetsStarkBase && streckPercent > 45) {
+  }
+  else if (score >= 34 && valueRatio >= 1.08) {
     play = "Möjlig play";
   }
-  else if (calibratedFinalScore >= 34 && valueRatio >= 1.08) {
-    play = "Möjlig play";
-  } 
   else {
     play = "No play";
   }
