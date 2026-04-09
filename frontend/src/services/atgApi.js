@@ -7,6 +7,7 @@ import { normalizeHorse } from './normalizeRaceData';
 import { analyzeRaceData } from './analyzeRaceData';
 
 let hasLoggedDdRawResponse = false;
+let hasLoggedAtgPipelineDebug = false;
 
 /**
  * Derive horse-level market share from the DD combination odds matrix.
@@ -204,6 +205,16 @@ export const fetchGameData = async (selectedGameType) => {
         const gameData = await gameRes.json();
         const ddResponse = gameData;
 
+        if (!hasLoggedAtgPipelineDebug) {
+          const sampleRace = gameData?.races?.[0];
+          const sampleStart = sampleRace?.starts?.[0];
+          console.log('[ATG PIPELINE] Raw /atg/game payload keys:', Object.keys(gameData || {}));
+          console.log('[ATG PIPELINE] Raw sample race keys:', Object.keys(sampleRace || {}));
+          console.log('[ATG PIPELINE] Raw sample starts length:', Array.isArray(sampleRace?.starts) ? sampleRace.starts.length : 0);
+          console.log('[ATG PIPELINE] Raw sample start object:', sampleStart);
+          console.log('[ATG PIPELINE] Raw sample start keys:', Object.keys(sampleStart || {}));
+        }
+
         if (isDD) {
           ddComboOdds = gameData?.pools?.dd?.comboOdds || null;
         }
@@ -248,10 +259,24 @@ export const fetchGameData = async (selectedGameType) => {
   // Step 3: Build race objects with normalized horses
   const races = raceIds.map((raceId, index) => {
     const fullRace = fullRaceMap[raceId];
+    const rawStarts = fullRace?.starts || [];
 
-    const normalizedHorses = (fullRace?.starts || [])
-      .map(start => normalizeHorse(start, matchedKey || selectedGameType))
+    if (!hasLoggedAtgPipelineDebug && index === 0) {
+      console.log('[ATG PIPELINE] Raw starts before normalizeHorse():', rawStarts.slice(0, 3));
+    }
+
+    const normalizedHorses = rawStarts
+      .map((start, startIndex) => {
+        if (!hasLoggedAtgPipelineDebug && index === 0 && startIndex < 3) {
+          console.log('[ATG PIPELINE] Object passed into normalizeHorse():', start);
+        }
+        return normalizeHorse(start, matchedKey || selectedGameType);
+      })
       .filter(Boolean);
+
+    if (!hasLoggedAtgPipelineDebug && index === 0) {
+      hasLoggedAtgPipelineDebug = true;
+    }
 
     // For DD only: override betDistribution with values inferred from comboOdds matrix.
     // NOTE: These are NOT official ATG streck percentages — derived from combination odds per leg.

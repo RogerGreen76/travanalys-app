@@ -84,6 +84,7 @@ export const normalizeHorse = (start, gameType) => {
     if (number <= 3) {
       console.log('[normalizeHorse DEBUG] Raw start object for', name, {
         number,
+        startKeys: Object.keys(start || {}),
         shoes: start.shoes,
         shoeInfo: start.shoeInfo,
         sko: start.sko,
@@ -92,6 +93,9 @@ export const normalizeHorse = (start, gameType) => {
         cart: start.cart,
         bike: start.bike,
         equipment: start.equipment,
+        horseKeys: Object.keys(start?.horse || {}),
+        horseShoes: start?.horse?.shoes,
+        horseSulky: start?.horse?.sulky,
         _allKeys: Object.keys(start).filter(k => !['postPosition', 'horse', 'driver', 'pools', 'form', 'distance', 'startMethod'].includes(k))
       });
     }
