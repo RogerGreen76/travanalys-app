@@ -197,17 +197,24 @@ export function buildHistoricalKMTidDatasetFromEntries(entries = []) {
       races = [];
     }
 
+    console.log(`[KMTid] parsed races for ${date}:`, Array.isArray(races) ? races.length : 0);
+
     if (!Array.isArray(races) || races.length === 0) {
       continue;
     }
 
     const starts = extractHorseStartsFromRaces(races, date);
-    console.log('[KMTid] fetched races:', races.length, 'for date:', date);
+    console.log(`[KMTid] extracted starts for ${date}:`, starts.length);
     allStarts.push(...starts);
   }
 
   const result = aggregateHorseHistory(allStarts);
-  console.log('[KMTid] historical horses:', Object.keys(result).length);
+  const horseKeys = Object.keys(result);
+  console.log('[KMTid] total extracted starts:', allStarts.length);
+  console.log('[KMTid] aggregated horses:', horseKeys.length);
+  if (horseKeys[0]) {
+    console.log('[KMTid] sample aggregated horse:', result[horseKeys[0]]);
+  }
   return result;
 }
 
@@ -232,6 +239,8 @@ export async function buildHistoricalKMTidDataset(dates = [], fetchRawForDate = 
       if (!rawText) {
         continue;
       }
+
+      console.log(`[KMTid] fetched raw length for ${date}:`, rawText.length);
 
       entries.push({ date, rawText });
     } catch {
