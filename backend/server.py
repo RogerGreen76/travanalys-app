@@ -1,5 +1,5 @@
-from fastapi import FastAPI, APIRouter, Query
-from fastapi.responses import Response, JSONResponse
+from fastapi import FastAPI, APIRouter, Query, Response
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -112,18 +112,19 @@ def atg_result(
     return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
 
 
-@api_router.get("/kmtid/{date}")
+@app.get("/api/kmtid/{date}")
 async def get_kmtid(date: str):
+    print(f"[API] /api/kmtid/{date}")
     url = f"https://kmtid.atgx.se/{date}/js/races.js"
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(url)
+        r = await client.get(url)
 
-    if response.status_code != 200:
+    if r.status_code != 200:
         return Response(status_code=404)
 
     return Response(
-        content=response.text,
+        content=r.text,
         media_type="application/javascript"
     )
 
