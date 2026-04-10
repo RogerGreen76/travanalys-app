@@ -5,6 +5,7 @@
 
 import { normalizeHorse } from './normalizeRaceData';
 import { analyzeRaceData } from './analyzeRaceData';
+import { enrichHorseWithKMTid, fetchKMTidEntryMap } from './kmtidEnhancement';
 
 let hasLoggedDdRawResponse = false;
 let hasLoggedAtgPipelineDebug = false;
@@ -179,6 +180,7 @@ export const fetchGameData = async (selectedGameType) => {
 
   const raceIds = Array.isArray(rawGame.races) ? rawGame.races : [];
   const gameId = rawGame.id;
+  const kmtidEntryMap = await fetchKMTidEntryMap(gameDate);
 
   // Build V85 race index for DD linkage
   let v85RaceIds = [];
@@ -272,7 +274,8 @@ export const fetchGameData = async (selectedGameType) => {
         }
         return normalizeHorse(start, matchedKey || selectedGameType);
       })
-      .filter(Boolean);
+      .filter(Boolean)
+      .map(horse => enrichHorseWithKMTid(horse, kmtidEntryMap));
 
     if (!hasLoggedAtgPipelineDebug && index === 0) {
       hasLoggedAtgPipelineDebug = true;
