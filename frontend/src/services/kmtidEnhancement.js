@@ -80,6 +80,7 @@ function formatDateForKMTid(date) {
 
 export async function fetchKMTidEntryMap(date) {
   const kmtidDate = formatDateForKMTid(date);
+  console.log('[KMTid] derived date:', kmtidDate ?? `(null — could not parse "${date}")`);
   if (!kmtidDate) {
     return new Map();
   }
