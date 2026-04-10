@@ -6,6 +6,8 @@
 const TOPLIST_ASSIGNMENT_RE = /\b(?:const|let|var)\s+toplist\s*=\s*/;
 
 const TARGET_KEYS = [
+  'start',
+  'timings',
   'horseName',
   'driverName',
   'startNumber',
@@ -43,24 +45,49 @@ function toStringOrNull(value) {
     return null;
   }
 
+  if (typeof value === 'object') {
+    return null;
+  }
+
   const text = String(value).trim();
   return text.length ? text : null;
 }
 
-function buildDriverName(entry) {
-  if (!entry || typeof entry !== 'object') {
+function getPathValue(node, path) {
+  let current = node;
+
+  for (const key of path) {
+    if (!current || typeof current !== 'object') {
+      return undefined;
+    }
+
+    current = current[key];
+  }
+
+  return current;
+}
+
+function firstDefinedPath(entry, paths) {
+  for (const path of paths) {
+    const value = getPathValue(entry, path);
+    if (value !== undefined) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function buildDriverName(driverValue) {
+  if (!driverValue) {
     return null;
   }
 
-  if (typeof entry.driverName === 'string' && entry.driverName.trim()) {
-    return entry.driverName.trim();
+  if (typeof driverValue === 'string' && driverValue.trim()) {
+    return driverValue.trim();
   }
 
-  if (typeof entry.driver === 'string' && entry.driver.trim()) {
-    return entry.driver.trim();
-  }
-
-  const driverObj = entry.driver;
+  const driverObj = driverValue;
   if (driverObj && typeof driverObj === 'object') {
     if (typeof driverObj.name === 'string' && driverObj.name.trim()) {
       return driverObj.name.trim();
@@ -221,25 +248,93 @@ function collectCandidateEntries(node, acc = []) {
 
 function normalizeTimingEntry(entry) {
   const horseName = toStringOrNull(
-    firstDefined(entry, ['horseName', 'horse', 'name', 'horse_name'])
+    firstDefinedPath(entry, [
+      ['start', 'horse', 'name'],
+      ['horseName'],
+      ['horse', 'name'],
+      ['name'],
+      ['horse_name']
+    ])
   );
 
-  const driverName = buildDriverName(entry);
+  const driverName = buildDriverName(
+    firstDefinedPath(entry, [
+      ['start', 'driver', 'name'],
+      ['start', 'driver'],
+      ['driverName'],
+      ['driver']
+    ])
+  );
 
   const normalized = {
     horseName,
     driverName,
-    startNumber: parseNumber(firstDefined(entry, ['startNumber', 'startNo', 'number', 'start'])),
-    result: parseNumber(firstDefined(entry, ['result', 'position', 'placering'])),
-    first200ms: parseNumber(firstDefined(entry, ['first200ms', 'first200Ms', 'first200_ms'])),
-    first200: toStringOrNull(firstDefined(entry, ['first200', 'first_200'])),
-    last200ms: parseNumber(firstDefined(entry, ['last200ms', 'last200Ms', 'last200_ms'])),
-    last200: toStringOrNull(firstDefined(entry, ['last200', 'last_200'])),
-    best100ms: parseNumber(firstDefined(entry, ['best100ms', 'best100Ms', 'best100_ms'])),
-    best100: toStringOrNull(firstDefined(entry, ['best100', 'best_100'])),
-    actualKMTime: toStringOrNull(firstDefined(entry, ['actualKMTime', 'actualKmTime', 'kmTime'])),
+    startNumber: parseNumber(firstDefinedPath(entry, [
+      ['start', 'number'],
+      ['startNumber'],
+      ['startNo'],
+      ['number']
+    ])),
+    result: parseNumber(firstDefinedPath(entry, [
+      ['start', 'result'],
+      ['result'],
+      ['position'],
+      ['placering']
+    ])),
+    first200ms: parseNumber(firstDefinedPath(entry, [
+      ['start', 'timings', 'first200ms'],
+      ['timings', 'first200ms'],
+      ['first200ms'],
+      ['first200Ms'],
+      ['first200_ms']
+    ])),
+    first200: toStringOrNull(firstDefinedPath(entry, [
+      ['start', 'timings', 'first200'],
+      ['timings', 'first200'],
+      ['first200'],
+      ['first_200']
+    ])),
+    last200ms: parseNumber(firstDefinedPath(entry, [
+      ['start', 'timings', 'last200ms'],
+      ['timings', 'last200ms'],
+      ['last200ms'],
+      ['last200Ms'],
+      ['last200_ms']
+    ])),
+    last200: toStringOrNull(firstDefinedPath(entry, [
+      ['start', 'timings', 'last200'],
+      ['timings', 'last200'],
+      ['last200'],
+      ['last_200']
+    ])),
+    best100ms: parseNumber(firstDefinedPath(entry, [
+      ['start', 'timings', 'best100ms'],
+      ['timings', 'best100ms'],
+      ['best100ms'],
+      ['best100Ms'],
+      ['best100_ms']
+    ])),
+    best100: toStringOrNull(firstDefinedPath(entry, [
+      ['start', 'timings', 'best100'],
+      ['timings', 'best100'],
+      ['best100'],
+      ['best_100']
+    ])),
+    actualKMTime: toStringOrNull(firstDefinedPath(entry, [
+      ['start', 'timings', 'actualKMTime'],
+      ['timings', 'actualKMTime'],
+      ['actualKMTime'],
+      ['actualKmTime'],
+      ['kmTime']
+    ])),
     slipstreamDistance: parseNumber(
-      firstDefined(entry, ['slipstreamDistance', 'slipstream', 'slipstream_distance'])
+      firstDefinedPath(entry, [
+        ['start', 'timings', 'slipstreamDistance'],
+        ['timings', 'slipstreamDistance'],
+        ['slipstreamDistance'],
+        ['slipstream'],
+        ['slipstream_distance']
+      ])
     )
   };
 
