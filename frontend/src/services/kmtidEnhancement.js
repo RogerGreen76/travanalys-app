@@ -57,6 +57,7 @@ export function enrichHorseWithKMTid(horse, kmtidEntryMap) {
 
   return {
     ...horse,
+    kmtidFirst200: match.first200 ?? null,
     kmtidStartSpeedScore: getKMTidStartSpeedScore(match.first200ms),
     kmtidFirst200ms: match.first200ms ?? null
   };
