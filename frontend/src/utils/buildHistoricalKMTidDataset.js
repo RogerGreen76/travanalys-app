@@ -59,31 +59,22 @@ export function getCandidatePastDates(baseDate, daysBack) {
 }
 
 async function collectAvailableHistoricalEntries(candidateDates, maxAvailable = 20) {
-  // TEMP DEBUG: availability probe only, does not block on missing dates.
   const entries = [];
-  const availableDates = [];
 
   for (const date of candidateDates) {
-    if (availableDates.length >= maxAvailable) {
+    if (entries.length >= maxAvailable) {
       break;
     }
 
     try {
       const rawText = await fetchKMTidRaceData(date);
       if (typeof rawText === 'string' && rawText.trim()) {
-        console.log(`[KMTid] available date: ${date}`);
-        availableDates.push(date);
         entries.push({ date, rawText });
-      } else {
-        console.log(`[KMTid] missing date: ${date}`);
       }
     } catch {
       // Missing/unavailable dates are expected and should never block the flow.
-      console.log(`[KMTid] missing date: ${date}`);
     }
   }
-
-  console.log('[KMTid] available dates found:', availableDates);
 
   return entries;
 }
@@ -255,25 +246,18 @@ export function buildHistoricalKMTidDatasetFromEntries(entries = []) {
       races = [];
     }
 
-    console.log(`[KMTid] parsed races for ${date}:`, Array.isArray(races) ? races.length : 0);
-
     if (!Array.isArray(races) || races.length === 0) {
       continue;
     }
 
     const starts = extractHorseStartsFromRaces(races, date);
-    console.log(`[KMTid] extracted starts for ${date}:`, starts.length);
     allStarts.push(...starts);
   }
 
   const dataset = aggregateHorseHistory(allStarts);
-  const horseKeys = Object.keys(dataset);
-  console.log('[KMTid] total extracted starts:', allStarts.length);
-  console.log('[KMTid] aggregated horses:', horseKeys.length);
-  if (horseKeys[0]) {
-    const firstKey = horseKeys[0];
-    console.log('[KMTid] sample aggregated horse:', dataset[firstKey]);
-  }
+  console.log('[KMTid] historical dates:', entries.length);
+  console.log('[KMTid] total starts:', allStarts.length);
+  console.log('[KMTid] aggregated horses:', Object.keys(dataset).length);
   return dataset;
 }
 

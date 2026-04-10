@@ -1,6 +1,5 @@
 import { fetchKMTidRaceData } from './fetchKMTidRaceData';
 import { extractKMTidTimingEntries, parseKMTidRacesArray, kmTimeMsToString, computeTimingFromIntervals } from './parseKMTidToplist';
-import { buildHistoricalKMTidDataset } from '../utils/buildHistoricalKMTidDataset';
 
 function normalizeHorseName(name) {
   return String(name || '')
@@ -192,24 +191,6 @@ export async function fetchKMTidEntryMap(date) {
 
   try {
     const datesToFetch = getPreviousDates(kmtidDate, 7);
-
-    // TEMP DEBUG: run historical dataset build asynchronously so main V85 load is not blocked.
-    setTimeout(async () => {
-      try {
-        const historicalDataset = await buildHistoricalKMTidDataset([
-          '2026-04-11',
-          '2026-04-10',
-          '2026-04-09',
-          '2026-04-08',
-          '2026-04-07',
-          '2026-04-06',
-          '2026-04-05'
-        ]);
-        console.log('[KMTid] debug historical dataset keys:', Object.keys(historicalDataset).length);
-      } catch (error) {
-        console.error('[KMTid] debug historical load failed:', error);
-      }
-    }, 0);
 
     const combinedRaceMap = new Map();
     const fallbackEntries = [];
