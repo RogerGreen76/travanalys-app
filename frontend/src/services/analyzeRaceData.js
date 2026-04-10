@@ -51,26 +51,6 @@ export const analyzeRaceData = (normalizedData) => {
 const analyzeHorses = (horses, raceContext) => {
   const results = horses.map(horse => analyzeHorse(horse, raceContext, horses));
 
-  // finalScore distribution debug
-  const finalScores = results
-    .map(h => h.finalScore)
-    .filter(v => Number.isFinite(v))
-    .sort((a, b) => b - a);
-  if (finalScores.length > 0) {
-    const min = finalScores[finalScores.length - 1];
-    const max = finalScores[0];
-    const avg = finalScores.reduce((s, v) => s + v, 0) / finalScores.length;
-    const playCounts = { 'Stark play': 0, 'Möjlig play': 0, 'No play': 0 };
-    results.forEach(h => { if (h.play in playCounts) playCounts[h.play]++; });
-    console.log('[RaceFinalDistribution]', {
-      finalScores: finalScores.map(v => Number(v.toFixed(2))),
-      min: Number(min.toFixed(2)),
-      max: Number(max.toFixed(2)),
-      avg: Number(avg.toFixed(2)),
-      playCounts,
-    });
-  }
-
   return results;
 };
 
@@ -102,67 +82,6 @@ const analyzeHorse = (horse, raceContext, horses) => {
 
   const componentScores = getComponentScores(horse, raceContext, horses);
   const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext, horses);
-
-  console.log(
-  horse.name,
-  {
-    startSpeed: componentScores.startSpeedScore,
-    strength: componentScores.strengthScore,
-    pace: componentScores.paceScenarioScore,
-    ranking: aggregateScores.rankingScore,
-    final: aggregateScores.finalScore,
-    calibrated: aggregateScores.calibratedFinalScore,
-    valueRatio: aggregateScores.valueRatio,
-    streckPercent: aggregateScores.streckPercent,
-    upsetScore: aggregateScores.upsetScore,
-    isPotentialUpset: aggregateScores.isPotentialUpset,
-    positionPotential: componentScores.positionPotentialScore,
-    leadPotential: componentScores.leadPotentialScore
-  }
-);
-
-  // rankingScore dominance debug
-  {
-    const _dc = {
-      startSpeedScore: componentScores.startSpeedScore ?? 0,
-      strengthScore: componentScores.strengthScore ?? 0,
-      distanceScore: componentScores.distanceScore ?? 0,
-      formScore: componentScores.formScore ?? 0,
-      driverScore: componentScores.driverScore ?? 0,
-      paceScenarioScore: componentScores.paceScenarioScore ?? 0,
-      leadPotentialScore: componentScores.leadPotentialScore ?? 0,
-      positionPotentialScore: componentScores.positionPotentialScore ?? 0,
-    };
-    const _entries = Object.entries(_dc).map(([k, v]) => [k, Math.abs(v)]);
-    const _sum = _entries.reduce((acc, [, v]) => acc + v, 0);
-    const [_domName, _domVal] = _entries.reduce((a, b) => b[1] > a[1] ? b : a, ['', 0]);
-    const _ratio = _sum > 0 ? _domVal / _sum : 0;
-    console.log(
-      `[RankingDominance] ${horse.name}`,
-      `| rankingScore: ${aggregateScores.rankingScore?.toFixed(2)}`,
-      `| finalScore: ${aggregateScores.finalScore?.toFixed(2) ?? 'n/a'}`,
-      `| dominantComponent: ${_domName}`,
-      `| dominanceRatio: ${_ratio.toFixed(2)}`,
-      _ratio > 0.35 ? '| WARNING: component dominance warning' : ''
-    );
-  }
-
-  if ((aggregateScores?.odds ?? 0) > 20) {
-    console.info('[LongshotDebug >20]', {
-      horse: horse?.name,
-      odds: aggregateScores?.odds,
-      finalScore: aggregateScores?.finalScore,
-      calibratedFinalScore: aggregateScores?.calibratedFinalScore,
-      rankingScore: aggregateScores?.rankingScore,
-      valueRatio: aggregateScores?.valueRatio,
-      upsetScore: aggregateScores?.upsetScore,
-      leadPotentialScore: componentScores?.leadPotentialScore,
-      positionPotentialScore: componentScores?.positionPotentialScore,
-      paceScenarioScore: componentScores?.paceScenarioScore,
-      play: aggregateScores?.play,
-      isPotentialUpset: aggregateScores?.isPotentialUpset
-    });
-  }
 
   return {
     ...horse,
@@ -485,9 +404,6 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const leadPotentialContribution = normalizedLeadPotential * 0.6 * earlySpeedContextMultiplier;
   const paceScenarioContribution = normalizedPaceScenario * 0.8 * paceContextMultiplier;
 
-  // Old rankingScore (kept for debug comparison only)
-  const rankingScore_old = impliedProbability + relativeStrength * 15 + valueRatio * 8 + startSpeedContribution + leadPotentialContribution + paceScenarioContribution;
-
   // Normalize market-derived terms to [0,1] before aggregation to reduce scale dominance
   const normImpliedProbability = Math.min(Math.max(impliedProbability / 100, 0), 1);
   const normRelativeStrength   = Math.min(Math.max(relativeStrength / 3, 0), 1);
@@ -496,17 +412,6 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const rsContribution  = normRelativeStrength   * 2.2;
   const vrContribution  = normValueRatio         * 3;
   const rankingScore = ipContribution + rsContribution + vrContribution + startSpeedContribution + leadPotentialContribution + paceScenarioContribution;
-
-  console.log('[RankingScaleDebug]', horse.name, {
-    old: rankingScore_old.toFixed(2),
-    new: rankingScore.toFixed(2),
-    ipContribution:           ipContribution.toFixed(3),
-    rsContribution:           rsContribution.toFixed(3),
-    vrContribution:           vrContribution.toFixed(3),
-    startSpeedContribution:   startSpeedContribution.toFixed(3),
-    leadPotentialContribution: leadPotentialContribution.toFixed(3),
-    paceScenarioContribution: paceScenarioContribution.toFixed(3),
-  });
 
   // ===== HORSE SCORE (Sports ranking 0-100) =====
   let horseScore = 0;

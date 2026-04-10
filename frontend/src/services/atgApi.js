@@ -10,6 +10,8 @@ import { enrichHorseWithKMTid, fetchKMTidEntryMap } from './kmtidEnhancement';
 let hasLoggedDdRawResponse = false;
 let hasLoggedAtgPipelineDebug = false;
 
+const DEBUG_LOGS = false;
+
 /**
  * Derive horse-level market share from the DD combination odds matrix.
  * NOTE: DD betDistribution computed here is inferred from comboOdds,
@@ -209,29 +211,8 @@ export const fetchGameData = async (selectedGameType) => {
         const gameData = await gameRes.json();
         const ddResponse = gameData;
 
-        if (!hasLoggedAtgPipelineDebug) {
-          const sampleRace = gameData?.races?.[0];
-          const sampleStart = sampleRace?.starts?.[0];
-          console.log('[ATG PIPELINE] Raw /atg/game payload keys:', Object.keys(gameData || {}));
-          console.log('[ATG PIPELINE] Raw sample race keys:', Object.keys(sampleRace || {}));
-          console.log('[ATG PIPELINE] Raw sample starts length:', Array.isArray(sampleRace?.starts) ? sampleRace.starts.length : 0);
-          console.log('[ATG PIPELINE] Raw sample start object:', sampleStart);
-          console.log('[ATG PIPELINE] Raw sample start keys:', Object.keys(sampleStart || {}));
-        }
-
         if (isDD) {
           ddComboOdds = gameData?.pools?.dd?.comboOdds || null;
-        }
-
-        if (isDD && !hasLoggedDdRawResponse) {
-          console.log('DD endpoint raw response:', JSON.stringify(ddResponse, null, 2));
-          console.log('DD response keys:', Object.keys(ddResponse || {}));
-          console.log('DD pools.dd keys:', Object.keys(ddResponse?.pools?.dd || {}));
-          console.log('DD starts:', JSON.stringify(ddResponse?.starts, null, 2));
-          console.log('DD races:', JSON.stringify(ddResponse?.races, null, 2));
-          console.log('DD horses:', JSON.stringify(ddResponse?.horses, null, 2));
-          console.log('DD dd pool full:', JSON.stringify(ddResponse?.pools?.dd, null, 2));
-          hasLoggedDdRawResponse = true;
         }
 
         for (const race of (gameData.races || [])) {
@@ -252,36 +233,18 @@ export const fetchGameData = async (selectedGameType) => {
     );
   }
 
-  // Compute DD horse-level market share from comboOdds (raw response already logged above)
+  // Compute DD horse-level market share from comboOdds
   const ddDistributions = isDD ? computeDdDistributions(ddComboOdds) : null;
-  if (isDD) {
-    console.log('DD comboOdds rows:', ddComboOdds?.length, 'cols:', ddComboOdds?.[0]?.length);
-    console.log('DD leg1 distributions:', ddDistributions?.leg1);
-    console.log('DD leg2 distributions:', ddDistributions?.leg2);
-  }
 
   // Step 3: Build race objects with normalized horses
   const races = raceIds.map((raceId, index) => {
     const fullRace = fullRaceMap[raceId];
     const rawStarts = fullRace?.starts || [];
 
-    if (!hasLoggedAtgPipelineDebug && index === 0) {
-      console.log('[ATG PIPELINE] Raw starts before normalizeHorse():', rawStarts.slice(0, 3));
-    }
-
     const normalizedHorses = rawStarts
-      .map((start, startIndex) => {
-        if (!hasLoggedAtgPipelineDebug && index === 0 && startIndex < 3) {
-          console.log('[ATG PIPELINE] Object passed into normalizeHorse():', start);
-        }
-        return normalizeHorse(start, matchedKey || selectedGameType);
-      })
+      .map(start => normalizeHorse(start, matchedKey || selectedGameType))
       .filter(Boolean)
       .map(horse => enrichHorseWithKMTid(horse, kmtidEntryMap, raceId));
-
-    if (!hasLoggedAtgPipelineDebug && index === 0) {
-      hasLoggedAtgPipelineDebug = true;
-    }
 
     // For DD only: override betDistribution with values inferred from comboOdds matrix.
     // NOTE: These are NOT official ATG streck percentages — derived from combination odds per leg.

@@ -24,7 +24,6 @@ export const normalizeRaceData = (rawData, gameType) => {
 
     // Normalize each filtered race
     const normalizedRaces = filteredRaces.map((race, index) => {
-      console.log('RACE DEBUG', gameType, race);
       if (!race.starts || !Array.isArray(race.starts)) {
         console.warn(`Race ${index + 1} missing starts array, skipping`);
         return null;
@@ -79,18 +78,6 @@ export const normalizeHorse = (start, gameType) => {
     // Extract basic horse info
     const number = start.number || start.postPosition;
     const name = start.horse.name;
-
-    // DEBUG: Log raw start object (first 3 horses per race)
-    if (number <= 3) {
-      console.log('[normalizeHorse DEBUG] Raw start object for', name, {
-        number,
-        startKeys: Object.keys(start || {}),
-        horseKeys: Object.keys(start?.horse || {}),
-        resolvedShoes: start?.shoes ?? start?.horse?.shoes ?? null,
-        resolvedSulky: start?.sulky ?? start?.horse?.sulky ?? null,
-        resolvedEquipment: start?.equipment ?? start?.horse?.equipment ?? null
-      });
-    }
 
     // Extract odds
     let odds = null;
@@ -159,18 +146,6 @@ export const normalizeHorse = (start, gameType) => {
       bike: start?.bike ?? start?.horse?.bike ?? null,
       equipment: start?.equipment ?? start?.horse?.equipment ?? null
     };
-
-    // DEBUG: Log normalized object (first 3 horses per race)
-    if (number <= 3) {
-      console.log('[normalizeHorse DEBUG] Normalized horse:', name, {
-        normalizedKeys: Object.keys(normalized),
-        hasShoes: !!normalized.shoes,
-        hasSulky: !!normalized.sulky,
-        shoes: normalized.shoes,
-        sulky: normalized.sulky,
-        equipment: normalized.equipment
-      });
-    }
 
     return normalized;
 
