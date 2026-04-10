@@ -7,6 +7,7 @@ export async function fetchKMTidRaceData(date) {
   const url = `http://localhost:8000/api/kmtid/${date}`;
 
   try {
+    console.log('[KMTid] fetching date:', date);
     const response = await fetch(url);
 
     if (response.status === 404) {

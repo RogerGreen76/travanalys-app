@@ -202,14 +202,18 @@ export function buildHistoricalKMTidDatasetFromEntries(entries = []) {
     }
 
     const starts = extractHorseStartsFromRaces(races, date);
+    console.log('[KMTid] fetched races:', races.length, 'for date:', date);
     allStarts.push(...starts);
   }
 
-  return aggregateHorseHistory(allStarts);
+  const result = aggregateHorseHistory(allStarts);
+  console.log('[KMTid] historical horses:', Object.keys(result).length);
+  return result;
 }
 
 export async function buildHistoricalKMTidDataset(dates = [], fetchRawForDate = null) {
   const uniqueDates = [...new Set((dates || []).map(date => String(date || '').trim()).filter(Boolean))];
+  console.log('[KMTid] building historical dataset for dates:', uniqueDates);
   const fetchRaw = typeof fetchRawForDate === 'function'
     ? fetchRawForDate
     : async (date) => {
