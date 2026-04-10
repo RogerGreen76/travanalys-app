@@ -2,20 +2,17 @@ import React, { useEffect } from 'react';
 import '@/App.css';
 import RaceAnalyzer from './components/RaceAnalyzer';
 import { fetchKMTidRaceData } from './services/fetchKMTidRaceData';
+import { extractKMTidTimingEntries } from './services/parseKMTidToplist';
 
 function App() {
   useEffect(() => {
     const runKMTidTest = async () => {
-      const data = await fetchKMTidRaceData('260307');
+      const rawText = await fetchKMTidRaceData('260307');
+      const parsedEntries = rawText ? extractKMTidTimingEntries(rawText) : [];
 
-      console.log('[KMTid test] is null:', data === null);
-      if (typeof data === 'string') {
-        console.log('[KMTid test] length:', data.length);
-        console.log('[KMTid test] first 500 chars:', data.slice(0, 500));
-      } else {
-        console.log('[KMTid test] length: n/a');
-        console.log('[KMTid test] first 500 chars: n/a');
-      }
+      console.log('[KMTid test] raw is null:', rawText === null);
+      console.log('[KMTid test] parsed count:', parsedEntries.length);
+      console.log('[KMTid test] first entries:', parsedEntries.slice(0, 3));
     };
 
     runKMTidTest();
