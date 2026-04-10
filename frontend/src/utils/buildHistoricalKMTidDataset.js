@@ -30,6 +30,65 @@ function formatDateForKMTid(date) {
   return null;
 }
 
+function toIsoDateFromCompact(compactDate) {
+  const compact = String(compactDate || '').trim();
+  if (!/^\d{6}$/.test(compact)) {
+    return null;
+  }
+  return `20${compact.slice(0, 2)}-${compact.slice(2, 4)}-${compact.slice(4, 6)}`;
+}
+
+function getPreviousIsoDates(baseDate, days) {
+  const compactBase = formatDateForKMTid(baseDate);
+  const totalDays = Math.max(0, Number(days) || 0);
+  if (!compactBase || totalDays === 0) {
+    return [];
+  }
+
+  const year = Number(`20${compactBase.slice(0, 2)}`);
+  const monthIndex = Number(compactBase.slice(2, 4)) - 1;
+  const dayOfMonth = Number(compactBase.slice(4, 6));
+  const base = new Date(year, monthIndex, dayOfMonth);
+  if (!Number.isFinite(base.getTime())) {
+    return [];
+  }
+
+  const dates = [];
+  for (let offset = 0; offset < totalDays; offset += 1) {
+    const current = new Date(base);
+    current.setDate(base.getDate() - offset);
+    const yy = String(current.getFullYear()).slice(-2);
+    const mm = String(current.getMonth() + 1).padStart(2, '0');
+    const dd = String(current.getDate()).padStart(2, '0');
+    const iso = toIsoDateFromCompact(`${yy}${mm}${dd}`);
+    if (iso) dates.push(iso);
+  }
+
+  return dates;
+}
+
+async function collectAvailableHistoricalEntries(dates, fetchRaw) {
+  const entries = [];
+
+  for (const date of dates) {
+    try {
+      const rawText = await fetchRaw(date);
+      if (typeof rawText === 'string' && rawText.trim()) {
+        console.log(`[KMTid] available date: ${date}`);
+        console.log(`[KMTid] fetched raw length for ${date}:`, rawText?.length ?? 0);
+        entries.push({ date, rawText });
+      } else {
+        console.log(`[KMTid] missing date: ${date}`);
+      }
+    } catch {
+      // Missing/unavailable dates are expected and should never block the flow.
+      console.log(`[KMTid] missing date: ${date}`);
+    }
+  }
+
+  return entries;
+}
+
 export function summarizeNumeric(values = []) {
   const numericValues = values
     .map(value => Number(value))
@@ -220,7 +279,11 @@ export function buildHistoricalKMTidDatasetFromEntries(entries = []) {
 }
 
 export async function buildHistoricalKMTidDataset(dates = [], fetchRawForDate = null) {
-  const uniqueDates = [...new Set((dates || []).map(date => String(date || '').trim()).filter(Boolean))];
+  const incomingDates = [...new Set((dates || []).map(date => String(date || '').trim()).filter(Boolean))];
+  const uniqueDates = incomingDates.length > 0
+    ? incomingDates
+    : getPreviousIsoDates(new Date().toISOString().slice(0, 10), 7);
+
   const fetchRaw = typeof fetchRawForDate === 'function'
     ? fetchRawForDate
     : async (date) => {
@@ -231,22 +294,7 @@ export async function buildHistoricalKMTidDataset(dates = [], fetchRawForDate = 
         return fetchKMTidRaceData(kmtidDate);
       };
 
-  const entries = [];
-
-  for (const date of uniqueDates) {
-    try {
-      const rawText = await fetchRaw(date);
-      if (!rawText) {
-        continue;
-      }
-
-      console.log(`[KMTid] fetched raw length for ${date}:`, rawText?.length ?? 0);
-
-      entries.push({ date, rawText });
-    } catch {
-      // KM-tid is optional; ignore fetch/parse failures and continue best-effort.
-    }
-  }
+  const entries = await collectAvailableHistoricalEntries(uniqueDates, fetchRaw);
 
   return buildHistoricalKMTidDatasetFromEntries(entries);
 }
