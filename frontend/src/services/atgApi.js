@@ -180,7 +180,9 @@ export const fetchGameData = async (selectedGameType) => {
 
   const raceIds = Array.isArray(rawGame.races) ? rawGame.races : [];
   const gameId = rawGame.id;
-  const kmtidEntryMap = await fetchKMTidEntryMap(gameDate);
+  // KM-tid enrichment: disabled in auto-load path to avoid repeated 404 probes on every game load.
+  // Call fetchKMTidEntryMap(gameDate) manually when enrichment is needed.
+  const kmtidEntryMap = new Map();
 
   // Build V85 race index for DD linkage
   let v85RaceIds = [];
