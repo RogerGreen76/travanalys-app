@@ -9,6 +9,11 @@ export async function fetchKMTidRaceData(date) {
   try {
     const response = await fetch(url);
 
+    if (response.status === 404) {
+      // KM-tid is not published for all dates; treat this as expected and optional.
+      return null;
+    }
+
     if (!response.ok) {
       console.warn('[KMTid] request failed', { date, status: response.status, url });
       let err;
