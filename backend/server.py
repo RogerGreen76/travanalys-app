@@ -141,8 +141,25 @@ def kmtid_races(date: str):
 async def get_kmtid_page(date: str):
     print("[KMTid page fetch]", date)
     url = f"https://kmtid.atgx.se/{date}/"
+    logger.info("KMTid page incoming date=%s", date)
+    logger.info("KMTid page upstream url=%s", url)
     resp = http_requests.get(url, timeout=15)
+    logger.info("KMTid page upstream status=%s", resp.status_code)
     html = resp.text
+    preview = html[:200] if isinstance(html, str) else ""
+    logger.info("KMTid page upstream preview=%s", preview)
+
+    if resp.status_code != 200:
+        return JSONResponse(
+            status_code=resp.status_code,
+            content={
+                "error": "kmtid page fetch failed",
+                "upstream_url": url,
+                "upstream_status": resp.status_code,
+                "preview": preview,
+            },
+        )
+
     return Response(content=html, media_type="text/html")
 
 

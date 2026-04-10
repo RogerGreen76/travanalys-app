@@ -10,15 +10,17 @@ export async function fetchKMTidRaceData(date) {
     const response = await fetch(url);
 
     if (!response.ok) {
-      console.warn('[KMTid] races.js not found', { date, status: response.status, url });
-
+      console.warn('[KMTid] request failed', { date, status: response.status, url });
+      let err;
       try {
-        const err = await response.json();
-        console.error('[KMTid backend error]', err);
-      } catch {
-        const text = await response.text();
-        console.error('[KMTid backend error text]', text);
+        err = await response.json();
+      } catch (parseError) {
+        err = {
+          error: 'failed to parse backend error json',
+          message: parseError?.message || String(parseError)
+        };
       }
+      console.error('[KMTid backend error]', err);
 
       return null;
     }
