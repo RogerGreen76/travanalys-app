@@ -415,5 +415,122 @@ export function extractKMTidTimingEntries(rawText) {
 
 export default {
   parseKMTidToplistObject,
-  extractKMTidTimingEntries
+  extractKMTidTimingEntries,
+  parseKMTidRacesArray
 };
+// ─── Races-array parser (Loppstatistik source) ────────────────────────────────
+
+const RACES_ASSIGNMENT_RE = /\b(?:const|let|var)\s+races\s*=\s*/;
+
+function findArrayLiteralStart(rawText, startIndex) {
+  for (let i = startIndex; i < rawText.length; i += 1) {
+    if (rawText[i] === '[') return i;
+  }
+  return -1;
+}
+
+function extractBalancedArrayLiteral(rawText, arrayStartIndex) {
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inTemplate = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = arrayStartIndex; i < rawText.length; i += 1) {
+    const ch = rawText[i];
+    const next = rawText[i + 1];
+    const prev = rawText[i - 1];
+
+    if (inLineComment) { if (ch === '\n') inLineComment = false; continue; }
+    if (inBlockComment) { if (prev === '*' && ch === '/') inBlockComment = false; continue; }
+    if (inSingleQuote) { if (ch === '\'' && prev !== '\\') inSingleQuote = false; continue; }
+    if (inDoubleQuote) { if (ch === '"' && prev !== '\\') inDoubleQuote = false; continue; }
+    if (inTemplate) { if (ch === '`' && prev !== '\\') inTemplate = false; continue; }
+
+    if (ch === '/' && next === '/') { inLineComment = true; i += 1; continue; }
+    if (ch === '/' && next === '*') { inBlockComment = true; i += 1; continue; }
+    if (ch === '\'') { inSingleQuote = true; continue; }
+    if (ch === '"') { inDoubleQuote = true; continue; }
+    if (ch === '`') { inTemplate = true; continue; }
+
+    if (ch === '[') {
+      depth += 1;
+    } else if (ch === ']') {
+      depth -= 1;
+      if (depth === 0) return rawText.slice(arrayStartIndex, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Compute first200ms, last200ms, best100ms from raw 100m-interval durations.
+ * Durations are in ms/km (milliseconds per kilometer, Swedish trotting time unit).
+ *  - first200ms = average km-speed of the first two 100m intervals
+ *  - last200ms  = average km-speed of the last two 100m intervals
+ *  - best100ms  = minimum single-interval km-speed (fastest 100m segment)
+ */
+export function computeTimingFromIntervals(intervals) {
+  if (!Array.isArray(intervals) || intervals.length < 2) return {};
+  const n = intervals.length;
+
+  const dur0 = Number(intervals[0]?.duration);
+  const dur1 = Number(intervals[1]?.duration);
+  const first200ms = (Number.isFinite(dur0) && Number.isFinite(dur1)) ? (dur0 + dur1) / 2 : null;
+
+  const durN2 = Number(intervals[n - 2]?.duration);
+  const durN1 = Number(intervals[n - 1]?.duration);
+  const last200ms = (Number.isFinite(durN2) && Number.isFinite(durN1)) ? (durN2 + durN1) / 2 : null;
+
+  let best100ms = null;
+  for (const iv of intervals) {
+    const d = Number(iv?.duration);
+    if (Number.isFinite(d) && (best100ms === null || d < best100ms)) best100ms = d;
+  }
+
+  return { first200ms, last200ms, best100ms };
+}
+
+/**
+ * Format a ms/km value as a Swedish trotting time string, e.g. 64100 → "1.04,1 min/km".
+ */
+export function kmTimeMsToString(msPerKm) {
+  const value = Number(msPerKm);
+  if (!Number.isFinite(value)) return null;
+  const totalSec = value / 1000;
+  const minutes = Math.floor(totalSec / 60);
+  const secs = (totalSec % 60).toFixed(1).replace('.', ',');
+  const paddedSecs = secs.length < 4 ? `0${secs}` : secs;
+  return `${minutes}.${paddedSecs} min/km`;
+}
+
+/**
+ * Parse the `const races = [...]` array from raw KM-tid races.js text.
+ * This gives complete per-race data with ALL starters (the "Loppstatistik" source).
+ * @param {string} rawText
+ * @returns {Array} Array of race objects, empty on failure
+ */
+export function parseKMTidRacesArray(rawText) {
+  if (typeof rawText !== 'string' || !rawText.trim()) return [];
+
+  const match = RACES_ASSIGNMENT_RE.exec(rawText);
+  if (!match) return [];
+
+  const afterAssignment = match.index + match[0].length;
+  const arrayStartIndex = findArrayLiteralStart(rawText, afterAssignment);
+  if (arrayStartIndex < 0) return [];
+
+  const arrayText = extractBalancedArrayLiteral(rawText, arrayStartIndex);
+  if (!arrayText) return [];
+
+  try {
+    const result = evaluateObjectLiteral(arrayText);
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+

@@ -275,7 +275,7 @@ export const fetchGameData = async (selectedGameType) => {
         return normalizeHorse(start, matchedKey || selectedGameType);
       })
       .filter(Boolean)
-      .map(horse => enrichHorseWithKMTid(horse, kmtidEntryMap));
+      .map(horse => enrichHorseWithKMTid(horse, kmtidEntryMap, raceId));
 
     if (!hasLoggedAtgPipelineDebug && index === 0) {
       hasLoggedAtgPipelineDebug = true;
