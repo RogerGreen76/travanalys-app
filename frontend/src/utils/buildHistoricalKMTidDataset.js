@@ -208,19 +208,19 @@ export function buildHistoricalKMTidDatasetFromEntries(entries = []) {
     allStarts.push(...starts);
   }
 
-  const result = aggregateHorseHistory(allStarts);
-  const horseKeys = Object.keys(result);
+  const dataset = aggregateHorseHistory(allStarts);
+  const horseKeys = Object.keys(dataset);
   console.log('[KMTid] total extracted starts:', allStarts.length);
   console.log('[KMTid] aggregated horses:', horseKeys.length);
   if (horseKeys[0]) {
-    console.log('[KMTid] sample aggregated horse:', result[horseKeys[0]]);
+    const firstKey = horseKeys[0];
+    console.log('[KMTid] sample aggregated horse:', dataset[firstKey]);
   }
-  return result;
+  return dataset;
 }
 
 export async function buildHistoricalKMTidDataset(dates = [], fetchRawForDate = null) {
   const uniqueDates = [...new Set((dates || []).map(date => String(date || '').trim()).filter(Boolean))];
-  console.log('[KMTid] building historical dataset for dates:', uniqueDates);
   const fetchRaw = typeof fetchRawForDate === 'function'
     ? fetchRawForDate
     : async (date) => {
@@ -240,7 +240,7 @@ export async function buildHistoricalKMTidDataset(dates = [], fetchRawForDate = 
         continue;
       }
 
-      console.log(`[KMTid] fetched raw length for ${date}:`, rawText.length);
+      console.log(`[KMTid] fetched raw length for ${date}:`, rawText?.length ?? 0);
 
       entries.push({ date, rawText });
     } catch {
