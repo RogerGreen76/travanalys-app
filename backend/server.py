@@ -137,6 +137,18 @@ def kmtid_races(date: str):
         return JSONResponse(status_code=500, content={"error": "kmtid fetch failed"})
 
 
+@api_router.get("/kmtid-page/{date}")
+def kmtid_page(date: str):
+    url = f"https://kmtid.atgx.se/{date}/"
+
+    try:
+        resp = http_requests.get(url, timeout=15)
+        return Response(content=resp.text, status_code=resp.status_code, media_type="text/html")
+    except Exception:
+        logger.exception("KMTid page fetch failed for date=%s", date)
+        return JSONResponse(status_code=500, content={"error": "kmtid fetch failed"})
+
+
 # Include the router in the main app
 app.include_router(api_router)
 

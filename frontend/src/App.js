@@ -8,13 +8,13 @@ function App() {
     const runKMTidTest = async () => {
       const data = await fetchKMTidRaceData('260307');
 
-      console.log('[KMTid test] returned data:', data);
       console.log('[KMTid test] is null:', data === null);
-
-      if (data && typeof data === 'object') {
-        console.log('[KMTid test] top-level keys:', Object.keys(data));
+      if (typeof data === 'string') {
+        console.log('[KMTid test] length:', data.length);
+        console.log('[KMTid test] first 500 chars:', data.slice(0, 500));
       } else {
-        console.log('[KMTid test] top-level keys: none');
+        console.log('[KMTid test] length: n/a');
+        console.log('[KMTid test] first 500 chars: n/a');
       }
     };
 

@@ -4,7 +4,7 @@
  * @returns {Promise<string|null>} Raw races.js content or null when unavailable.
  */
 export async function fetchKMTidRaceData(date) {
-  const url = `/api/kmtid/${date}`;
+  const url = `/api/kmtid-page/${date}`;
 
   try {
     const response = await fetch(url);
