@@ -385,6 +385,16 @@ const HorseTable = ({ horses }) => {
                       sulky={horse.sulky}
                       horse={horse}
                     />
+                    {horse.kmtidFirst200 != null && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-cyan-700/40 bg-cyan-900/20 text-cyan-400 font-mono">
+                          200m: {horse.kmtidFirst200}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded border border-cyan-700/40 bg-cyan-900/20 text-cyan-400 font-mono">
+                          KMSpeed: {horse.kmtidStartSpeedScore}
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>
