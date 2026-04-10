@@ -147,6 +147,41 @@ function formatDateForKMTid(date) {
   return null;
 }
 
+export function getPreviousDates(baseDate, days) {
+  const normalized = String(baseDate || '').trim();
+  if (!/^\d{6}$/.test(normalized)) {
+    return [];
+  }
+
+  const totalDays = Math.max(0, Number(days) || 0);
+  if (totalDays === 0) {
+    return [];
+  }
+
+  const year = Number(`20${normalized.slice(0, 2)}`);
+  const monthIndex = Number(normalized.slice(2, 4)) - 1;
+  const dayOfMonth = Number(normalized.slice(4, 6));
+  const base = new Date(year, monthIndex, dayOfMonth);
+
+  if (!Number.isFinite(base.getTime())) {
+    return [];
+  }
+
+  const result = [];
+
+  for (let offset = 0; offset < totalDays; offset++) {
+    const current = new Date(base);
+    current.setDate(base.getDate() - offset);
+
+    const yy = String(current.getFullYear()).slice(-2);
+    const mm = String(current.getMonth() + 1).padStart(2, '0');
+    const dd = String(current.getDate()).padStart(2, '0');
+    result.push(`${yy}${mm}${dd}`);
+  }
+
+  return result;
+}
+
 export async function fetchKMTidEntryMap(date) {
   const kmtidDate = formatDateForKMTid(date);
   console.log('[KMTid] derived date:', kmtidDate ?? `(null — could not parse "${date}")`);
@@ -155,22 +190,39 @@ export async function fetchKMTidEntryMap(date) {
   }
 
   try {
-    const rawText = await fetchKMTidRaceData(kmtidDate);
-    if (!rawText) {
-      return new Map();
+    const datesToFetch = getPreviousDates(kmtidDate, 7);
+    const combinedRaceMap = new Map();
+    const fallbackEntries = [];
+
+    for (const currentDate of datesToFetch) {
+      const rawText = await fetchKMTidRaceData(currentDate);
+      if (!rawText) {
+        continue;
+      }
+
+      // Prefer the complete races array (all starters per race, race-keyed)
+      const racesArray = parseKMTidRacesArray(rawText);
+      if (racesArray.length > 0) {
+        console.log(`[KMTid] parsed ${racesArray.length} race(s) from races array for ${currentDate}`);
+        const raceMap = buildKMTidRaceHorseMap(racesArray);
+        for (const [key, value] of raceMap.entries()) {
+          if (!combinedRaceMap.has(key)) {
+            combinedRaceMap.set(key, value);
+          }
+        }
+        continue;
+      }
+
+      // Fallback: toplist-based flat map (only fastest horses)
+      console.warn(`[KMTid] races array empty for ${currentDate}, falling back to toplist flat map`);
+      fallbackEntries.push(...extractKMTidTimingEntries(rawText));
     }
 
-    // Prefer the complete races array (all starters per race, race-keyed)
-    const racesArray = parseKMTidRacesArray(rawText);
-    if (racesArray.length > 0) {
-      console.log(`[KMTid] parsed ${racesArray.length} race(s) from races array`);
-      return buildKMTidRaceHorseMap(racesArray);
+    if (combinedRaceMap.size > 0) {
+      return combinedRaceMap;
     }
 
-    // Fallback: toplist-based flat map (only fastest horses)
-    console.warn('[KMTid] races array empty, falling back to toplist flat map');
-    const entries = extractKMTidTimingEntries(rawText);
-    return buildKMTidEntryMap(entries);
+    return buildKMTidEntryMap(fallbackEntries);
   } catch (error) {
     console.warn('[KMTid] optional enhancement unavailable', {
       date: kmtidDate,
