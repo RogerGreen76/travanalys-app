@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, Query
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -109,6 +109,18 @@ def atg_result(
     logger.info("ATG RESULT PROXY STATUS: %s", resp.status_code)
     logger.info("ATG RESULT PROXY TEXT: %s", resp.text[:500])
     return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+
+
+@api_router.get("/kmtid/{date}")
+def kmtid_races(date: str):
+    url = f"https://kmtid.atgx.se/{date}/js/races.js"
+
+    try:
+        resp = http_requests.get(url, timeout=15)
+        return Response(content=resp.text, status_code=resp.status_code, media_type="application/javascript")
+    except Exception:
+        logger.exception("KMTid fetch failed for date=%s", date)
+        return JSONResponse(status_code=500, content={"error": "kmtid fetch failed"})
 
 
 # Include the router in the main app
