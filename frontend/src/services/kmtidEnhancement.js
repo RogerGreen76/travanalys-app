@@ -1,5 +1,6 @@
 import { fetchKMTidRaceData } from './fetchKMTidRaceData';
 import { extractKMTidTimingEntries, parseKMTidRacesArray, kmTimeMsToString, computeTimingFromIntervals } from './parseKMTidToplist';
+import { buildHistoricalKMTidDataset } from '../utils/buildHistoricalKMTidDataset';
 
 function normalizeHorseName(name) {
   return String(name || '')
@@ -191,6 +192,14 @@ export async function fetchKMTidEntryMap(date) {
 
   try {
     const datesToFetch = getPreviousDates(kmtidDate, 7);
+
+    // TEMP DEBUG: force-run historical dataset builder in the active KM-tid load path.
+    const historicalDates = datesToFetch.map(compactDate =>
+      `20${compactDate.slice(0, 2)}-${compactDate.slice(2, 4)}-${compactDate.slice(4, 6)}`
+    );
+    const historicalDataset = await buildHistoricalKMTidDataset(historicalDates);
+    console.log('[KMTid] debug historical dataset keys:', Object.keys(historicalDataset).length);
+
     const combinedRaceMap = new Map();
     const fallbackEntries = [];
 
