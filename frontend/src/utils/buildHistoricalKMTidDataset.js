@@ -58,12 +58,16 @@ export function getCandidatePastDates(baseDate, daysBack) {
   return dates;
 }
 
-async function collectAvailableHistoricalEntries(candidateDates) {
+async function collectAvailableHistoricalEntries(candidateDates, maxAvailable = 20) {
   // TEMP DEBUG: availability probe only, does not block on missing dates.
   const entries = [];
   const availableDates = [];
 
   for (const date of candidateDates) {
+    if (availableDates.length >= maxAvailable) {
+      break;
+    }
+
     try {
       const rawText = await fetchKMTidRaceData(date);
       if (typeof rawText === 'string' && rawText.trim()) {
@@ -283,8 +287,8 @@ export async function buildHistoricalKMTidDataset(dates = [], fetchRawForDate = 
     return buildHistoricalKMTidDatasetFromEntries([]);
   }
 
-  const candidateDates = getCandidatePastDates(baseDate, 14);
-  const entries = await collectAvailableHistoricalEntries(candidateDates);
+  const candidateDates = getCandidatePastDates(baseDate, 120);
+  const entries = await collectAvailableHistoricalEntries(candidateDates, 20);
 
   return buildHistoricalKMTidDatasetFromEntries(entries);
 }
