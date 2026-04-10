@@ -118,8 +118,6 @@ export const extractSulkyValue = (sulky) => {
 export const formatSulky = (sulky) => {
   if (sulky == null) return null;
 
-  console.log('[EquipmentIndicator DEBUG] raw sulky:', sulky);
-
   const value = extractSulkyValue(sulky).toLowerCase().trim();
   if (!value) return null;
 
