@@ -514,22 +514,101 @@ export function kmTimeMsToString(msPerKm) {
 export function parseKMTidRacesArray(rawText) {
   if (typeof rawText !== 'string' || !rawText.trim()) return [];
 
-  const match = RACES_ASSIGNMENT_RE.exec(rawText);
-  if (!match) return [];
+  const racesDeclIndex = rawText.indexOf('const races');
+  if (racesDeclIndex < 0) return [];
 
-  const afterAssignment = match.index + match[0].length;
-  const arrayStartIndex = findArrayLiteralStart(rawText, afterAssignment);
+  const arrayStartIndex = rawText.indexOf('[', racesDeclIndex);
   if (arrayStartIndex < 0) return [];
 
-  const arrayText = extractBalancedArrayLiteral(rawText, arrayStartIndex);
-  if (!arrayText) return [];
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inTemplate = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let arrayEndIndex = -1;
 
-  try {
-    const result = evaluateObjectLiteral(arrayText);
-    return Array.isArray(result) ? result : [];
-  } catch {
-    return [];
+  for (let i = arrayStartIndex; i < rawText.length; i += 1) {
+    const ch = rawText[i];
+    const next = rawText[i + 1];
+    const prev = rawText[i - 1];
+
+    if (inLineComment) {
+      if (ch === '\n') inLineComment = false;
+      continue;
+    }
+    if (inBlockComment) {
+      if (prev === '*' && ch === '/') inBlockComment = false;
+      continue;
+    }
+    if (inSingleQuote) {
+      if (ch === '\'' && prev !== '\\') inSingleQuote = false;
+      continue;
+    }
+    if (inDoubleQuote) {
+      if (ch === '"' && prev !== '\\') inDoubleQuote = false;
+      continue;
+    }
+    if (inTemplate) {
+      if (ch === '`' && prev !== '\\') inTemplate = false;
+      continue;
+    }
+
+    if (ch === '/' && next === '/') {
+      inLineComment = true;
+      i += 1;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      inBlockComment = true;
+      i += 1;
+      continue;
+    }
+    if (ch === '\'') {
+      inSingleQuote = true;
+      continue;
+    }
+    if (ch === '"') {
+      inDoubleQuote = true;
+      continue;
+    }
+    if (ch === '`') {
+      inTemplate = true;
+      continue;
+    }
+
+    if (ch === '[') {
+      depth += 1;
+      continue;
+    }
+
+    if (ch === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        arrayEndIndex = i;
+        break;
+      }
+    }
   }
+
+  if (arrayEndIndex < 0) return [];
+
+  const arrayText = rawText.slice(arrayStartIndex, arrayEndIndex + 1);
+
+  let races = [];
+  try {
+    races = JSON.parse(arrayText);
+  } catch {
+    try {
+      const parsed = evaluateObjectLiteral(arrayText);
+      races = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      races = [];
+    }
+  }
+
+  console.log('[KMTid parser] races array length:', Array.isArray(races) ? races.length : 0);
+  return Array.isArray(races) ? races : [];
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
