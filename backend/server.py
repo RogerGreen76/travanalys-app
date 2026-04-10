@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import requests as http_requests
+import httpx
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
@@ -112,29 +113,19 @@ def atg_result(
 
 
 @api_router.get("/kmtid/{date}")
-def kmtid_races(date: str):
+async def get_kmtid(date: str):
     url = f"https://kmtid.atgx.se/{date}/js/races.js"
-    logger.info("KMTid proxy request date=%s", date)
-    logger.info("KMTid proxy upstream url=%s", url)
 
-    try:
-        resp = http_requests.get(url, timeout=15)
-        logger.info("KMTid proxy upstream status=%s", resp.status_code)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url)
 
-        if resp.status_code != 200:
-            return JSONResponse(
-                status_code=resp.status_code,
-                content={
-                    "error": "kmtid fetch failed",
-                    "upstream_url": url,
-                    "upstream_status": resp.status_code,
-                },
-            )
+    if response.status_code != 200:
+        return Response(status_code=404)
 
-        return Response(content=resp.text, status_code=resp.status_code, media_type="application/javascript")
-    except Exception:
-        logger.exception("KMTid fetch failed for date=%s", date)
-        return JSONResponse(status_code=500, content={"error": "kmtid fetch failed"})
+    return Response(
+        content=response.text,
+        media_type="application/javascript"
+    )
 
 
 @app.get("/api/kmtid-page/{date}")
