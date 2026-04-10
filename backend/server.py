@@ -114,9 +114,23 @@ def atg_result(
 @api_router.get("/kmtid/{date}")
 def kmtid_races(date: str):
     url = f"https://kmtid.atgx.se/{date}/js/races.js"
+    logger.info("KMTid proxy request date=%s", date)
+    logger.info("KMTid proxy upstream url=%s", url)
 
     try:
         resp = http_requests.get(url, timeout=15)
+        logger.info("KMTid proxy upstream status=%s", resp.status_code)
+
+        if resp.status_code != 200:
+            return JSONResponse(
+                status_code=resp.status_code,
+                content={
+                    "error": "kmtid fetch failed",
+                    "upstream_url": url,
+                    "upstream_status": resp.status_code,
+                },
+            )
+
         return Response(content=resp.text, status_code=resp.status_code, media_type="application/javascript")
     except Exception:
         logger.exception("KMTid fetch failed for date=%s", date)
