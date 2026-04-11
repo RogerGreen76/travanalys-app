@@ -12,6 +12,42 @@ const formatNumber = (value, decimals = 1) => {
   return Number.isFinite(num) ? num.toFixed(decimals) : '-';
 };
 
+const EMPTY_TEMPO_METRICS = {
+  sampleSize: 0,
+  averageFirst200ms: null,
+  bestFirst200ms: null,
+  averageBest100ms: null,
+  averageSlipstreamDistance: null
+};
+
+const getTempoMetrics = (horse) => {
+  const metrics = horse?.tempoMetrics;
+  if (!metrics || Number(metrics?.sampleSize) <= 0) {
+    return EMPTY_TEMPO_METRICS;
+  }
+
+  return {
+    sampleSize: Number(metrics.sampleSize) || 0,
+    averageFirst200ms: Number.isFinite(Number(metrics.averageFirst200ms))
+      ? Number(metrics.averageFirst200ms)
+      : null,
+    bestFirst200ms: Number.isFinite(Number(metrics.bestFirst200ms))
+      ? Number(metrics.bestFirst200ms)
+      : null,
+    averageBest100ms: Number.isFinite(Number(metrics.averageBest100ms))
+      ? Number(metrics.averageBest100ms)
+      : null,
+    averageSlipstreamDistance: Number.isFinite(Number(metrics.averageSlipstreamDistance))
+      ? Number(metrics.averageSlipstreamDistance)
+      : null
+  };
+};
+
+const formatTempoValue = (value, decimals = 0) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toFixed(decimals) : '-';
+};
+
 const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
@@ -320,6 +356,9 @@ const HorseTable = ({ horses }) => {
             </thead>
             <tbody>
               {sortedAndFilteredHorses.map((horse) => {
+                const tempoMetrics = getTempoMetrics(horse);
+                const hasTempoHistory = tempoMetrics.sampleSize > 0;
+
                 return (
                 <tr
                   key={horse.number}
@@ -364,6 +403,15 @@ const HorseTable = ({ horses }) => {
                         </span>
                       </div>
                     )}
+                    <div className="mt-1 text-[11px] text-gray-500 leading-snug" data-testid={`tempo-metrics-${horse.number}`}>
+                      {hasTempoHistory ? (
+                        <span>
+                          Tempo: n={tempoMetrics.sampleSize} • avg200 {formatTempoValue(tempoMetrics.averageFirst200ms)} • best200 {formatTempoValue(tempoMetrics.bestFirst200ms)} • avg100 {formatTempoValue(tempoMetrics.averageBest100ms)} • slip {formatTempoValue(tempoMetrics.averageSlipstreamDistance)}
+                        </span>
+                      ) : (
+                        <span>Tempo: ingen historik</span>
+                      )}
+                    </div>
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>

@@ -136,6 +136,7 @@ export const normalizeHorse = (start, gameType) => {
       odds,
       betDistribution,
       postPosition,
+      tempoMetrics: start?.horse?.tempoMetrics ?? null,
       // Forward equipment fields without transformation - let downstream components interpret
       shoes: start?.shoes ?? start?.horse?.shoes ?? null,
       shoeInfo: start?.shoeInfo ?? start?.horse?.shoeInfo ?? null,
