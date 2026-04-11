@@ -264,6 +264,20 @@ const HorseTable = ({ horses }) => {
     return filtered;
   }, [horses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly]);
 
+  const tempoSignalSummary = useMemo(() => {
+    const source = Array.isArray(horses) ? horses : [];
+    const totalCount = source.length;
+    const signalCount = source.filter((horse) => {
+      const label = getTempoIndicator(getTempoMetrics(horse)).label;
+      return label === 'Startsnabb' || label === 'Tempostark';
+    }).length;
+
+    return {
+      totalCount,
+      signalCount
+    };
+  }, [horses]);
+
   const getValueClass = (valueRatio) => {
     if (valueRatio > 1.20) return 'value-positive';
     if (valueRatio < 1.05) return 'value-negative';
@@ -354,6 +368,10 @@ const HorseTable = ({ horses }) => {
               />
               Visa bara hästar med temposignal
             </label>
+
+            <div className="px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-400" data-testid="tempo-signal-summary">
+              Tempo-signal: {tempoSignalSummary.signalCount} av {tempoSignalSummary.totalCount}
+            </div>
 
             <Button
               data-testid="export-csv-button"
