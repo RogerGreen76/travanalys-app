@@ -100,6 +100,12 @@ const getTempoIndicator = (tempoMetrics) => {
   };
 };
 
+const TEMPO_INDICATOR_HELP_TEXT =
+  'Startsnabb: stark oppning i tidiga 200 m. ' +
+  'Tempostark: stark fart i basta 100 m. ' +
+  'Ingen tydlig signal: for lite historik eller ingen tydlig temposignal. ' +
+  'Styrka stark: tydligare historisk signal. Styrka medel: viss historisk signal.';
+
 const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
@@ -466,7 +472,10 @@ const HorseTable = ({ horses }) => {
                       )}
                     </div>
                     <div className="mt-1" data-testid={`tempo-indicator-${horse.number}`}>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}
+                        title={TEMPO_INDICATOR_HELP_TEXT}
+                      >
                         Tempoindikator: {tempoIndicator.label}
                         {tempoIndicator.strength !== 'none' ? ` (${tempoIndicator.strength})` : ''}
                       </span>
