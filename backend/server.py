@@ -390,6 +390,156 @@ async def _import_kmtid_for_date(requested_date: str) -> dict:
         result["error"] = str(exc)
         return result
 
+
+def _last_day_of_month(value_date):
+    first_of_next_month = (value_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+    return first_of_next_month - timedelta(days=1)
+
+
+async def _import_kmtid_range_core(start_date_text: str, end_date_text: str) -> dict:
+    start_dt = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date_text, "%Y-%m-%d").date()
+    requested_days = (end_dt - start_dt).days + 1
+
+    failed_dates = []
+    per_day = []
+    total_parsed_starts = 0
+    total_inserted = 0
+    total_skipped = 0
+    days_processed = 0
+    days_succeeded = 0
+    days_failed = 0
+
+    current_dt = start_dt
+    while current_dt <= end_dt:
+        current_date_text = current_dt.isoformat()
+        days_processed += 1
+        logger.info(
+            "KMTid range import progress %s/%s date=%s",
+            days_processed,
+            requested_days,
+            current_date_text,
+        )
+
+        day_result = await _import_kmtid_for_date(current_date_text)
+        total_parsed_starts += int(day_result.get("parsedStarts", 0) or 0)
+        total_inserted += int(day_result.get("inserted", 0) or 0)
+        total_skipped += int(day_result.get("skipped", 0) or 0)
+
+        success = not bool(day_result.get("error"))
+        per_day_item = {
+            "date": current_date_text,
+            "success": success,
+            "parsedStarts": int(day_result.get("parsedStarts", 0) or 0),
+            "inserted": int(day_result.get("inserted", 0) or 0),
+            "skipped": int(day_result.get("skipped", 0) or 0),
+        }
+        if day_result.get("error"):
+            per_day_item["error"] = day_result.get("error")
+        per_day.append(per_day_item)
+
+        if day_result.get("error"):
+            days_failed += 1
+            failed_dates.append(
+                {
+                    "date": current_date_text,
+                    "error": day_result.get("error"),
+                }
+            )
+        else:
+            days_succeeded += 1
+
+        logger.info(
+            "KMTid range import day result date=%s success=%s parsed=%s inserted=%s skipped=%s",
+            current_date_text,
+            success,
+            per_day_item["parsedStarts"],
+            per_day_item["inserted"],
+            per_day_item["skipped"],
+        )
+
+        current_dt += timedelta(days=1)
+
+    return {
+        "startDate": start_date_text,
+        "endDate": end_date_text,
+        "daysProcessed": days_processed,
+        "daysSucceeded": days_succeeded,
+        "daysFailed": days_failed,
+        "totalParsedStarts": total_parsed_starts,
+        "totalInserted": total_inserted,
+        "totalSkipped": total_skipped,
+        "failedDates": failed_dates,
+        "perDay": per_day,
+    }
+
+
+async def _import_kmtid_monthly_core(start_date_text: str, end_date_text: str) -> dict:
+    start_dt = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date_text, "%Y-%m-%d").date()
+
+    month_results = []
+    failed_months = []
+    total_days_processed = 0
+    total_parsed_starts = 0
+    total_inserted = 0
+    total_skipped = 0
+    months_processed = 0
+
+    current_dt = start_dt
+    while current_dt <= end_dt:
+        block_start = current_dt
+        block_end = min(_last_day_of_month(current_dt), end_dt)
+        months_processed += 1
+
+        logger.info(
+            "KMTid monthly import block month=%s start=%s end=%s",
+            block_start.strftime("%Y-%m"),
+            block_start.isoformat(),
+            block_end.isoformat(),
+        )
+
+        block_result = await _import_kmtid_range_core(block_start.isoformat(), block_end.isoformat())
+        total_days_processed += int(block_result.get("daysProcessed", 0) or 0)
+        total_parsed_starts += int(block_result.get("totalParsedStarts", 0) or 0)
+        total_inserted += int(block_result.get("totalInserted", 0) or 0)
+        total_skipped += int(block_result.get("totalSkipped", 0) or 0)
+
+        month_item = {
+            "month": block_start.strftime("%Y-%m"),
+            "startDate": block_start.isoformat(),
+            "endDate": block_end.isoformat(),
+            "daysProcessed": int(block_result.get("daysProcessed", 0) or 0),
+            "daysSucceeded": int(block_result.get("daysSucceeded", 0) or 0),
+            "daysFailed": int(block_result.get("daysFailed", 0) or 0),
+            "totalParsedStarts": int(block_result.get("totalParsedStarts", 0) or 0),
+            "totalInserted": int(block_result.get("totalInserted", 0) or 0),
+            "totalSkipped": int(block_result.get("totalSkipped", 0) or 0),
+        }
+        month_results.append(month_item)
+
+        if month_item["daysFailed"] > 0:
+            failed_months.append(
+                {
+                    "month": month_item["month"],
+                    "failedDates": block_result.get("failedDates", []),
+                }
+            )
+
+        current_dt = block_end + timedelta(days=1)
+
+    return {
+        "startDate": start_date_text,
+        "endDate": end_date_text,
+        "monthsProcessed": months_processed,
+        "daysProcessed": total_days_processed,
+        "totalParsedStarts": total_parsed_starts,
+        "totalInserted": total_inserted,
+        "totalSkipped": total_skipped,
+        "failedMonths": failed_months,
+        "monthResults": month_results,
+    }
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -638,77 +788,42 @@ async def import_kmtid_history_range(
             },
         )
 
-    failed_dates = []
-    per_day = []
-    total_parsed_starts = 0
-    total_inserted = 0
-    total_skipped = 0
-    days_processed = 0
-    days_succeeded = 0
-    days_failed = 0
+    return await _import_kmtid_range_core(start_date_text, end_date_text)
 
-    current_dt = start_dt
-    while current_dt <= end_dt:
-        current_date_text = current_dt.isoformat()
-        days_processed += 1
-        logger.info(
-            "KMTid range import progress %s/%s date=%s",
-            days_processed,
-            requested_days,
-            current_date_text,
+
+@app.post("/api/kmtid/import-monthly")
+async def import_kmtid_history_monthly(
+    startDate: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    endDate: str = Query(..., description="End date in YYYY-MM-DD format"),
+):
+    start_date_text = str(startDate or "").strip()
+    end_date_text = str(endDate or "").strip()
+
+    if not _is_valid_iso_date(start_date_text) or not _is_valid_iso_date(end_date_text):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid date format",
+                "details": "expected YYYY-MM-DD",
+                "startDate": start_date_text,
+                "endDate": end_date_text,
+            },
         )
 
-        day_result = await _import_kmtid_for_date(current_date_text)
-        total_parsed_starts += int(day_result.get("parsedStarts", 0) or 0)
-        total_inserted += int(day_result.get("inserted", 0) or 0)
-        total_skipped += int(day_result.get("skipped", 0) or 0)
-
-        success = not bool(day_result.get("error"))
-        per_day_item = {
-            "date": current_date_text,
-            "success": success,
-            "parsedStarts": int(day_result.get("parsedStarts", 0) or 0),
-            "inserted": int(day_result.get("inserted", 0) or 0),
-            "skipped": int(day_result.get("skipped", 0) or 0),
-        }
-        if day_result.get("error"):
-            per_day_item["error"] = day_result.get("error")
-        per_day.append(per_day_item)
-
-        if day_result.get("error"):
-            days_failed += 1
-            failed_dates.append(
-                {
-                    "date": current_date_text,
-                    "error": day_result.get("error"),
-                }
-            )
-        else:
-            days_succeeded += 1
-
-        logger.info(
-            "KMTid range import day result date=%s success=%s parsed=%s inserted=%s skipped=%s",
-            current_date_text,
-            success,
-            per_day_item["parsedStarts"],
-            per_day_item["inserted"],
-            per_day_item["skipped"],
+    start_dt = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date_text, "%Y-%m-%d").date()
+    if end_dt < start_dt:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid date range",
+                "details": "endDate must be on or after startDate",
+                "startDate": start_date_text,
+                "endDate": end_date_text,
+            },
         )
 
-        current_dt += timedelta(days=1)
-
-    return {
-        "startDate": start_date_text,
-        "endDate": end_date_text,
-        "daysProcessed": days_processed,
-        "daysSucceeded": days_succeeded,
-        "daysFailed": days_failed,
-        "totalParsedStarts": total_parsed_starts,
-        "totalInserted": total_inserted,
-        "totalSkipped": total_skipped,
-        "failedDates": failed_dates,
-        "perDay": per_day,
-    }
+    return await _import_kmtid_monthly_core(start_date_text, end_date_text)
 
 
 # Include the router in the main app
