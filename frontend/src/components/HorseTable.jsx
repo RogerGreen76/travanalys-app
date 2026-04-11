@@ -456,6 +456,7 @@ const HorseTable = ({ horses }) => {
                 const tempoMetrics = getTempoMetrics(horse);
                 const hasTempoHistory = tempoMetrics.sampleSize > 0;
                 const tempoIndicator = getTempoIndicator(tempoMetrics);
+                const hasTempoSignal = tempoIndicator.label === 'Startsnabb' || tempoIndicator.label === 'Tempostark';
 
                 return (
                 <tr
@@ -473,6 +474,11 @@ const HorseTable = ({ horses }) => {
                   <td className="text-white w-48 py-4">
                     <div className="font-semibold text-[15px] tracking-tight flex items-center gap-2">
                       <span>{horse.name}</span>
+                      {hasTempoSignal && (
+                        <span className="px-1.5 py-0.5 text-[10px] rounded border border-cyan-700/40 bg-cyan-900/15 text-cyan-300 font-medium">
+                          Tempo
+                        </span>
+                      )}
                       {horse.isPotentialUpset && (
                         <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-medium tracking-wide">
                           Skrällbud
