@@ -56,26 +56,46 @@ const getTempoIndicator = (tempoMetrics) => {
   if (!Number.isFinite(sampleSize) || sampleSize < 3) {
     return {
       label: 'Ingen tydlig signal',
+      strength: 'none',
       className: 'text-gray-400 border-gray-700/40 bg-gray-800/30'
+    };
+  }
+
+  if (Number.isFinite(bestFirst200ms) && bestFirst200ms <= 10800) {
+    return {
+      label: 'Startsnabb',
+      strength: 'stark',
+      className: 'text-cyan-300 border-cyan-700/40 bg-cyan-900/20'
     };
   }
 
   if (Number.isFinite(bestFirst200ms) && bestFirst200ms <= 11000) {
     return {
       label: 'Startsnabb',
+      strength: 'medel',
       className: 'text-cyan-300 border-cyan-700/40 bg-cyan-900/20'
+    };
+  }
+
+  if (Number.isFinite(averageBest100ms) && averageBest100ms <= 6800) {
+    return {
+      label: 'Tempostark',
+      strength: 'stark',
+      className: 'text-teal-300 border-teal-700/40 bg-teal-900/20'
     };
   }
 
   if (Number.isFinite(averageBest100ms) && averageBest100ms <= 7000) {
     return {
       label: 'Tempostark',
+      strength: 'medel',
       className: 'text-teal-300 border-teal-700/40 bg-teal-900/20'
     };
   }
 
   return {
     label: 'Ingen tydlig signal',
+    strength: 'none',
     className: 'text-gray-400 border-gray-700/40 bg-gray-800/30'
   };
 };
@@ -448,6 +468,7 @@ const HorseTable = ({ horses }) => {
                     <div className="mt-1" data-testid={`tempo-indicator-${horse.number}`}>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}>
                         Tempoindikator: {tempoIndicator.label}
+                        {tempoIndicator.strength !== 'none' ? ` (${tempoIndicator.strength})` : ''}
                       </span>
                     </div>
                   </td>
