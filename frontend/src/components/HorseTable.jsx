@@ -53,7 +53,7 @@ const getTempoIndicator = (tempoMetrics) => {
   const bestFirst200ms = Number(tempoMetrics?.bestFirst200ms);
   const averageBest100ms = Number(tempoMetrics?.averageBest100ms);
 
-  if (!Number.isFinite(sampleSize) || sampleSize < 3) {
+  if (!Number.isFinite(sampleSize) || sampleSize === 0) {
     return {
       label: 'Ingen tydlig signal',
       strength: 'none',
