@@ -678,9 +678,10 @@ async def _import_kmtid_range_core(start_date_text: str, end_date_text: str) -> 
     total_inserted = 0
     total_skipped = 0
     days_processed = 0
-    days_succeeded = 0
+    days_with_data = 0  # Only days where parsedStarts > 0
     days_failed = 0
     consecutive_future_404s = 0  # Track consecutive 404s for dates beyond today
+    latest_date_with_data = None  # Track senaste datum med faktisk data
 
     current_dt = start_dt
     while current_dt <= end_dt:
@@ -694,23 +695,32 @@ async def _import_kmtid_range_core(start_date_text: str, end_date_text: str) -> 
         )
 
         day_result = await _import_kmtid_for_date(current_date_text)
-        total_parsed_starts += int(day_result.get("parsedStarts", 0) or 0)
+        parsed_starts = int(day_result.get("parsedStarts", 0) or 0)
+        has_data = parsed_starts > 0  # Only count days with actual data
+        has_error = bool(day_result.get("error"))
+
+        total_parsed_starts += parsed_starts
         total_inserted += int(day_result.get("inserted", 0) or 0)
         total_skipped += int(day_result.get("skipped", 0) or 0)
 
-        success = not bool(day_result.get("error"))
         per_day_item = {
             "date": current_date_text,
-            "success": success,
-            "parsedStarts": int(day_result.get("parsedStarts", 0) or 0),
+            "hasData": has_data,
+            "hasError": has_error,
+            "parsedStarts": parsed_starts,
             "inserted": int(day_result.get("inserted", 0) or 0),
             "skipped": int(day_result.get("skipped", 0) or 0),
         }
-        if day_result.get("error"):
+        if has_error:
             per_day_item["error"] = day_result.get("error")
         per_day.append(per_day_item)
 
-        if day_result.get("error"):
+        # Track days with actual data (parsedStarts > 0), regardless of error state
+        if has_data:
+            days_with_data += 1
+            latest_date_with_data = current_dt
+
+        if has_error:
             days_failed += 1
             failed_dates.append(
                 {
@@ -730,16 +740,16 @@ async def _import_kmtid_range_core(start_date_text: str, end_date_text: str) -> 
                     )
                     break  # Stop loop early; upstream likely has no data for future dates
             else:
-                consecutive_future_404s = 0  # Reset counter on success or past-date error
+                consecutive_future_404s = 0  # Reset counter on non-404 errors
         else:
-            days_succeeded += 1
-            consecutive_future_404s = 0  # Reset counter on success
+            consecutive_future_404s = 0  # Reset counter on no error
 
         logger.info(
-            "KMTid range import day result date=%s success=%s parsed=%s inserted=%s skipped=%s",
+            "KMTid range import day result date=%s hasData=%s hasError=%s parsed=%s inserted=%s skipped=%s",
             current_date_text,
-            success,
-            per_day_item["parsedStarts"],
+            has_data,
+            has_error,
+            parsed_starts,
             per_day_item["inserted"],
             per_day_item["skipped"],
         )
@@ -750,11 +760,12 @@ async def _import_kmtid_range_core(start_date_text: str, end_date_text: str) -> 
         "startDate": start_date_text,
         "endDate": end_date_text,
         "daysProcessed": days_processed,
-        "daysSucceeded": days_succeeded,
+        "daysWithData": days_with_data,
         "daysFailed": days_failed,
         "totalParsedStarts": total_parsed_starts,
         "totalInserted": total_inserted,
         "totalSkipped": total_skipped,
+        "latestDateWithData": latest_date_with_data.isoformat() if latest_date_with_data else None,
         "failedDates": failed_dates,
         "perDay": per_day,
     }
@@ -767,10 +778,12 @@ async def _import_kmtid_monthly_core(start_date_text: str, end_date_text: str) -
     month_results = []
     failed_months = []
     total_days_processed = 0
+    total_days_with_data = 0
     total_parsed_starts = 0
     total_inserted = 0
     total_skipped = 0
     months_processed = 0
+    latest_date_with_data = None
 
     current_dt = start_dt
     while current_dt <= end_dt:
@@ -787,16 +800,22 @@ async def _import_kmtid_monthly_core(start_date_text: str, end_date_text: str) -
 
         block_result = await _import_kmtid_range_core(block_start.isoformat(), block_end.isoformat())
         total_days_processed += int(block_result.get("daysProcessed", 0) or 0)
+        total_days_with_data += int(block_result.get("daysWithData", 0) or 0)
         total_parsed_starts += int(block_result.get("totalParsedStarts", 0) or 0)
         total_inserted += int(block_result.get("totalInserted", 0) or 0)
         total_skipped += int(block_result.get("totalSkipped", 0) or 0)
+
+        # Track latest date with actual data from this block
+        block_latest = block_result.get("latestDateWithData")
+        if block_latest:
+            latest_date_with_data = datetime.strptime(block_latest, "%Y-%m-%d").date()
 
         month_item = {
             "month": block_start.strftime("%Y-%m"),
             "startDate": block_start.isoformat(),
             "endDate": block_end.isoformat(),
             "daysProcessed": int(block_result.get("daysProcessed", 0) or 0),
-            "daysSucceeded": int(block_result.get("daysSucceeded", 0) or 0),
+            "daysWithData": int(block_result.get("daysWithData", 0) or 0),
             "daysFailed": int(block_result.get("daysFailed", 0) or 0),
             "totalParsedStarts": int(block_result.get("totalParsedStarts", 0) or 0),
             "totalInserted": int(block_result.get("totalInserted", 0) or 0),
@@ -819,9 +838,11 @@ async def _import_kmtid_monthly_core(start_date_text: str, end_date_text: str) -
         "endDate": end_date_text,
         "monthsProcessed": months_processed,
         "daysProcessed": total_days_processed,
+        "daysWithData": total_days_with_data,
         "totalParsedStarts": total_parsed_starts,
         "totalInserted": total_inserted,
         "totalSkipped": total_skipped,
+        "latestDateWithData": latest_date_with_data.isoformat() if latest_date_with_data else None,
         "failedMonths": failed_months,
         "monthResults": month_results,
     }
@@ -894,35 +915,35 @@ async def _run_auto_kmtid_bootstrap() -> None:
                 backfill_end.isoformat(),
             )
             logger.info(
-                "Auto KMTid bootstrap monthly summary months=%s days=%s inserted=%s skipped=%s",
+                "Auto KMTid bootstrap monthly summary months=%s daysWithData=%s inserted=%s skipped=%s",
                 monthly_result.get("monthsProcessed", 0),
-                monthly_result.get("daysProcessed", 0),
+                monthly_result.get("daysWithData", 0),
                 monthly_result.get("totalInserted", 0),
                 monthly_result.get("totalSkipped", 0),
             )
             stored_dates = _get_stored_kmtid_dates()
 
         # Always attempt a lightweight top-up for missing recent dates.
+        # Use latest date with actual data, not latest attempted date.
         latest_date = max(stored_dates) if stored_dates else None
         start_topup = (latest_date + timedelta(days=1)) if latest_date else _subtract_months(today, 1)
         # Guard: limit topup to sensible future range; avoid 404 storms on dates with no upstream data
         max_topup_date = today + timedelta(days=AUTO_KMTID_TOPUP_MAX_FUTURE_DAYS)
         if start_topup <= max_topup_date:
             logger.info(
-                "Auto KMTid bootstrap top-up range=%s..%s (guard: max_future_days=%s)",
-                start_topup.isoformat(),
-                max_topup_date.isoformat(),
+                "Auto KMTid bootstrap top-up starting from latest date with data (max_future_days=%s)",
                 AUTO_KMTID_TOPUP_MAX_FUTURE_DAYS,
             )
             topup_result = await _import_kmtid_range_core(start_topup.isoformat(), max_topup_date.isoformat())
             logger.info(
-                "Auto KMTid bootstrap top-up summary days=%s inserted=%s skipped=%s",
-                topup_result.get("daysProcessed", 0),
+                "Auto KMTid bootstrap top-up summary daysWithData=%s inserted=%s skipped=%s latestDataDate=%s",
+                topup_result.get("daysWithData", 0),
                 topup_result.get("totalInserted", 0),
                 topup_result.get("totalSkipped", 0),
+                topup_result.get("latestDateWithData", "none"),
             )
         else:
-            logger.info("Auto KMTid bootstrap top-up skipped: start_topup=%s beyond max_topup_date=%s", start_topup.isoformat(), max_topup_date.isoformat())
+            logger.info("Auto KMTid bootstrap top-up skipped: latest_date=%s already at/beyond max_topup_date=%s", (latest_date or "none").isoformat() if latest_date else "none", max_topup_date.isoformat())
     except Exception as exc:
         logger.exception("Auto KMTid bootstrap failed: %s", exc)
     finally:
