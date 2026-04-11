@@ -100,6 +100,26 @@ const getTempoIndicator = (tempoMetrics) => {
   };
 };
 
+const getTempoSignalExplanation = (tempoIndicator, tempoMetrics) => {
+  if (tempoIndicator?.label === 'Startsnabb') {
+    return {
+      text: 'baserat pa bestFirst200ms',
+      valueLabel: 'bestFirst200ms',
+      value: tempoMetrics?.bestFirst200ms
+    };
+  }
+
+  if (tempoIndicator?.label === 'Tempostark') {
+    return {
+      text: 'baserat pa averageBest100ms',
+      valueLabel: 'averageBest100ms',
+      value: tempoMetrics?.averageBest100ms
+    };
+  }
+
+  return null;
+};
+
 const TEMPO_INDICATOR_HELP_TEXT =
   'Startsnabb: stark oppning i tidiga 200 m. ' +
   'Tempostark: stark fart i basta 100 m. ' +
@@ -491,6 +511,7 @@ const HorseTable = ({ horses }) => {
                 const hasTempoHistory = tempoMetrics.sampleSize > 0;
                 const tempoIndicator = getTempoIndicator(tempoMetrics);
                 const hasTempoSignal = tempoIndicator.label === 'Startsnabb' || tempoIndicator.label === 'Tempostark';
+                const tempoSignalExplanation = getTempoSignalExplanation(tempoIndicator, tempoMetrics);
 
                 return (
                 <tr
@@ -559,6 +580,11 @@ const HorseTable = ({ horses }) => {
                         {tempoIndicator.strength !== 'none' ? ` (${tempoIndicator.strength})` : ''}
                       </span>
                     </div>
+                    {tempoSignalExplanation && (
+                      <div className="mt-1 text-[10px] text-gray-500" data-testid={`tempo-explanation-${horse.number}`}>
+                        {tempoSignalExplanation.text} • {tempoSignalExplanation.valueLabel}: {formatTempoValue(tempoSignalExplanation.value)}
+                      </div>
+                    )}
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>
