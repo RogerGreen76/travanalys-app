@@ -128,6 +128,7 @@ const TEMPO_INDICATOR_HELP_TEXT =
 
 const SHOW_TEMPO_ONLY_KEY = 'travanalys_showTempoOnly';
 const SHOW_TEMPO_DETAILS_KEY = 'travanalys_showTempoDetails';
+const TEMPO_SIGNAL_TYPE_FILTER_KEY = 'travanalys_tempoSignalTypeFilter';
 
 const readStoredBoolean = (key, fallbackValue) => {
   try {
@@ -166,6 +167,36 @@ const writeStoredBoolean = (key, value) => {
   }
 };
 
+const readStoredTempoSignalTypeFilter = () => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return 'all';
+    }
+
+    const raw = window.localStorage.getItem(TEMPO_SIGNAL_TYPE_FILTER_KEY);
+    if (raw === 'startsnabb' || raw === 'tempostark' || raw === 'all') {
+      return raw;
+    }
+
+    return 'all';
+  } catch {
+    return 'all';
+  }
+};
+
+const writeStoredTempoSignalTypeFilter = (value) => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
+
+    const normalizedValue = value === 'startsnabb' || value === 'tempostark' ? value : 'all';
+    window.localStorage.setItem(TEMPO_SIGNAL_TYPE_FILTER_KEY, normalizedValue);
+  } catch {
+    // Intentionally ignore storage failures and keep UI functional.
+  }
+};
+
 const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
@@ -180,6 +211,9 @@ const HorseTable = ({ horses }) => {
   const [showTempoDetails, setShowTempoDetails] = useState(() =>
     readStoredBoolean(SHOW_TEMPO_DETAILS_KEY, true)
   );
+  const [tempoSignalTypeFilter, setTempoSignalTypeFilter] = useState(() =>
+    readStoredTempoSignalTypeFilter()
+  );
 
   const handleTempoSignalOnlyChange = (checked) => {
     setShowTempoSignalOnly(checked);
@@ -189,6 +223,12 @@ const HorseTable = ({ horses }) => {
   const handleTempoDetailsChange = (checked) => {
     setShowTempoDetails(checked);
     writeStoredBoolean(SHOW_TEMPO_DETAILS_KEY, checked);
+  };
+
+  const handleTempoSignalTypeFilterChange = (value) => {
+    const normalizedValue = value === 'startsnabb' || value === 'tempostark' ? value : 'all';
+    setTempoSignalTypeFilter(normalizedValue);
+    writeStoredTempoSignalTypeFilter(normalizedValue);
   };
 
   // Loppklassificering
@@ -290,6 +330,14 @@ const HorseTable = ({ horses }) => {
     if (showTempoSignalOnly) {
       filtered = filtered.filter(horse => {
         const label = getTempoIndicator(getTempoMetrics(horse)).label;
+        if (tempoSignalTypeFilter === 'startsnabb') {
+          return label === 'Startsnabb';
+        }
+
+        if (tempoSignalTypeFilter === 'tempostark') {
+          return label === 'Tempostark';
+        }
+
         return label === 'Startsnabb' || label === 'Tempostark';
       });
     }
@@ -337,7 +385,7 @@ const HorseTable = ({ horses }) => {
 });
 
     return filtered;
-  }, [horses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly]);
+  }, [horses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly, tempoSignalTypeFilter]);
 
   const tempoSignalSummary = useMemo(() => {
     const source = Array.isArray(horses) ? horses : [];
@@ -465,6 +513,24 @@ const HorseTable = ({ horses }) => {
               />
               Visa bara hästar med temposignal
             </label>
+
+            <Select
+              value={tempoSignalTypeFilter}
+              onValueChange={handleTempoSignalTypeFilterChange}
+              disabled={!showTempoSignalOnly}
+            >
+              <SelectTrigger
+                className={`w-[150px] bg-[#0a0e1a] border-gray-700 ${!showTempoSignalOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                data-testid="tempo-signal-type-filter"
+              >
+                <SelectValue placeholder="Signaltyp" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#151923] border-gray-700">
+                <SelectItem value="all">Alla</SelectItem>
+                <SelectItem value="startsnabb">Startsnabb</SelectItem>
+                <SelectItem value="tempostark">Tempostark</SelectItem>
+              </SelectContent>
+            </Select>
 
             <label
               className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-300 cursor-pointer"
