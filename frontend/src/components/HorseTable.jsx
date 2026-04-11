@@ -663,6 +663,9 @@ const HorseTable = ({ horses }) => {
                         </span>
                       )}
                     </div>
+                    <div className="text-[10px] text-gray-600 font-mono mt-0.5" data-testid={`tempo-debug-${horse.number}`}>
+                      DBG tempo direct={horse.tempoMetrics?.sampleSize ?? 0} nested={horse.horse?.tempoMetrics?.sampleSize ?? 0} resolved={tempoMetrics.sampleSize}
+                    </div>
                     {(horse.driver || horse.trainer) && (
                       <div className="text-xs text-gray-500 mt-1 tracking-wide">
                         {horse.driver && <span>{horse.driver}</span>}
