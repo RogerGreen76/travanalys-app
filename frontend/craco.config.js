@@ -61,6 +61,16 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Proxy /api requests to the local FastAPI backend in development.
+  // This ensures `fetch('/api/...')` hits http://127.0.0.1:8000 and not
+  // the deployed Vercel app. Has no effect on production builds.
+  devServerConfig.proxy = {
+    '/api': {
+      target: 'http://127.0.0.1:8000',
+      changeOrigin: true,
+    },
+  };
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
