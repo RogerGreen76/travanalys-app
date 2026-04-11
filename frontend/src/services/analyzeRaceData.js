@@ -99,6 +99,76 @@ const getHorseTempoSignalForDebug = (horse) => {
   return 'Ingen signal';
 };
 
+const getTempoStrengthWeight = (strength) => {
+  const normalized = String(strength || '').trim().toLowerCase();
+  if (normalized === 'stark') {
+    return 0.75;
+  }
+  if (normalized === 'medel' || normalized === 'normal') {
+    return 0.40;
+  }
+  return 0;
+};
+
+const getHorseTempoContribution = (horse) => {
+  const indicator = horse?.tempoIndicator || horse?.horse?.tempoIndicator || null;
+  const tempoSignals = horse?.tempoSignals || horse?.horse?.tempoSignals || null;
+
+  const indicatorLabel = typeof indicator === 'string'
+    ? indicator
+    : (typeof indicator?.label === 'string' ? indicator.label : '');
+  const indicatorStrength = typeof indicator?.strength === 'string' ? indicator.strength : '';
+  const normalizedLabel = String(indicatorLabel || '').toLowerCase();
+
+  const startsnabbFromIndicator = normalizedLabel.includes('startsnabb');
+  const tempostarkFromIndicator = normalizedLabel.includes('tempostark');
+
+  const startsnabbStrength =
+    tempoSignals?.startsnabbStrength ||
+    tempoSignals?.startsnabb?.strength ||
+    (startsnabbFromIndicator ? indicatorStrength : '');
+
+  const tempostarkStrength =
+    tempoSignals?.tempostarkStrength ||
+    tempoSignals?.tempostark?.strength ||
+    (tempostarkFromIndicator ? indicatorStrength : '');
+
+  const hasStartsnabb =
+    startsnabbFromIndicator ||
+    tempoSignals?.startsnabb === true ||
+    Boolean(startsnabbStrength);
+
+  const hasTempostark =
+    tempostarkFromIndicator ||
+    tempoSignals?.tempostark === true ||
+    Boolean(tempostarkStrength);
+
+  const startsnabbContribution = hasStartsnabb
+    ? (getTempoStrengthWeight(startsnabbStrength) || 0.40)
+    : 0;
+  const tempostarkContribution = hasTempostark
+    ? (getTempoStrengthWeight(tempostarkStrength) || 0.40)
+    : 0;
+
+  const tempoContribution = Math.min(1.0, startsnabbContribution + tempostarkContribution);
+
+  let tempoLabel = 'Ingen signal';
+  if (hasStartsnabb && hasTempostark) {
+    tempoLabel = 'Startsnabb + Tempostark';
+  } else if (hasStartsnabb) {
+    tempoLabel = 'Startsnabb';
+  } else if (hasTempostark) {
+    tempoLabel = 'Tempostark';
+  }
+
+  return {
+    tempoLabel,
+    startsnabbContribution,
+    tempostarkContribution,
+    tempoContribution,
+  };
+};
+
 const buildRaceContext = (race, horses) => {
   const raceType = classifyRaceType(horses);
   const { modelWeight, marketWeight } = getCalibrationWeights(raceType);
@@ -492,14 +562,22 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const confidence = Math.sqrt(Math.max(streckPercent, 0));
   const fieldSize = (horses || []).length;
   const normalizedPaceScore = componentScores.paceScore / Math.max(fieldSize, 1);
+  const {
+    tempoLabel,
+    startsnabbContribution,
+    tempostarkContribution,
+    tempoContribution,
+  } = getHorseTempoContribution(horse);
+
   const finalScore =
-    winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + normalizedPaceScore * 0.5;
+    winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + normalizedPaceScore * 0.5 + tempoContribution;
 
   const calibratedFinalScore =
     winStrength * modelWeight +
     adjustedMarketEdge * 0.25 * marketWeight +
     confidence * 1.0 * marketWeight +
-    componentScores.paceScore * 0.6 * modelWeight;
+    componentScores.paceScore * 0.6 * modelWeight +
+    tempoContribution;
 
   const valueScoreContribution = adjustedMarketEdge * 0.25 * marketWeight;
   const marketProbabilityFromBetDistribution = streckPercent;
@@ -659,7 +737,6 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   if (shouldTracePlayForHorse(horse)) {
     const tempoSignal = getHorseTempoSignalForDebug(horse);
     const tempoMetrics = getHorseTempoMetricsForDebug(horse);
-    const tempoContribution = 0;
 
     console.log('[VALUE TRACE]', {
       horse: horse?.name,
@@ -674,8 +751,14 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
       valueScore: valueScoreContribution,
       valueRatio,
       rankingScore,
+      tempoLabel,
       tempoSignal,
       tempoContribution,
+      tempoBreakdown: {
+        startsnabbContribution,
+        tempostarkContribution,
+        cappedTotal: tempoContribution,
+      },
       tempoMetrics,
       finalScore,
       calibratedFinalScore,
