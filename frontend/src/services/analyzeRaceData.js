@@ -54,6 +54,49 @@ const analyzeHorses = (horses, raceContext) => {
   return results;
 };
 
+const getPlayDebugTargetHorse = () => {
+  const fromEnv = String(process.env.REACT_APP_PLAY_DEBUG_HORSE || '').trim();
+  if (fromEnv) {
+    return fromEnv.toLowerCase();
+  }
+
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return '';
+    }
+    const fromStorage = String(window.localStorage.getItem('travanalys_play_debug_horse') || '').trim();
+    return fromStorage.toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
+const shouldTracePlayForHorse = (horse) => {
+  const target = getPlayDebugTargetHorse();
+  if (!target) {
+    return false;
+  }
+
+  const horseName = String(horse?.name || '').trim().toLowerCase();
+  return horseName === target;
+};
+
+const getHorseTempoMetricsForDebug = (horse) => {
+  const metrics = horse?.tempoMetrics || horse?.horse?.tempoMetrics || null;
+  if (!metrics || typeof metrics !== 'object') {
+    return null;
+  }
+  return metrics;
+};
+
+const getHorseTempoSignalForDebug = (horse) => {
+  const indicator = horse?.tempoIndicator || horse?.horse?.tempoIndicator || null;
+  if (typeof indicator === 'string' && indicator.trim()) {
+    return indicator;
+  }
+  return 'Ingen signal';
+};
+
 const buildRaceContext = (race, horses) => {
   const raceType = classifyRaceType(horses);
   const { modelWeight, marketWeight } = getCalibrationWeights(raceType);
@@ -456,6 +499,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     confidence * 1.0 * marketWeight +
     componentScores.paceScore * 0.6 * modelWeight;
 
+  const valueScoreContribution = adjustedMarketEdge * 0.25 * marketWeight;
+
   // Upset detection reuses existing strength, value and trip signals.
   const effectiveStrength = Number.isFinite(calibratedFinalScore) ? calibratedFinalScore : finalScore;
   const normalizedStrength = Math.min(Math.max(effectiveStrength, 0), 120) / 120;
@@ -587,6 +632,46 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   }
   else {
     play = "No play";
+  }
+
+  if (shouldTracePlayForHorse(horse)) {
+    const tempoSignal = getHorseTempoSignalForDebug(horse);
+    const tempoMetrics = getHorseTempoMetricsForDebug(horse);
+    const tempoContribution = 0;
+
+    console.log('[PLAY TRACE]', {
+      horse: horse?.name,
+      odds,
+      betDistribution: horse?.betDistribution ?? null,
+      streckPercent,
+      impliedProbability,
+      valueScore: valueScoreContribution,
+      valueRatio,
+      valueGap,
+      rankingScore,
+      tempoSignal,
+      tempoContribution,
+      tempoMetrics,
+      finalScore,
+      calibratedFinalScore,
+      play,
+      thresholds: {
+        starkPlay: { minScore: 50, minValueRatio: 1.20 },
+        mojligPlay: { minScore: 34, minValueRatio: 1.08 },
+      },
+      components: {
+        ipContribution,
+        rsContribution,
+        vrContribution,
+        startSpeedContribution,
+        leadPotentialContribution,
+        paceScenarioContribution,
+        winStrength,
+        marketEdge,
+        adjustedMarketEdge,
+        confidence,
+      },
+    });
   }
 
   // Value status - adjusted thresholds
