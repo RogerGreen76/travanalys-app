@@ -569,15 +569,17 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     tempoContribution,
   } = getHorseTempoContribution(horse);
 
-  const finalScore =
-    winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + normalizedPaceScore * 0.5 + tempoContribution;
+  const baseFinalScore =
+    winStrength + adjustedMarketEdge * 0.20 + confidence * 0.8 + normalizedPaceScore * 0.5;
 
-  const calibratedFinalScore =
+  const baseCalibratedFinalScore =
     winStrength * modelWeight +
     adjustedMarketEdge * 0.25 * marketWeight +
     confidence * 1.0 * marketWeight +
-    componentScores.paceScore * 0.6 * modelWeight +
-    tempoContribution;
+    componentScores.paceScore * 0.6 * modelWeight;
+
+  const finalScore = baseFinalScore + tempoContribution;
+  const calibratedFinalScore = baseCalibratedFinalScore + tempoContribution;
 
   const valueScoreContribution = adjustedMarketEdge * 0.25 * marketWeight;
   const marketProbabilityFromBetDistribution = streckPercent;
@@ -704,19 +706,20 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     upsetScore >= 42 &&
     hasRaceShapeSupport;
 
-  // Play recommendation - finalScore is the main driver, valueRatio adjusts
-  let play = "No play";
-  const score = calibratedFinalScore;
+  const resolvePlayDecision = (scoreValue, valueRatioValue) => {
+    if (scoreValue >= 50 && valueRatioValue >= 1.20) {
+      return "Stark play";
+    }
+    if (scoreValue >= 34 && valueRatioValue >= 1.08) {
+      return "Möjlig play";
+    }
+    return "No play";
+  };
 
-  if (score >= 50 && valueRatio >= 1.20) {
-    play = "Stark play";
-  }
-  else if (score >= 34 && valueRatio >= 1.08) {
-    play = "Möjlig play";
-  }
-  else {
-    play = "No play";
-  }
+  // Play recommendation - calibratedFinalScore is the main driver, valueRatio adjusts.
+  const playBeforeTempoContribution = resolvePlayDecision(baseCalibratedFinalScore, valueRatio);
+  const playAfterTempoContribution = resolvePlayDecision(calibratedFinalScore, valueRatio);
+  const play = playAfterTempoContribution;
 
   // Value status - adjusted thresholds
   const horseNumber = Number(horse?.number);
@@ -760,6 +763,16 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
         cappedTotal: tempoContribution,
       },
       tempoMetrics,
+      scoreBeforeTempoContribution: {
+        finalScore: baseFinalScore,
+        calibratedFinalScore: baseCalibratedFinalScore,
+      },
+      scoreAfterTempoContribution: {
+        finalScore,
+        calibratedFinalScore,
+      },
+      playDecisionBeforeTempoContribution: playBeforeTempoContribution,
+      playDecisionAfterTempoContribution: playAfterTempoContribution,
       finalScore,
       calibratedFinalScore,
       play,
