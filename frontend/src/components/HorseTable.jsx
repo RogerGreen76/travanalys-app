@@ -550,19 +550,6 @@ const HorseTable = ({ horses }) => {
               </SelectContent>
             </Select>
 
-            <label
-              className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-300 cursor-pointer"
-              data-testid="tempo-details-toggle"
-            >
-              <input
-                type="checkbox"
-                checked={showTempoDetails}
-                onChange={(e) => handleTempoDetailsChange(e.target.checked)}
-                className="h-3.5 w-3.5 accent-cyan-500"
-              />
-              Visa tempo-detaljer
-            </label>
-
             <div className="px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-400" data-testid="tempo-signal-summary">
               Tempo-signal: {tempoSignalSummary.signalCount} av {tempoSignalSummary.totalCount}
             </div>
