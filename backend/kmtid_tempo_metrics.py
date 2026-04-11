@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from kmtid_history_store import get_horse_history, sanitize_kmtid_tempo_value
+from kmtid_history_store import find_similar_horse_names, get_horse_history, sanitize_kmtid_tempo_value
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,13 @@ def safe_min(values: list[Any]) -> float | None:
 def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
     history = get_horse_history(normalized_horse_name)
     history_count = len(history) if history else 0
-    logger.info(f"TEMPO DEBUG normalized={normalized_horse_name} historyStarts={history_count}")
     if not history:
-        logger.info(f"TEMPO DEBUG normalized={normalized_horse_name} sampleSize=0")
+        similar = find_similar_horse_names(normalized_horse_name[:8])
+        logger.info(
+            'KM lookup normalized="%s" foundStarts=0 similarInDB=%s',
+            normalized_horse_name,
+            similar,
+        )
         return {
             "sampleSize": 0,
             "averageFirst200ms": None,
@@ -64,5 +68,5 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
         "averageBest100ms": safe_average(best100_values),
         "averageSlipstreamDistance": safe_average(slipstream_values),
     }
-    logger.info(f"TEMPO DEBUG normalized={normalized_horse_name} sampleSize={result['sampleSize']}")
+    logger.info('KM lookup normalized="%s" foundStarts=%s', normalized_horse_name, result["sampleSize"])
     return result

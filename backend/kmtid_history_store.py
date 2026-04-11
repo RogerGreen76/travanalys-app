@@ -405,6 +405,29 @@ def get_horse_history(
     return [row_to_dict(row) for row in rows]
 
 
+def find_similar_horse_names(
+    normalized_prefix: str,
+    limit: int = 5,
+    db_path: str | Path | None = None,
+) -> list[str]:
+    """Return stored normalized_horse_name values that start with *normalized_prefix*.
+
+    Used only for debug logging — helps diagnose lookup mismatches when a horse
+    name from the ATG payload doesn't match anything stored in the DB.
+    """
+    init_kmtid_history_store(db_path)
+    safe_prefix = (normalized_prefix or "")[:12]
+    if not safe_prefix:
+        return []
+    with _get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT normalized_horse_name FROM kmtid_starts"
+            " WHERE normalized_horse_name LIKE ? LIMIT ?",
+            (safe_prefix + "%", limit),
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
 def save_extracted_starts_example(
     extracted_starts: Iterable[Mapping[str, Any]],
     date: str,
