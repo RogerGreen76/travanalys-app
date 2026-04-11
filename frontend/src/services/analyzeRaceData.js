@@ -65,6 +65,7 @@ const VALUE_LABEL_MID_ODDS_MAX = 10;
 const VALUE_LABEL_OVERSPELAD_RATIO_FAVORITE = 0.85;
 const VALUE_LABEL_OVERSPELAD_RATIO_MID = 0.90;
 const VALUE_LABEL_OVERSPELAD_RATIO_HIGH = 0.95;
+const WINNER_STRENGTH_STARK_FAVORIT_MIN = 70;
 const WINNER_STRENGTH_TROLIG_VINNARE_MIN = 50;
 const WINNER_STRENGTH_UTMANARE_MIN = 34;
 let hasTracedAutoTempoHorse = false;
@@ -170,13 +171,16 @@ const getWinnerStrengthLabel = (winnerStrengthScore) => {
   if (!Number.isFinite(winnerStrengthScore)) {
     return 'Ej tillgängligt';
   }
+  if (winnerStrengthScore >= WINNER_STRENGTH_STARK_FAVORIT_MIN) {
+    return 'Stark favorit';
+  }
   if (winnerStrengthScore >= WINNER_STRENGTH_TROLIG_VINNARE_MIN) {
     return 'Trolig vinnare';
   }
   if (winnerStrengthScore >= WINNER_STRENGTH_UTMANARE_MIN) {
     return 'Utmanare';
   }
-  return 'Övrig';
+  return 'Skräll';
 };
 
 const shouldTraceWinnerStrength = (horse) => {
@@ -837,6 +841,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
       valueRatio,
       play,
       thresholds: {
+        starkFavoritMin: WINNER_STRENGTH_STARK_FAVORIT_MIN,
         troligVinnareMin: WINNER_STRENGTH_TROLIG_VINNARE_MIN,
         utmanareMin: WINNER_STRENGTH_UTMANARE_MIN,
       },
@@ -899,6 +904,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
         score: adjustedWinnerStrengthScore,
         label: winnerStrengthLabel,
         thresholds: {
+          starkFavoritMin: WINNER_STRENGTH_STARK_FAVORIT_MIN,
           troligVinnareMin: WINNER_STRENGTH_TROLIG_VINNARE_MIN,
           utmanareMin: WINNER_STRENGTH_UTMANARE_MIN,
         },
