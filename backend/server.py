@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
 from datetime import datetime, timezone
-from kmtid_history_store import get_all_history, get_horse_history, save_starts
+from kmtid_history_store import get_all_history, get_horse_history, normalize_horse_name, save_starts
 from kmtid_tempo_metrics import get_horse_tempo_metrics
 
 
@@ -44,6 +44,70 @@ class StatusCheck(BaseModel):
 
 class StatusCheckCreate(BaseModel):
     client_name: str
+
+
+EMPTY_TEMPO_METRICS = {
+    "sampleSize": 0,
+    "averageFirst200ms": None,
+    "bestFirst200ms": None,
+    "averageBest100ms": None,
+    "averageSlipstreamDistance": None,
+}
+
+
+def _empty_tempo_metrics() -> dict:
+    return dict(EMPTY_TEMPO_METRICS)
+
+
+def _normalize_tempo_metrics_object(metrics: dict | None) -> dict:
+    if not isinstance(metrics, dict):
+        return _empty_tempo_metrics()
+
+    return {
+        "sampleSize": int(metrics.get("sampleSize") or 0),
+        "averageFirst200ms": metrics.get("averageFirst200ms"),
+        "bestFirst200ms": metrics.get("bestFirst200ms"),
+        "averageBest100ms": metrics.get("averageBest100ms"),
+        "averageSlipstreamDistance": metrics.get("averageSlipstreamDistance"),
+    }
+
+
+def _build_tempo_metrics_for_horse_name(horse_name: str | None) -> dict:
+    name = str(horse_name or "").strip()
+    if not name:
+        return _empty_tempo_metrics()
+
+    try:
+        normalized_name = normalize_horse_name(name)
+        if not normalized_name:
+            return _empty_tempo_metrics()
+
+        metrics = get_horse_tempo_metrics(normalized_name)
+        return _normalize_tempo_metrics_object(metrics)
+    except Exception as exc:
+        logger.warning("Tempo metrics lookup failed horse=%s error=%s", name, exc)
+        return _empty_tempo_metrics()
+
+
+def _enrich_horse_object_with_tempo_metrics(horse_obj: dict) -> None:
+    if not isinstance(horse_obj, dict):
+        return
+    horse_obj["tempoMetrics"] = _build_tempo_metrics_for_horse_name(horse_obj.get("name"))
+
+
+def _attach_tempo_metrics_to_game_payload(node) -> None:
+    if isinstance(node, dict):
+        horse = node.get("horse")
+        if isinstance(horse, dict):
+            _enrich_horse_object_with_tempo_metrics(horse)
+
+        for value in node.values():
+            _attach_tempo_metrics_to_game_payload(value)
+        return
+
+    if isinstance(node, list):
+        for item in node:
+            _attach_tempo_metrics_to_game_payload(item)
 
 
 def _to_number_or_none(value):
@@ -323,7 +387,16 @@ def atg_calendar(date: str = Query(..., description="Date in YYYY-MM-DD format")
 def atg_game(gameId: str = Query(..., description="ATG game ID")):
     url = f"https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/games/{gameId}"
     resp = http_requests.get(url, timeout=15)
-    return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+    if resp.status_code != 200:
+        return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
+
+    try:
+        payload = resp.json()
+        _attach_tempo_metrics_to_game_payload(payload)
+        return JSONResponse(content=payload, status_code=resp.status_code)
+    except Exception as exc:
+        logger.warning("ATG game tempo enrichment failed gameId=%s error=%s", gameId, exc)
+        return Response(content=resp.content, status_code=resp.status_code, media_type="application/json")
 
 
 @api_router.get("/atg/race")
