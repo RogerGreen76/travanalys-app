@@ -14,6 +14,8 @@ export const analyzeRaceData = (normalizedData) => {
       throw new Error('Invalid normalized data: missing races array');
     }
 
+    resetPlayTraceAutoSelection();
+
     // Analyze each race
     const analyzedRaces = normalizedData.races.map(race => {
       if (!race.horses || !Array.isArray(race.horses)) {
@@ -54,7 +56,14 @@ const analyzeHorses = (horses, raceContext) => {
   return results;
 };
 
-const DEFAULT_PLAY_DEBUG_HORSE = 'evangelista face';
+const AUTO_TEMPO_TRACE_TARGET = '__auto_tempo__';
+const DEFAULT_PLAY_DEBUG_HORSE = AUTO_TEMPO_TRACE_TARGET;
+const AUTO_TEMPO_NEAR_THRESHOLD_WINDOW = 4;
+let hasTracedAutoTempoHorse = false;
+
+const resetPlayTraceAutoSelection = () => {
+  hasTracedAutoTempoHorse = false;
+};
 
 const getPlayDebugTargetHorse = () => {
   const fromEnv = String(process.env.REACT_APP_PLAY_DEBUG_HORSE || '').trim();
@@ -79,8 +88,37 @@ const shouldTracePlayForHorse = (horse) => {
     return false;
   }
 
+  if (target === AUTO_TEMPO_TRACE_TARGET) {
+    return false;
+  }
+
   const horseName = String(horse?.name || '').trim().toLowerCase();
   return horseName === target;
+};
+
+const shouldTraceAutoTempoHorse = ({ tempoContribution, calibratedFinalScore }) => {
+  const target = getPlayDebugTargetHorse();
+  if (target !== AUTO_TEMPO_TRACE_TARGET || hasTracedAutoTempoHorse) {
+    return false;
+  }
+
+  if (!Number.isFinite(tempoContribution) || tempoContribution <= 0) {
+    return false;
+  }
+
+  const score = Number(calibratedFinalScore);
+  const distanceToMojlig = Math.abs(score - 34);
+  const distanceToStark = Math.abs(score - 50);
+  const isNearPlayThreshold = Math.min(distanceToMojlig, distanceToStark) <= AUTO_TEMPO_NEAR_THRESHOLD_WINDOW;
+
+  if (isNearPlayThreshold) {
+    hasTracedAutoTempoHorse = true;
+    return true;
+  }
+
+  // Fallback: if no near-threshold horse has been traced yet, trace first tempo-active horse.
+  hasTracedAutoTempoHorse = true;
+  return true;
 };
 
 const getHorseTempoMetricsForDebug = (horse) => {
@@ -737,7 +775,7 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     valueStatus = 'Överspelad';
   }
 
-  if (shouldTracePlayForHorse(horse)) {
+  if (shouldTracePlayForHorse(horse) || shouldTraceAutoTempoHorse({ tempoContribution, calibratedFinalScore })) {
     const tempoSignal = getHorseTempoSignalForDebug(horse);
     const tempoMetrics = getHorseTempoMetricsForDebug(horse);
 
