@@ -126,6 +126,46 @@ const TEMPO_INDICATOR_HELP_TEXT =
   'Ingen tydlig signal: for lite historik eller ingen tydlig temposignal. ' +
   'Styrka stark: tydligare historisk signal. Styrka medel: viss historisk signal.';
 
+const SHOW_TEMPO_ONLY_KEY = 'travanalys_showTempoOnly';
+const SHOW_TEMPO_DETAILS_KEY = 'travanalys_showTempoDetails';
+
+const readStoredBoolean = (key, fallbackValue) => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return fallbackValue;
+    }
+
+    const raw = window.localStorage.getItem(key);
+    if (raw === null) {
+      return fallbackValue;
+    }
+
+    if (raw === 'true') {
+      return true;
+    }
+
+    if (raw === 'false') {
+      return false;
+    }
+
+    return fallbackValue;
+  } catch {
+    return fallbackValue;
+  }
+};
+
+const writeStoredBoolean = (key, value) => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) {
+      return;
+    }
+
+    window.localStorage.setItem(key, value ? 'true' : 'false');
+  } catch {
+    // Intentionally ignore storage failures and keep UI functional.
+  }
+};
+
 const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
@@ -134,8 +174,22 @@ const HorseTable = ({ horses }) => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterValue, setFilterValue] = useState('');
   const [showFilter, setShowFilter] = useState('all'); // all, positive, favorites
-  const [showTempoSignalOnly, setShowTempoSignalOnly] = useState(false);
-  const [showTempoDetails, setShowTempoDetails] = useState(true);
+  const [showTempoSignalOnly, setShowTempoSignalOnly] = useState(() =>
+    readStoredBoolean(SHOW_TEMPO_ONLY_KEY, false)
+  );
+  const [showTempoDetails, setShowTempoDetails] = useState(() =>
+    readStoredBoolean(SHOW_TEMPO_DETAILS_KEY, true)
+  );
+
+  const handleTempoSignalOnlyChange = (checked) => {
+    setShowTempoSignalOnly(checked);
+    writeStoredBoolean(SHOW_TEMPO_ONLY_KEY, checked);
+  };
+
+  const handleTempoDetailsChange = (checked) => {
+    setShowTempoDetails(checked);
+    writeStoredBoolean(SHOW_TEMPO_DETAILS_KEY, checked);
+  };
 
   // Loppklassificering
   const getRaceClassification = () => {
@@ -406,7 +460,7 @@ const HorseTable = ({ horses }) => {
               <input
                 type="checkbox"
                 checked={showTempoSignalOnly}
-                onChange={(e) => setShowTempoSignalOnly(e.target.checked)}
+                onChange={(e) => handleTempoSignalOnlyChange(e.target.checked)}
                 className="h-3.5 w-3.5 accent-cyan-500"
               />
               Visa bara hästar med temposignal
@@ -419,7 +473,7 @@ const HorseTable = ({ horses }) => {
               <input
                 type="checkbox"
                 checked={showTempoDetails}
-                onChange={(e) => setShowTempoDetails(e.target.checked)}
+                onChange={(e) => handleTempoDetailsChange(e.target.checked)}
                 className="h-3.5 w-3.5 accent-cyan-500"
               />
               Visa tempo-detaljer
