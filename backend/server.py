@@ -9,12 +9,13 @@ import requests as http_requests
 import httpx
 import json
 import re
+from urllib.parse import unquote
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
 from datetime import datetime, timezone
-from kmtid_history_store import save_starts
+from kmtid_history_store import get_all_history, get_horse_history, save_starts
 
 
 ROOT_DIR = Path(__file__).parent
@@ -374,6 +375,36 @@ async def get_kmtid_page(date: str):
         )
 
     return Response(content=html, media_type="text/html")
+
+
+@app.get("/api/kmtid/history")
+async def get_kmtid_history_all():
+    try:
+        history = get_all_history()
+        return history if isinstance(history, list) else []
+    except Exception as exc:
+        logger.exception("KMTid history fetch failed")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "failed to read KM-tid history", "details": str(exc)},
+        )
+
+
+@app.get("/api/kmtid/history/{normalized_horse_name}")
+async def get_kmtid_history_for_horse(normalized_horse_name: str):
+    try:
+        decoded_name = unquote(normalized_horse_name or "").strip()
+        if not decoded_name:
+            return []
+
+        history = get_horse_history(decoded_name)
+        return history if isinstance(history, list) else []
+    except Exception as exc:
+        logger.exception("KMTid horse history fetch failed horse=%s", normalized_horse_name)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "failed to read KM-tid horse history", "details": str(exc)},
+        )
 
 
 # Include the router in the main app
