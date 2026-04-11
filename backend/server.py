@@ -16,6 +16,7 @@ from typing import List
 import uuid
 from datetime import datetime, timezone
 from kmtid_history_store import get_all_history, get_horse_history, save_starts
+from kmtid_tempo_metrics import get_horse_tempo_metrics
 
 
 ROOT_DIR = Path(__file__).parent
@@ -427,6 +428,31 @@ async def get_kmtid_history_for_horse(normalized_horse_name: str):
         return JSONResponse(
             status_code=500,
             content={"error": "failed to read KM-tid horse history", "details": str(exc)},
+        )
+
+
+@app.get("/api/kmtid/tempo/{normalized_horse_name}")
+async def get_kmtid_tempo_for_horse(normalized_horse_name: str):
+    empty_metrics = {
+        "sampleSize": 0,
+        "averageFirst200ms": None,
+        "bestFirst200ms": None,
+        "averageBest100ms": None,
+        "averageSlipstreamDistance": None,
+    }
+
+    try:
+        decoded_name = unquote(normalized_horse_name or "").strip()
+        if not decoded_name:
+            return empty_metrics
+
+        metrics = get_horse_tempo_metrics(decoded_name)
+        return metrics if isinstance(metrics, dict) else empty_metrics
+    except Exception as exc:
+        logger.exception("KMTid tempo fetch failed horse=%s", normalized_horse_name)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "failed to read KM-tid tempo metrics", "details": str(exc)},
         )
 
 
