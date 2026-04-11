@@ -21,7 +21,7 @@ const EMPTY_TEMPO_METRICS = {
 };
 
 const getTempoMetrics = (horse) => {
-  const metrics = horse?.tempoMetrics;
+  const metrics = horse?.horse?.tempoMetrics ?? horse?.tempoMetrics;
   if (!metrics || Number(metrics?.sampleSize) <= 0) {
     return EMPTY_TEMPO_METRICS;
   }
