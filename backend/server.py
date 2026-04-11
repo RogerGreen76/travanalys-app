@@ -39,6 +39,12 @@ AUTO_KMTID_THIN_DAYS_THRESHOLD = max(1, int(os.environ.get("AUTO_KMTID_THIN_DAYS
 AUTO_KMTID_TOPUP_MAX_FUTURE_DAYS = max(1, int(os.environ.get("AUTO_KMTID_TOPUP_MAX_FUTURE_DAYS", "14")))
 # Guard: stop topup if N consecutive 404s detected for future dates
 AUTO_KMTID_CONSECUTIVE_404_LIMIT = max(1, int(os.environ.get("AUTO_KMTID_CONSECUTIVE_404_LIMIT", "3")))
+KMTID_AUTO_BOOTSTRAP = os.environ.get("KMTID_AUTO_BOOTSTRAP", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 KM_VERBOSE_DEBUG = os.environ.get("KM_VERBOSE_DEBUG", "false").strip().lower() in {
     "1",
     "true",
@@ -1455,6 +1461,10 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def startup_kmtid_bootstrap():
     # Run bootstrap in background so API startup is not blocked by long backfill jobs.
+    # During focused API debugging, this can be fully disabled via KMTID_AUTO_BOOTSTRAP=false.
+    if not KMTID_AUTO_BOOTSTRAP:
+        logger.info("Auto KMTid bootstrap disabled by KMTID_AUTO_BOOTSTRAP=false")
+        return
     asyncio.create_task(_run_auto_kmtid_bootstrap())
 
 @app.on_event("shutdown")
