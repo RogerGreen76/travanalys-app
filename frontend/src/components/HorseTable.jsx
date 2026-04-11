@@ -48,6 +48,38 @@ const formatTempoValue = (value, decimals = 0) => {
   return Number.isFinite(num) ? num.toFixed(decimals) : '-';
 };
 
+const getTempoIndicator = (tempoMetrics) => {
+  const sampleSize = Number(tempoMetrics?.sampleSize);
+  const bestFirst200ms = Number(tempoMetrics?.bestFirst200ms);
+  const averageBest100ms = Number(tempoMetrics?.averageBest100ms);
+
+  if (!Number.isFinite(sampleSize) || sampleSize < 3) {
+    return {
+      label: 'Ingen tydlig signal',
+      className: 'text-gray-400 border-gray-700/40 bg-gray-800/30'
+    };
+  }
+
+  if (Number.isFinite(bestFirst200ms) && bestFirst200ms <= 11000) {
+    return {
+      label: 'Startsnabb',
+      className: 'text-cyan-300 border-cyan-700/40 bg-cyan-900/20'
+    };
+  }
+
+  if (Number.isFinite(averageBest100ms) && averageBest100ms <= 7000) {
+    return {
+      label: 'Tempostark',
+      className: 'text-teal-300 border-teal-700/40 bg-teal-900/20'
+    };
+  }
+
+  return {
+    label: 'Ingen tydlig signal',
+    className: 'text-gray-400 border-gray-700/40 bg-gray-800/30'
+  };
+};
+
 const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
@@ -358,6 +390,7 @@ const HorseTable = ({ horses }) => {
               {sortedAndFilteredHorses.map((horse) => {
                 const tempoMetrics = getTempoMetrics(horse);
                 const hasTempoHistory = tempoMetrics.sampleSize > 0;
+                const tempoIndicator = getTempoIndicator(tempoMetrics);
 
                 return (
                 <tr
@@ -411,6 +444,11 @@ const HorseTable = ({ horses }) => {
                       ) : (
                         <span>Tempo: ingen historik</span>
                       )}
+                    </div>
+                    <div className="mt-1" data-testid={`tempo-indicator-${horse.number}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}>
+                        Tempoindikator: {tempoIndicator.label}
+                      </span>
                     </div>
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
