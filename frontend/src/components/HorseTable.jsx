@@ -57,65 +57,79 @@ const formatTempoValue = (value, decimals = 0) => {
   return Number.isFinite(num) ? num.toFixed(decimals) : '-';
 };
 
-const getTempoIndicator = (tempoMetrics) => {
-  const sampleSize = Number(tempoMetrics?.sampleSize);
-  const averageFirst200ms = Number(tempoMetrics?.averageFirst200ms);
-  const bestFirst200ms = Number(tempoMetrics?.bestFirst200ms);
-  const averageBest100ms = Number(tempoMetrics?.averageBest100ms);
-  const best100ms = Number(tempoMetrics?.best100ms);
+const computePercentile = (values, percentile) => {
+  if (!Array.isArray(values) || values.length === 0) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  if (sorted.length === 1) {
+    return sorted[0];
+  }
+  const clampedPercentile = Math.min(1, Math.max(0, percentile));
+  const index = (sorted.length - 1) * clampedPercentile;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+  if (lowerIndex === upperIndex) {
+    return sorted[lowerIndex];
+  }
+  const weight = index - lowerIndex;
+  return sorted[lowerIndex] * (1 - weight) + sorted[upperIndex] * weight;
+};
 
-  if (!Number.isFinite(sampleSize) || sampleSize === 0) {
+const buildMetricDistributionStats = (values) => {
+  const numericValues = values.filter((value) => Number.isFinite(value));
+  if (numericValues.length === 0) {
     return {
-      label: 'Ingen tydlig signal',
-      strength: 'none',
-      className: 'text-gray-400 border-gray-700/40 bg-gray-800/30'
+      min: null,
+      p10: null,
+      p25: null,
+      p50: null,
+      p75: null,
+      p90: null
     };
   }
 
-  // Sample size is a minor confidence adjustment, not the main rule.
-  const confidenceFactor = 0.85 + 0.15 * Math.min(1.0, sampleSize / 4);
-
-  // 200m performance drives Startsnabb, primarily from averageFirst200ms and secondarily bestFirst200ms.
-  const START_200_THRESHOLD = 70000;
-  const START_200_STRONG = 60000;
-  const scoreFromFirst200 = (value) => {
-    if (!Number.isFinite(value) || value >= START_200_THRESHOLD) return 0;
-    return Math.min(1.0, (START_200_THRESHOLD - value) / (START_200_THRESHOLD - START_200_STRONG));
+  return {
+    min: Math.min(...numericValues),
+    p10: computePercentile(numericValues, 0.10),
+    p25: computePercentile(numericValues, 0.25),
+    p50: computePercentile(numericValues, 0.50),
+    p75: computePercentile(numericValues, 0.75),
+    p90: computePercentile(numericValues, 0.90)
   };
-  const avg200Score = scoreFromFirst200(averageFirst200ms);
-  const best200Score = scoreFromFirst200(bestFirst200ms);
-  const rawStartsnabb = avg200Score * 0.7 + best200Score * 0.3;
+};
 
-  // 100m/speed performance drives Tempostark, primarily from averageBest100ms and optionally best100ms.
-  const SPEED_100_THRESHOLD = 68000;
-  const SPEED_100_STRONG = 58000;
-  const scoreFromBest100 = (value) => {
-    if (!Number.isFinite(value) || value >= SPEED_100_THRESHOLD) return 0;
-    return Math.min(1.0, (SPEED_100_THRESHOLD - value) / (SPEED_100_THRESHOLD - SPEED_100_STRONG));
-  };
-  const avg100Score = scoreFromBest100(averageBest100ms);
-  const best100Score = scoreFromBest100(best100ms);
-  const rawTempostark = avg100Score * 0.8 + best100Score * 0.2;
+const getTempoIndicator = (tempoMetrics, tempoDistributions) => {
+  const averageFirst200ms = Number(tempoMetrics?.averageFirst200ms);
+  const bestFirst200ms = Number(tempoMetrics?.bestFirst200ms);
+  const averageBest100ms = Number(tempoMetrics?.averageBest100ms);
+  const startsnabbP25 = tempoDistributions?.averageFirst200ms?.p25;
+  const startsnabbP10 = tempoDistributions?.averageFirst200ms?.p10;
+  const tempostarkP25 = tempoDistributions?.averageBest100ms?.p25;
+  const tempostarkP10 = tempoDistributions?.averageBest100ms?.p10;
 
-  // finalTempoScore = rawScore * confidenceFactor
-  const startsnabbScore = rawStartsnabb * confidenceFactor;
-  const tempostarkScore = rawTempostark * confidenceFactor;
+  const startsnabbValue = Number.isFinite(averageFirst200ms)
+    ? averageFirst200ms
+    : (Number.isFinite(bestFirst200ms) ? bestFirst200ms : null);
 
-  const MIN_SIGNAL  = 0.20; // minimum combined score to show any label
-  const STARK_SCORE = 0.60; // minimum combined score for 'stark' strength
+  const isStartsnabb = Number.isFinite(startsnabbValue) && Number.isFinite(startsnabbP25) && startsnabbValue <= startsnabbP25;
+  const isTempostark = Number.isFinite(averageBest100ms) && Number.isFinite(tempostarkP25) && averageBest100ms <= tempostarkP25;
 
-  if (startsnabbScore >= tempostarkScore && startsnabbScore >= MIN_SIGNAL) {
+  const isStrongStartsnabb = isStartsnabb && Number.isFinite(startsnabbP10) && startsnabbValue <= startsnabbP10;
+  const isStrongTempostark = isTempostark && Number.isFinite(tempostarkP10) && averageBest100ms <= tempostarkP10;
+
+  if (isStartsnabb && (!isTempostark || startsnabbValue <= averageBest100ms)) {
     return {
       label: 'Startsnabb',
-      strength: startsnabbScore >= STARK_SCORE ? 'stark' : 'medel',
+      strength: isStrongStartsnabb ? 'stark' : 'medel',
       className: 'text-cyan-300 border-cyan-700/40 bg-cyan-900/20'
     };
   }
 
-  if (tempostarkScore >= MIN_SIGNAL) {
+  if (isTempostark) {
     return {
       label: 'Tempostark',
-      strength: tempostarkScore >= STARK_SCORE ? 'stark' : 'medel',
+      strength: isStrongTempostark ? 'stark' : 'medel',
       className: 'text-teal-300 border-teal-700/40 bg-teal-900/20'
     };
   }
@@ -249,6 +263,29 @@ const HorseTable = ({ horses }) => {
     writeStoredTempoSignalTypeFilter(normalizedValue);
   };
 
+  const tempoDistributions = useMemo(() => {
+    const source = Array.isArray(horses) ? horses : [];
+    const metricsList = source.map((horse) => getTempoMetrics(horse));
+
+    const averageFirst200Values = metricsList
+      .map((metrics) => Number(metrics?.averageFirst200ms))
+      .filter((value) => Number.isFinite(value));
+
+    const bestFirst200Values = metricsList
+      .map((metrics) => Number(metrics?.bestFirst200ms))
+      .filter((value) => Number.isFinite(value));
+
+    const averageBest100Values = metricsList
+      .map((metrics) => Number(metrics?.averageBest100ms))
+      .filter((value) => Number.isFinite(value));
+
+    return {
+      averageFirst200ms: buildMetricDistributionStats(averageFirst200Values),
+      bestFirst200ms: buildMetricDistributionStats(bestFirst200Values),
+      averageBest100ms: buildMetricDistributionStats(averageBest100Values)
+    };
+  }, [horses]);
+
   // Loppklassificering
   const getRaceClassification = () => {
     if (!horses || horses.length === 0) return null;
@@ -347,7 +384,7 @@ const HorseTable = ({ horses }) => {
 
     if (showTempoSignalOnly) {
       filtered = filtered.filter(horse => {
-        const label = getTempoIndicator(getTempoMetrics(horse)).label;
+        const label = getTempoIndicator(getTempoMetrics(horse), tempoDistributions).label;
         if (tempoSignalTypeFilter === 'startsnabb') {
           return label === 'Startsnabb';
         }
@@ -403,13 +440,13 @@ const HorseTable = ({ horses }) => {
 });
 
     return filtered;
-  }, [horses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly, tempoSignalTypeFilter]);
+  }, [horses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly, tempoSignalTypeFilter, tempoDistributions]);
 
   const tempoSignalSummary = useMemo(() => {
     const source = Array.isArray(horses) ? horses : [];
     const totalCount = source.length;
     const signalCount = source.filter((horse) => {
-      const label = getTempoIndicator(getTempoMetrics(horse)).label;
+      const label = getTempoIndicator(getTempoMetrics(horse), tempoDistributions).label;
       return label === 'Startsnabb' || label === 'Tempostark';
     }).length;
 
@@ -417,7 +454,7 @@ const HorseTable = ({ horses }) => {
       totalCount,
       signalCount
     };
-  }, [horses]);
+  }, [horses, tempoDistributions]);
 
   const tempoLabelSummary = useMemo(() => {
     const source = Array.isArray(horses) ? horses : [];
@@ -428,7 +465,7 @@ const HorseTable = ({ horses }) => {
     };
 
     source.forEach((horse) => {
-      const label = getTempoIndicator(getTempoMetrics(horse)).label;
+      const label = getTempoIndicator(getTempoMetrics(horse), tempoDistributions).label;
       if (label === 'Startsnabb') {
         summary.startsnabb += 1;
       } else if (label === 'Tempostark') {
@@ -439,7 +476,7 @@ const HorseTable = ({ horses }) => {
     });
 
     return summary;
-  }, [horses]);
+  }, [horses, tempoDistributions]);
 
   const getValueClass = (valueRatio) => {
     if (valueRatio > 1.20) return 'value-positive';
@@ -648,7 +685,7 @@ const HorseTable = ({ horses }) => {
             <tbody>
               {sortedAndFilteredHorses.map((horse) => {
                 const tempoMetrics = getTempoMetrics(horse);
-                const tempoIndicator = getTempoIndicator(tempoMetrics);
+                const tempoIndicator = getTempoIndicator(tempoMetrics, tempoDistributions);
                 const hasTempoHistory = tempoMetrics.sampleSize > 0;
                 const hasTempoSignal = tempoIndicator.label === 'Startsnabb' || tempoIndicator.label === 'Tempostark';
 
