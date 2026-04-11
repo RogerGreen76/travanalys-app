@@ -18,6 +18,8 @@ from datetime import datetime, timedelta, timezone
 from kmtid_history_store import get_all_history, get_horse_history, normalize_horse_name, save_starts
 from kmtid_tempo_metrics import get_horse_tempo_metrics
 
+MAX_KMTID_IMPORT_RANGE_DAYS = 31
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -622,7 +624,22 @@ async def import_kmtid_history_range(
             },
         )
 
+    requested_days = (end_dt - start_dt).days + 1
+    if requested_days > MAX_KMTID_IMPORT_RANGE_DAYS:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "date range too large",
+                "details": f"max {MAX_KMTID_IMPORT_RANGE_DAYS} days per request",
+                "startDate": start_date_text,
+                "endDate": end_date_text,
+                "requestedDays": requested_days,
+                "maxDays": MAX_KMTID_IMPORT_RANGE_DAYS,
+            },
+        )
+
     failed_dates = []
+    per_day = []
     total_parsed_starts = 0
     total_inserted = 0
     total_skipped = 0
@@ -634,11 +651,29 @@ async def import_kmtid_history_range(
     while current_dt <= end_dt:
         current_date_text = current_dt.isoformat()
         days_processed += 1
+        logger.info(
+            "KMTid range import progress %s/%s date=%s",
+            days_processed,
+            requested_days,
+            current_date_text,
+        )
 
         day_result = await _import_kmtid_for_date(current_date_text)
         total_parsed_starts += int(day_result.get("parsedStarts", 0) or 0)
         total_inserted += int(day_result.get("inserted", 0) or 0)
         total_skipped += int(day_result.get("skipped", 0) or 0)
+
+        success = not bool(day_result.get("error"))
+        per_day_item = {
+            "date": current_date_text,
+            "success": success,
+            "parsedStarts": int(day_result.get("parsedStarts", 0) or 0),
+            "inserted": int(day_result.get("inserted", 0) or 0),
+            "skipped": int(day_result.get("skipped", 0) or 0),
+        }
+        if day_result.get("error"):
+            per_day_item["error"] = day_result.get("error")
+        per_day.append(per_day_item)
 
         if day_result.get("error"):
             days_failed += 1
@@ -650,6 +685,15 @@ async def import_kmtid_history_range(
             )
         else:
             days_succeeded += 1
+
+        logger.info(
+            "KMTid range import day result date=%s success=%s parsed=%s inserted=%s skipped=%s",
+            current_date_text,
+            success,
+            per_day_item["parsedStarts"],
+            per_day_item["inserted"],
+            per_day_item["skipped"],
+        )
 
         current_dt += timedelta(days=1)
 
@@ -663,6 +707,7 @@ async def import_kmtid_history_range(
         "totalInserted": total_inserted,
         "totalSkipped": total_skipped,
         "failedDates": failed_dates,
+        "perDay": per_day,
     }
 
 
