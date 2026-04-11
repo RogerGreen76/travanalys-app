@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import re
 import sqlite3
+import unicodedata
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -264,9 +265,27 @@ def _migrate_if_needed(conn: sqlite3.Connection) -> None:
 
 
 def normalize_horse_name(horse_name: str) -> str:
-    # Lowercase and collapse whitespace so lookups remain stable.
-    compact = re.sub(r"\s+", " ", (horse_name or "").strip())
-    return compact.casefold()
+    """Canonical horse-name key used for all DB lookups and storage.
+
+    Normalisation steps (order matters):
+    1. Unicode NFC → NFD decomposition to separate base letters from combining marks.
+    2. Strip all combining diacritical marks (Mn category) → ö→o, ä→a, å→a, é→e …
+    3. Lowercase (plain ASCII after step 2, but casefold is safe).
+    4. Replace apostrophes, periods, hyphens, and non-ASCII punctuation with a space.
+    5. Collapse multiple whitespace characters into one and strip leading/trailing space.
+
+    This ensures that "Önas Prince" (ATG) and "Onas Prince" (KM-tid source)
+    both normalise to "onas prince" and match in the database.
+    """
+    text = unicodedata.normalize("NFD", (horse_name or "").strip())
+    # Remove all combining marks (diacritics).
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
+    text = text.lower()
+    # Replace apostrophes, dots, hyphens, and other punctuation with space.
+    text = re.sub(r"[\x27\x60\u2018\u2019\u201c\u201d.\-/]+", " ", text)
+    # Collapse whitespace.
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 def init_kmtid_history_store(db_path: str | Path | None = None) -> None:
