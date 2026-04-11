@@ -215,6 +215,13 @@ const writeStoredTempoSignalTypeFilter = (value) => {
 const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
+const getDisplayPlayLabel = (horse) => {
+  if (horse?.winnerStrengthLabel === 'Stark favorit' && horse?.play === 'No play') {
+    return 'Låg edge favorit';
+  }
+  return horse?.play || 'No play';
+};
+
 const HorseTable = ({ horses }) => {
   const fullRaceHorses = useMemo(
     () => (Array.isArray(horses) ? horses : []),
@@ -393,11 +400,12 @@ const HorseTable = ({ horses }) => {
     const playPriority = {
       'Stark play': 3,
       'Möjlig play': 2,
+      'Låg edge favorit': 1.5,
       'No play': 1
     };
 
-    const aPlay = playPriority[a.play] || 0;
-    const bPlay = playPriority[b.play] || 0;
+    const aPlay = playPriority[getDisplayPlayLabel(a)] || 0;
+    const bPlay = playPriority[getDisplayPlayLabel(b)] || 0;
 
     if (aPlay !== bPlay) {
       return sortDirection === 'asc'
@@ -483,7 +491,7 @@ const HorseTable = ({ horses }) => {
       formatNumber(getEffectiveFinalScore(h), 1),
       h.winnerStrengthLabel,
       h.valueStatus,
-      h.play
+      getDisplayPlayLabel(h)
     ]);
 
     const csvContent = [
@@ -671,15 +679,18 @@ const HorseTable = ({ horses }) => {
                 const tempoMetrics = getTempoMetrics(horse);
                 const tempoIndicator = getTempoIndicator(tempoMetrics, tempoDistributions);
                 const hasTempoSignal = tempoIndicator.label === 'Startsnabb' || tempoIndicator.label === 'Tempostark';
+                const displayPlayLabel = getDisplayPlayLabel(horse);
 
                 return (
                 <tr
                   key={horse.number}
                   className={`border-b border-white/5 last:border-0 transition-colors duration-150 hover:bg-white/[0.025] ${
-                      horse.play === 'Stark play'
+                      displayPlayLabel === 'Stark play'
                         ? 'bg-green-500/15'
-                        : horse.play === 'Möjlig play'
+                        : displayPlayLabel === 'Möjlig play'
                         ? 'bg-sky-500/[0.08]'
+                        : displayPlayLabel === 'Låg edge favorit'
+                        ? 'bg-amber-500/[0.08]'
                         : ''
                     }`}
                   data-testid={`horse-row-${horse.number}`}
@@ -771,13 +782,15 @@ const HorseTable = ({ horses }) => {
                   </td>
                   <td className="text-center w-32 py-4">
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border ${
-                      horse.play === 'Stark play' 
+                      displayPlayLabel === 'Stark play' 
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
-                        : horse.play === 'Möjlig play'
+                        : displayPlayLabel === 'Möjlig play'
                         ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                        : displayPlayLabel === 'Låg edge favorit'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                         : 'bg-gray-800/50 text-gray-500 border-gray-700/30'
                     }`}>
-                      {horse.play}
+                      {displayPlayLabel}
                     </span>
                   </td>
                 </tr>
