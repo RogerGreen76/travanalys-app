@@ -16,7 +16,13 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
 from datetime import datetime, timedelta, timezone
-from kmtid_history_store import get_all_history, get_horse_history, normalize_horse_name, save_starts
+from kmtid_history_store import (
+    get_all_history,
+    get_horse_history,
+    normalize_horse_name,
+    sanitize_kmtid_tempo_value,
+    save_starts,
+)
 from kmtid_tempo_metrics import get_horse_tempo_metrics
 
 MAX_KMTID_IMPORT_RANGE_DAYS = 31
@@ -133,6 +139,13 @@ def _to_number_or_none(value):
         return number_value
     except (TypeError, ValueError):
         return None
+
+
+def _first_not_none(*values):
+    for value in values:
+        if value is not None:
+            return value
+    return None
 
 
 def _compute_tempo_indicator_label(tempo_metrics: dict) -> str:
@@ -379,26 +392,29 @@ def _compute_timing_from_intervals(intervals: list) -> dict:
     if not isinstance(intervals, list) or len(intervals) < 2:
         return {}
 
-    durations = [_to_number_or_none((item or {}).get("duration")) for item in intervals]
+    durations = [
+        sanitize_kmtid_tempo_value(_to_number_or_none((item or {}).get("duration")), "best100ms")
+        for item in intervals
+    ]
     durations = [value for value in durations if value is not None]
     if len(durations) < 2:
         return {}
 
     first200ms = None
     if len(intervals) >= 2:
-        d0 = _to_number_or_none((intervals[0] or {}).get("duration"))
-        d1 = _to_number_or_none((intervals[1] or {}).get("duration"))
+        d0 = sanitize_kmtid_tempo_value(_to_number_or_none((intervals[0] or {}).get("duration")), "best100ms")
+        d1 = sanitize_kmtid_tempo_value(_to_number_or_none((intervals[1] or {}).get("duration")), "best100ms")
         if d0 is not None and d1 is not None:
-            first200ms = (d0 + d1) / 2
+            first200ms = sanitize_kmtid_tempo_value((d0 + d1) / 2, "first200ms")
 
     last200ms = None
     if len(intervals) >= 2:
-        d_prev = _to_number_or_none((intervals[-2] or {}).get("duration"))
-        d_last = _to_number_or_none((intervals[-1] or {}).get("duration"))
+        d_prev = sanitize_kmtid_tempo_value(_to_number_or_none((intervals[-2] or {}).get("duration")), "best100ms")
+        d_last = sanitize_kmtid_tempo_value(_to_number_or_none((intervals[-1] or {}).get("duration")), "best100ms")
         if d_prev is not None and d_last is not None:
-            last200ms = (d_prev + d_last) / 2
+            last200ms = sanitize_kmtid_tempo_value((d_prev + d_last) / 2, "last200ms")
 
-    best100ms = min(durations) if durations else None
+    best100ms = sanitize_kmtid_tempo_value(min(durations), "best100ms") if durations else None
 
     return {
         "first200ms": first200ms,
@@ -432,20 +448,40 @@ def _extract_kmtid_start_rows(raw_text: str, requested_date: str) -> list[dict]:
             intervals = timings.get("intervals") if isinstance(timings.get("intervals"), list) else []
             computed_timing = _compute_timing_from_intervals(intervals)
 
-            first200ms = _to_number_or_none(
-                timings.get("first200ms")
-                or timings.get("first200Ms")
-                or computed_timing.get("first200ms")
+            first200ms = sanitize_kmtid_tempo_value(
+                _first_not_none(
+                    _to_number_or_none(timings.get("first200ms")),
+                    _to_number_or_none(timings.get("first200Ms")),
+                    _to_number_or_none(computed_timing.get("first200ms")),
+                ),
+                "first200ms",
             )
-            last200ms = _to_number_or_none(
-                timings.get("last200ms")
-                or timings.get("last200Ms")
-                or computed_timing.get("last200ms")
+            last200ms = sanitize_kmtid_tempo_value(
+                _first_not_none(
+                    _to_number_or_none(timings.get("last200ms")),
+                    _to_number_or_none(timings.get("last200Ms")),
+                    _to_number_or_none(computed_timing.get("last200ms")),
+                ),
+                "last200ms",
             )
-            best100ms = _to_number_or_none(
-                timings.get("best100ms")
-                or timings.get("best100Ms")
-                or computed_timing.get("best100ms")
+            best100ms = sanitize_kmtid_tempo_value(
+                _first_not_none(
+                    _to_number_or_none(timings.get("best100ms")),
+                    _to_number_or_none(timings.get("best100Ms")),
+                    _to_number_or_none(computed_timing.get("best100ms")),
+                ),
+                "best100ms",
+            )
+            actual_km_time = sanitize_kmtid_tempo_value(
+                _first_not_none(
+                    _to_number_or_none(timings.get("actualKMTime")),
+                    _to_number_or_none(timings.get("actualKmTime")),
+                ),
+                "actualKMTime",
+            )
+            slipstream_distance = sanitize_kmtid_tempo_value(
+                _to_number_or_none(timings.get("slipstreamDistance")),
+                "slipstreamDistance",
             )
 
             extracted_rows.append(
@@ -457,8 +493,8 @@ def _extract_kmtid_start_rows(raw_text: str, requested_date: str) -> list[dict]:
                     "first200ms": first200ms,
                     "last200ms": last200ms,
                     "best100ms": best100ms,
-                    "actual_km_time": timings.get("actualKMTime") or timings.get("actualKmTime"),
-                    "slipstream_distance": _to_number_or_none(timings.get("slipstreamDistance")),
+                    "actual_km_time": actual_km_time,
+                    "slipstream_distance": slipstream_distance,
                 }
             )
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 import sqlite3
 from pathlib import Path
@@ -53,6 +54,49 @@ SELECT
 FROM kmtid_starts
 """
 
+KMTID_PLACEHOLDER_VALUES = {
+    9007199254740991,
+    -9007199254740991,
+}
+
+
+def _to_float_or_none(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def sanitize_kmtid_tempo_value(value: Any, field_name: str) -> float | None:
+    """Return sane numeric value for a KM-tid tempo field, otherwise None."""
+    number = _to_float_or_none(value)
+    if number is None:
+        return None
+    if math.isnan(number) or math.isinf(number):
+        return None
+    if number in KMTID_PLACEHOLDER_VALUES:
+        return None
+
+    # Defensive catch-all for clearly invalid sentinel-style magnitudes.
+    if abs(number) >= 1_000_000_000_000:
+        return None
+
+    ranges = {
+        "first200ms": (1_000, 60_000),
+        "last200ms": (1_000, 60_000),
+        "best100ms": (500, 30_000),
+        "slipstreamDistance": (0, 2_000),
+        "actualKMTime": (30, 500),
+    }
+    lower_upper = ranges.get(field_name)
+    if lower_upper is None:
+        return number
+
+    lower, upper = lower_upper
+    if number < lower or number > upper:
+        return None
+    return number
+
 
 def _resolve_db_path(db_path: str | Path | None = None) -> Path:
     return Path(db_path) if db_path is not None else DEFAULT_DB_PATH
@@ -96,11 +140,11 @@ def row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "raceNumber": row["race_number"],
         "horseName": row["horse_name"],
         "normalizedHorseName": row["normalized_horse_name"],
-        "first200ms": row["first200ms"],
-        "last200ms": row["last200ms"],
-        "best100ms": row["best100ms"],
-        "actualKMTime": row["actual_km_time"],
-        "slipstreamDistance": row["slipstream_distance"],
+        "first200ms": sanitize_kmtid_tempo_value(row["first200ms"], "first200ms"),
+        "last200ms": sanitize_kmtid_tempo_value(row["last200ms"], "last200ms"),
+        "best100ms": sanitize_kmtid_tempo_value(row["best100ms"], "best100ms"),
+        "actualKMTime": sanitize_kmtid_tempo_value(row["actual_km_time"], "actualKMTime"),
+        "slipstreamDistance": sanitize_kmtid_tempo_value(row["slipstream_distance"], "slipstreamDistance"),
         "createdAt": row["created_at"],
         "dedupeKey": row["dedupe_key"],
     }
@@ -266,11 +310,11 @@ def _prepare_start_record(start: Mapping[str, Any]) -> tuple[Any, ...] | None:
         race_number,
         horse_name,
         normalized_name,
-        _value_from_start(start, "first200ms", "first200ms"),
-        _value_from_start(start, "last200ms", "last200ms"),
-        _value_from_start(start, "best100ms", "best100ms"),
-        _value_from_start(start, "actual_km_time", "actualKMTime"),
-        _value_from_start(start, "slipstream_distance", "slipstreamDistance"),
+        sanitize_kmtid_tempo_value(_value_from_start(start, "first200ms", "first200ms"), "first200ms"),
+        sanitize_kmtid_tempo_value(_value_from_start(start, "last200ms", "last200ms"), "last200ms"),
+        sanitize_kmtid_tempo_value(_value_from_start(start, "best100ms", "best100ms"), "best100ms"),
+        sanitize_kmtid_tempo_value(_value_from_start(start, "actual_km_time", "actualKMTime"), "actualKMTime"),
+        sanitize_kmtid_tempo_value(_value_from_start(start, "slipstream_distance", "slipstreamDistance"), "slipstreamDistance"),
     )
 
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from kmtid_history_store import get_horse_history
+from kmtid_history_store import get_horse_history, sanitize_kmtid_tempo_value
 
 
 def _to_float_or_none(value: Any) -> float | None:
@@ -38,9 +38,18 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
             "averageSlipstreamDistance": None,
         }
 
-    first200_values = [row.get("first200ms") for row in history]
-    best100_values = [row.get("best100ms") for row in history]
-    slipstream_values = [row.get("slipstreamDistance") for row in history]
+    first200_values = [
+        sanitize_kmtid_tempo_value(row.get("first200ms"), "first200ms")
+        for row in history
+    ]
+    best100_values = [
+        sanitize_kmtid_tempo_value(row.get("best100ms"), "best100ms")
+        for row in history
+    ]
+    slipstream_values = [
+        sanitize_kmtid_tempo_value(row.get("slipstreamDistance"), "slipstreamDistance")
+        for row in history
+    ]
 
     return {
         "sampleSize": len(history),
