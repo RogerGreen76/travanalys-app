@@ -61,7 +61,7 @@ const getTempoIndicator = (tempoMetrics) => {
     };
   }
 
-  if (Number.isFinite(bestFirst200ms) && bestFirst200ms < 65000) {
+  if (Number.isFinite(bestFirst200ms) && bestFirst200ms < 70000) {
     return {
       label: 'Startsnabb',
       strength: 'medel',
@@ -69,7 +69,7 @@ const getTempoIndicator = (tempoMetrics) => {
     };
   }
 
-  if (Number.isFinite(averageBest100ms) && averageBest100ms < 64000) {
+  if (Number.isFinite(averageBest100ms) && averageBest100ms < 68000) {
     return {
       label: 'Tempostark',
       strength: 'medel',
@@ -694,7 +694,7 @@ const HorseTable = ({ horses }) => {
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}
                         title={TEMPO_INDICATOR_HELP_TEXT}
                       >
-                        Tempoindikator: {JSON.stringify(tempoIndicator)}
+                        Tempoindikator: {tempoIndicator.label}
                         {tempoIndicator.strength !== 'none' ? ` (${tempoIndicator.strength})` : ''}
                       </span>
                     </div>
