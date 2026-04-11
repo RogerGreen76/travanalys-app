@@ -21,7 +21,12 @@ const EMPTY_TEMPO_METRICS = {
 };
 
 const getTempoMetrics = (horse) => {
-  const metrics = horse?.horse?.tempoMetrics ?? horse?.tempoMetrics;
+  const primaryMetrics = horse?.tempoMetrics;
+  const nestedMetrics = horse?.horse?.tempoMetrics;
+  const metrics = [primaryMetrics, nestedMetrics].find(
+    (candidate) => candidate && Number(candidate?.sampleSize) > 0
+  ) ?? primaryMetrics ?? nestedMetrics;
+
   if (!metrics || Number(metrics?.sampleSize) <= 0) {
     return EMPTY_TEMPO_METRICS;
   }
@@ -626,8 +631,8 @@ const HorseTable = ({ horses }) => {
             <tbody>
               {sortedAndFilteredHorses.map((horse) => {
                 const tempoMetrics = getTempoMetrics(horse);
-                const hasTempoHistory = tempoMetrics.sampleSize > 0;
                 const tempoIndicator = getTempoIndicator(tempoMetrics);
+                const hasTempoHistory = tempoMetrics.sampleSize > 0;
                 const hasTempoSignal = tempoIndicator.label === 'Startsnabb' || tempoIndicator.label === 'Tempostark';
                 const tempoSignalExplanation = getTempoSignalExplanation(tempoIndicator, tempoMetrics);
 
