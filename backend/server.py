@@ -73,6 +73,23 @@ def _normalize_iso_date(input_date: str, fallback_date: str | None = None) -> st
     return None
 
 
+def _is_valid_iso_date(date_text: str) -> bool:
+    text = str(date_text or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return False
+
+    try:
+        datetime.strptime(text, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+
+
+def _format_date_for_kmtid(date_text: str) -> str:
+    compact = str(date_text or "").strip().replace("-", "")
+    return compact[2:]
+
+
 def _extract_balanced_array_literal(raw_text: str, array_start_index: int) -> str | None:
     depth = 0
     in_single_quote = False
@@ -259,6 +276,12 @@ def _persist_kmtid_starts_best_effort(raw_text: str, requested_date: str) -> Non
     except Exception as exc:
         logger.warning("KMTid persistence failed date=%s error=%s", requested_date, exc)
 
+
+async def _fetch_kmtid_races_js(date_value: str) -> httpx.Response:
+    url = f"https://kmtid.atgx.se/{date_value}/js/races.js"
+    async with httpx.AsyncClient() as client:
+        return await client.get(url)
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -405,6 +428,59 @@ async def get_kmtid_history_for_horse(normalized_horse_name: str):
             status_code=500,
             content={"error": "failed to read KM-tid horse history", "details": str(exc)},
         )
+
+
+@app.post("/api/kmtid/import/{date}")
+async def import_kmtid_history_for_date(date: str):
+    requested_date = str(date or "").strip()
+    if not _is_valid_iso_date(requested_date):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid date format",
+                "details": "expected YYYY-MM-DD",
+                "date": requested_date,
+            },
+        )
+
+    result = {
+        "date": requested_date,
+        "fetched": False,
+        "parsedStarts": 0,
+        "inserted": 0,
+        "skipped": 0,
+    }
+
+    try:
+        kmtid_date = _format_date_for_kmtid(requested_date)
+        response = await _fetch_kmtid_races_js(kmtid_date)
+
+        if response.status_code != 200:
+            logger.info(
+                "KMTid import no data date=%s upstream_status=%s",
+                requested_date,
+                response.status_code,
+            )
+            result["error"] = f"no KM-tid data for date (upstream status {response.status_code})"
+            return result
+
+        result["fetched"] = True
+        extracted_rows = _extract_kmtid_start_rows(response.text, requested_date)
+        result["parsedStarts"] = len(extracted_rows)
+
+        if not extracted_rows:
+            logger.info("KMTid import parsed no starts date=%s", requested_date)
+            return result
+
+        save_result = save_starts(extracted_rows)
+        result["inserted"] = int(save_result.get("inserted", 0))
+        result["skipped"] = int(save_result.get("skipped", 0))
+        logger.info("KMTid import result date=%s result=%s", requested_date, result)
+        return result
+    except Exception as exc:
+        logger.warning("KMTid import failed date=%s error=%s", requested_date, exc)
+        result["error"] = str(exc)
+        return JSONResponse(status_code=500, content=result)
 
 
 # Include the router in the main app
