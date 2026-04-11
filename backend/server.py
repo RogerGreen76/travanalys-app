@@ -202,6 +202,42 @@ def _attach_tempo_metrics_to_game_payload(node) -> None:
             _attach_tempo_metrics_to_game_payload(item)
 
 
+def _find_first_horse_in_payload(node):
+    """Return first horse dict found in payload traversal order, else None."""
+    if isinstance(node, dict):
+        horse = node.get("horse")
+        if isinstance(horse, dict):
+            return horse
+        for value in node.values():
+            found = _find_first_horse_in_payload(value)
+            if isinstance(found, dict):
+                return found
+        return None
+
+    if isinstance(node, list):
+        for item in node:
+            found = _find_first_horse_in_payload(item)
+            if isinstance(found, dict):
+                return found
+    return None
+
+
+def _extract_tempo_presence(horse_obj: dict | None) -> tuple[str, str, bool]:
+    """Return (horse_name, tempo_repr, has_tempo_metrics)."""
+    if not isinstance(horse_obj, dict):
+        return "(none)", "missing", False
+
+    horse_name = str(horse_obj.get("name") or "(unknown)")
+    if "tempoMetrics" not in horse_obj:
+        return horse_name, "missing", False
+
+    tempo_value = horse_obj.get("tempoMetrics")
+    if tempo_value is None:
+        return horse_name, "null", False
+
+    return horse_name, str(tempo_value), True
+
+
 def _to_number_or_none(value):
     try:
         number_value = float(value)
@@ -1057,7 +1093,18 @@ def atg_game(gameId: str = Query(..., description="ATG game ID")):
     try:
         payload = resp.json()
         _attach_tempo_metrics_to_game_payload(payload)
+        horse_after_attach = _find_first_horse_in_payload(payload)
+        attach_name, attach_tempo_repr, attach_has_tempo = _extract_tempo_presence(horse_after_attach)
         debug_stats = _build_kmtid_debug_stats(payload)
+        horse_before_response = _find_first_horse_in_payload(payload)
+        response_name, response_tempo_repr, response_has_tempo = _extract_tempo_presence(horse_before_response)
+        if attach_has_tempo and not response_has_tempo:
+            logger.warning(
+                'RESPONSE TEMPO LOST horse="%s" step="_build_kmtid_debug_stats" afterAttach=%s beforeResponse=%s',
+                attach_name,
+                attach_tempo_repr,
+                response_tempo_repr,
+            )
         # Attach debug stats to response – pure observability, no scoring effect.
         payload["_kmtidDebug"] = debug_stats
         logger.info(
@@ -1082,6 +1129,12 @@ def atg_game(gameId: str = Query(..., description="ATG game ID")):
                 debug_stats["totalHorses"],
                 debug_stats.get("noHitNameSample", []),
             )
+        logger.info(
+            'RESPONSE horse="%s" hasTempoMetrics=%s tempoMetrics=%s',
+            response_name,
+            response_has_tempo,
+            response_tempo_repr,
+        )
         return JSONResponse(content=payload, status_code=resp.status_code)
     except Exception as exc:
         logger.warning("ATG game tempo enrichment failed gameId=%s error=%s", gameId, exc)
