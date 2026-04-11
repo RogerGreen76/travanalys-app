@@ -52,11 +52,6 @@ const getTempoMetrics = (horse) => {
   };
 };
 
-const formatTempoValue = (value, decimals = 0) => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num.toFixed(decimals) : '-';
-};
-
 const computePercentile = (values, percentile) => {
   if (!Array.isArray(values) || values.length === 0) {
     return null;
@@ -139,26 +134,6 @@ const getTempoIndicator = (tempoMetrics, tempoDistributions) => {
     strength: 'none',
     className: 'text-gray-400 border-gray-700/40 bg-gray-800/30'
   };
-};
-
-const getTempoSignalExplanation = (tempoIndicator, tempoMetrics) => {
-  if (tempoIndicator?.label === 'Startsnabb') {
-    return {
-      text: 'baserat pa bestFirst200ms',
-      valueLabel: 'bestFirst200ms',
-      value: tempoMetrics?.bestFirst200ms
-    };
-  }
-
-  if (tempoIndicator?.label === 'Tempostark') {
-    return {
-      text: 'baserat pa averageBest100ms',
-      valueLabel: 'averageBest100ms',
-      value: tempoMetrics?.averageBest100ms
-    };
-  }
-
-  return null;
 };
 
 const TEMPO_INDICATOR_HELP_TEXT =
@@ -688,7 +663,6 @@ const HorseTable = ({ horses }) => {
               {sortedAndFilteredHorses.map((horse) => {
                 const tempoMetrics = getTempoMetrics(horse);
                 const tempoIndicator = getTempoIndicator(tempoMetrics, tempoDistributions);
-                const hasTempoHistory = tempoMetrics.sampleSize > 0;
                 const hasTempoSignal = tempoIndicator.label === 'Startsnabb' || tempoIndicator.label === 'Tempostark';
 
                 return (
@@ -743,7 +717,7 @@ const HorseTable = ({ horses }) => {
                     <div className="mt-1" data-testid={`tempo-indicator-${horse.number}`}>
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}
-                        title={hasTempoHistory ? `n=${tempoMetrics.sampleSize} • avg200: ${formatTempoValue(tempoMetrics.averageFirst200ms)} • best200: ${formatTempoValue(tempoMetrics.bestFirst200ms)} • avg100: ${formatTempoValue(tempoMetrics.averageBest100ms)} • slip: ${formatTempoValue(tempoMetrics.averageSlipstreamDistance)}` : TEMPO_INDICATOR_HELP_TEXT}
+                        title={TEMPO_INDICATOR_HELP_TEXT}
                       >
                         {tempoIndicator.label}
                         {tempoIndicator.strength !== 'none' ? ` (${tempoIndicator.strength})` : ''}
