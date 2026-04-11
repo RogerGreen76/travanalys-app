@@ -48,6 +48,12 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
             "averageSlipstreamDistance": None,
         }
 
+    logger.info(
+        'KMTID metrics raw_rows=%s normalized="%s" sample=%s',
+        len(history), normalized_horse_name,
+        [{"d": r.get("date"), "f200": r.get("first200ms"), "b100": r.get("best100ms")} for r in history[:3]],
+    )
+
     first200_values = [
         sanitize_kmtid_tempo_value(row.get("first200ms"), "first200ms")
         for row in history
@@ -61,6 +67,13 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
         for row in history
     ]
 
+    non_null_f200 = sum(1 for v in first200_values if v is not None)
+    non_null_b100 = sum(1 for v in best100_values if v is not None)
+    logger.info(
+        'KMTID metrics normalized="%s" rows=%s non_null_first200=%s non_null_best100=%s',
+        normalized_horse_name, len(history), non_null_f200, non_null_b100,
+    )
+
     result = {
         "sampleSize": len(history),
         "averageFirst200ms": safe_average(first200_values),
@@ -68,5 +81,5 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
         "averageBest100ms": safe_average(best100_values),
         "averageSlipstreamDistance": safe_average(slipstream_values),
     }
-    logger.info('KM lookup normalized="%s" foundStarts=%s', normalized_horse_name, result["sampleSize"])
+    logger.info('KM lookup normalized="%s" foundStarts=%s result=%s', normalized_horse_name, result["sampleSize"], result)
     return result

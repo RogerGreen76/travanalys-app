@@ -108,11 +108,13 @@ def _build_tempo_metrics_for_horse_name(horse_name: str | None) -> dict:
             return _empty_tempo_metrics()
 
         metrics = get_horse_tempo_metrics(normalized_name)
+        normalized = _normalize_tempo_metrics_object(metrics)
         logger.info(
-            'KM lookup horse="%s" normalized="%s" foundStarts=%s',
+            'KM lookup horse="%s" normalized="%s" foundStarts=%s -> after _normalize_tempo_metrics_object sampleSize=%s full=%s',
             name, normalized_name, metrics.get("sampleSize", 0),
+            normalized.get("sampleSize"), normalized,
         )
-        return _normalize_tempo_metrics_object(metrics)
+        return normalized
     except Exception as exc:
         logger.warning("Tempo metrics lookup failed horse=%s error=%s", name, exc)
         return _empty_tempo_metrics()

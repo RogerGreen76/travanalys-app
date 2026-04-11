@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import math
 import re
 import sqlite3
 import unicodedata
 from pathlib import Path
 from typing import Any, Iterable, Mapping
+
+logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).parent
 DEFAULT_DB_PATH = ROOT_DIR / "data" / "kmtid_history.sqlite3"
@@ -139,15 +142,29 @@ def build_dedupe_key(
 
 
 def row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    raw_first200 = row["first200ms"]
+    raw_best100 = row["best100ms"]
+    san_first200 = sanitize_kmtid_tempo_value(raw_first200, "first200ms")
+    san_best100 = sanitize_kmtid_tempo_value(raw_best100, "best100ms")
+    if san_first200 is None and raw_first200 is not None:
+        logger.debug(
+            'KMTID row_to_dict SANITIZE DROP horse=%s date=%s first200ms raw=%s (out of range, dropped)',
+            row["normalized_horse_name"], row["date"], raw_first200,
+        )
+    if san_best100 is None and raw_best100 is not None:
+        logger.debug(
+            'KMTID row_to_dict SANITIZE DROP horse=%s date=%s best100ms raw=%s (out of range, dropped)',
+            row["normalized_horse_name"], row["date"], raw_best100,
+        )
     return {
         "date": row["date"],
         "raceId": row["race_id"],
         "raceNumber": row["race_number"],
         "horseName": row["horse_name"],
         "normalizedHorseName": row["normalized_horse_name"],
-        "first200ms": sanitize_kmtid_tempo_value(row["first200ms"], "first200ms"),
+        "first200ms": san_first200,
         "last200ms": sanitize_kmtid_tempo_value(row["last200ms"], "last200ms"),
-        "best100ms": sanitize_kmtid_tempo_value(row["best100ms"], "best100ms"),
+        "best100ms": san_best100,
         "actualKMTime": sanitize_kmtid_tempo_value(row["actual_km_time"], "actualKMTime"),
         "slipstreamDistance": sanitize_kmtid_tempo_value(row["slipstream_distance"], "slipstreamDistance"),
         "createdAt": row["created_at"],
@@ -410,16 +427,34 @@ def get_horse_history(
 ) -> list[dict[str, Any]]:
     init_kmtid_history_store(db_path)
     key = normalize_horse_name(normalized_horse_name)
+    resolved_db_path = _resolve_db_path(db_path)
 
-    with _get_connection(db_path) as conn:
-        rows = conn.execute(
-            f"""
+    logger.info(
+        'KMTID get_horse_history input="%s" key="%s" db=%s exists=%s',
+        normalized_horse_name, key, resolved_db_path,
+        resolved_db_path.exists(),
+    )
+
+    sql = f"""
             {_SELECT_FIELDS_SQL}
             WHERE normalized_horse_name = ?
             ORDER BY date DESC, race_number DESC, race_id
-            """,
-            (key,),
-        ).fetchall()
+            """
+
+    with _get_connection(db_path) as conn:
+        total_in_db = conn.execute("SELECT COUNT(*) FROM kmtid_starts").fetchone()[0]
+        rows = conn.execute(sql, (key,)).fetchall()
+
+    logger.info(
+        'KMTID get_horse_history key="%s" table=kmtid_starts db_total_rows=%s matched_rows=%s',
+        key, total_in_db, len(rows),
+    )
+    if rows:
+        sample = rows[0]
+        logger.debug(
+            'KMTID get_horse_history key="%s" first_row_raw: date=%s first200ms=%s best100ms=%s',
+            key, sample["date"], sample["first200ms"], sample["best100ms"],
+        )
 
     return [row_to_dict(row) for row in rows]
 
