@@ -14,7 +14,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from kmtid_history_store import get_all_history, get_horse_history, normalize_horse_name, save_starts
 from kmtid_tempo_metrics import get_horse_tempo_metrics
 
@@ -347,6 +347,47 @@ async def _fetch_kmtid_races_js(date_value: str) -> httpx.Response:
     async with httpx.AsyncClient() as client:
         return await client.get(url)
 
+
+async def _import_kmtid_for_date(requested_date: str) -> dict:
+    result = {
+        "date": requested_date,
+        "fetched": False,
+        "parsedStarts": 0,
+        "inserted": 0,
+        "skipped": 0,
+    }
+
+    try:
+        kmtid_date = _format_date_for_kmtid(requested_date)
+        response = await _fetch_kmtid_races_js(kmtid_date)
+
+        if response.status_code != 200:
+            logger.info(
+                "KMTid import no data date=%s upstream_status=%s",
+                requested_date,
+                response.status_code,
+            )
+            result["error"] = f"no KM-tid data for date (upstream status {response.status_code})"
+            return result
+
+        result["fetched"] = True
+        extracted_rows = _extract_kmtid_start_rows(response.text, requested_date)
+        result["parsedStarts"] = len(extracted_rows)
+
+        if not extracted_rows:
+            logger.info("KMTid import parsed no starts date=%s", requested_date)
+            return result
+
+        save_result = save_starts(extracted_rows)
+        result["inserted"] = int(save_result.get("inserted", 0))
+        result["skipped"] = int(save_result.get("skipped", 0))
+        logger.info("KMTid import result date=%s result=%s", requested_date, result)
+        return result
+    except Exception as exc:
+        logger.warning("KMTid import failed date=%s error=%s", requested_date, exc)
+        result["error"] = str(exc)
+        return result
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -542,44 +583,87 @@ async def import_kmtid_history_for_date(date: str):
             },
         )
 
-    result = {
-        "date": requested_date,
-        "fetched": False,
-        "parsedStarts": 0,
-        "inserted": 0,
-        "skipped": 0,
-    }
-
-    try:
-        kmtid_date = _format_date_for_kmtid(requested_date)
-        response = await _fetch_kmtid_races_js(kmtid_date)
-
-        if response.status_code != 200:
-            logger.info(
-                "KMTid import no data date=%s upstream_status=%s",
-                requested_date,
-                response.status_code,
-            )
-            result["error"] = f"no KM-tid data for date (upstream status {response.status_code})"
-            return result
-
-        result["fetched"] = True
-        extracted_rows = _extract_kmtid_start_rows(response.text, requested_date)
-        result["parsedStarts"] = len(extracted_rows)
-
-        if not extracted_rows:
-            logger.info("KMTid import parsed no starts date=%s", requested_date)
-            return result
-
-        save_result = save_starts(extracted_rows)
-        result["inserted"] = int(save_result.get("inserted", 0))
-        result["skipped"] = int(save_result.get("skipped", 0))
-        logger.info("KMTid import result date=%s result=%s", requested_date, result)
-        return result
-    except Exception as exc:
-        logger.warning("KMTid import failed date=%s error=%s", requested_date, exc)
-        result["error"] = str(exc)
+    result = await _import_kmtid_for_date(requested_date)
+    if result.get("error") and not result.get("fetched"):
         return JSONResponse(status_code=500, content=result)
+
+    return result
+
+
+@app.post("/api/kmtid/import-range")
+async def import_kmtid_history_range(
+    startDate: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    endDate: str = Query(..., description="End date in YYYY-MM-DD format"),
+):
+    start_date_text = str(startDate or "").strip()
+    end_date_text = str(endDate or "").strip()
+
+    if not _is_valid_iso_date(start_date_text) or not _is_valid_iso_date(end_date_text):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid date format",
+                "details": "expected YYYY-MM-DD",
+                "startDate": start_date_text,
+                "endDate": end_date_text,
+            },
+        )
+
+    start_dt = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date_text, "%Y-%m-%d").date()
+    if end_dt < start_dt:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid date range",
+                "details": "endDate must be on or after startDate",
+                "startDate": start_date_text,
+                "endDate": end_date_text,
+            },
+        )
+
+    failed_dates = []
+    total_parsed_starts = 0
+    total_inserted = 0
+    total_skipped = 0
+    days_processed = 0
+    days_succeeded = 0
+    days_failed = 0
+
+    current_dt = start_dt
+    while current_dt <= end_dt:
+        current_date_text = current_dt.isoformat()
+        days_processed += 1
+
+        day_result = await _import_kmtid_for_date(current_date_text)
+        total_parsed_starts += int(day_result.get("parsedStarts", 0) or 0)
+        total_inserted += int(day_result.get("inserted", 0) or 0)
+        total_skipped += int(day_result.get("skipped", 0) or 0)
+
+        if day_result.get("error"):
+            days_failed += 1
+            failed_dates.append(
+                {
+                    "date": current_date_text,
+                    "error": day_result.get("error"),
+                }
+            )
+        else:
+            days_succeeded += 1
+
+        current_dt += timedelta(days=1)
+
+    return {
+        "startDate": start_date_text,
+        "endDate": end_date_text,
+        "daysProcessed": days_processed,
+        "daysSucceeded": days_succeeded,
+        "daysFailed": days_failed,
+        "totalParsedStarts": total_parsed_starts,
+        "totalInserted": total_inserted,
+        "totalSkipped": total_skipped,
+        "failedDates": failed_dates,
+    }
 
 
 # Include the router in the main app
