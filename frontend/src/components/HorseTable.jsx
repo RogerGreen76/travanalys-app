@@ -278,6 +278,28 @@ const HorseTable = ({ horses }) => {
     };
   }, [horses]);
 
+  const tempoLabelSummary = useMemo(() => {
+    const source = Array.isArray(horses) ? horses : [];
+    const summary = {
+      startsnabb: 0,
+      tempostark: 0,
+      ingenTydligSignal: 0
+    };
+
+    source.forEach((horse) => {
+      const label = getTempoIndicator(getTempoMetrics(horse)).label;
+      if (label === 'Startsnabb') {
+        summary.startsnabb += 1;
+      } else if (label === 'Tempostark') {
+        summary.tempostark += 1;
+      } else {
+        summary.ingenTydligSignal += 1;
+      }
+    });
+
+    return summary;
+  }, [horses]);
+
   const getValueClass = (valueRatio) => {
     if (valueRatio > 1.20) return 'value-positive';
     if (valueRatio < 1.05) return 'value-negative';
@@ -371,6 +393,18 @@ const HorseTable = ({ horses }) => {
 
             <div className="px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-400" data-testid="tempo-signal-summary">
               Tempo-signal: {tempoSignalSummary.signalCount} av {tempoSignalSummary.totalCount}
+            </div>
+
+            <div className="flex items-center gap-1.5" data-testid="tempo-label-summary">
+              <span className="px-2 py-1 rounded border border-cyan-700/30 bg-cyan-900/10 text-[11px] text-cyan-300">
+                Startsnabb: {tempoLabelSummary.startsnabb}
+              </span>
+              <span className="px-2 py-1 rounded border border-teal-700/30 bg-teal-900/10 text-[11px] text-teal-300">
+                Tempostark: {tempoLabelSummary.tempostark}
+              </span>
+              <span className="px-2 py-1 rounded border border-gray-700/40 bg-gray-800/40 text-[11px] text-gray-400">
+                Ingen tydlig signal: {tempoLabelSummary.ingenTydligSignal}
+              </span>
             </div>
 
             <Button
