@@ -469,7 +469,7 @@ const HorseTable = ({ horses }) => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Market %', 'Implied %', 'Value Ratio', 'Ranking Score', 'Horse Score', 'Final Score', 'Status', 'Play'];
+    const headers = ['Nummer', 'Namn', 'Odds', 'Streck %', 'Market %', 'Implied %', 'Value Ratio', 'Ranking Score', 'Horse Score', 'Final Score', 'Vinstyrka', 'Status', 'Play'];
     const rows = sortedAndFilteredHorses.map(h => [
       h.number,
       h.name,
@@ -481,6 +481,7 @@ const HorseTable = ({ horses }) => {
       formatNumber(h.rankingScore, 2),
       formatNumber(h.horseScore, 1),
       formatNumber(getEffectiveFinalScore(h), 1),
+      h.winnerStrengthLabel,
       h.valueStatus,
       h.play
     ]);
@@ -651,6 +652,12 @@ const HorseTable = ({ horses }) => {
                     {getSortIcon('finalScore')}
                   </div>
                 </th>
+                <th onClick={() => handleSort('winnerStrengthScore')} className="cursor-pointer w-32 text-center pb-3">
+                  <div className="flex items-center justify-center gap-1">
+                    Vinstyrka
+                    {getSortIcon('winnerStrengthScore')}
+                  </div>
+                </th>
                 <th onClick={() => handleSort('play')} className="cursor-pointer w-32 text-center pb-3">
                   <div className="flex items-center justify-center gap-1">
                     Play
@@ -749,6 +756,17 @@ const HorseTable = ({ horses }) => {
                       'text-gray-500'
                     }`}>
                       {formatNumber(getEffectiveFinalScore(horse), 1)}
+                    </span>
+                  </td>
+                  <td className="text-center w-32 py-4">
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border ${
+                      horse.winnerStrengthLabel === 'Trolig vinnare'
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                        : horse.winnerStrengthLabel === 'Utmanare'
+                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                        : 'bg-gray-800/50 text-gray-500 border-gray-700/30'
+                    }`}>
+                      {horse.winnerStrengthLabel || 'Övrig'}
                     </span>
                   </td>
                   <td className="text-center w-32 py-4">

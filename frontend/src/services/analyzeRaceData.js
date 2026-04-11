@@ -65,6 +65,8 @@ const VALUE_LABEL_MID_ODDS_MAX = 10;
 const VALUE_LABEL_OVERSPELAD_RATIO_FAVORITE = 0.85;
 const VALUE_LABEL_OVERSPELAD_RATIO_MID = 0.90;
 const VALUE_LABEL_OVERSPELAD_RATIO_HIGH = 0.95;
+const WINNER_STRENGTH_TROLIG_VINNARE_MIN = 50;
+const WINNER_STRENGTH_UTMANARE_MIN = 34;
 let hasTracedAutoTempoHorse = false;
 
 const resetPlayTraceAutoSelection = () => {
@@ -164,6 +166,19 @@ const getOverspeladThresholdByOdds = (odds) => {
   return VALUE_LABEL_OVERSPELAD_RATIO_HIGH;
 };
 
+const getWinnerStrengthLabel = (winnerStrengthScore) => {
+  if (!Number.isFinite(winnerStrengthScore)) {
+    return 'Ej tillgängligt';
+  }
+  if (winnerStrengthScore >= WINNER_STRENGTH_TROLIG_VINNARE_MIN) {
+    return 'Trolig vinnare';
+  }
+  if (winnerStrengthScore >= WINNER_STRENGTH_UTMANARE_MIN) {
+    return 'Utmanare';
+  }
+  return 'Övrig';
+};
+
 const getHorseTempoContribution = (horse) => {
   const indicator = horse?.tempoIndicator || horse?.horse?.tempoIndicator || null;
   const tempoSignals = horse?.tempoSignals || horse?.horse?.tempoSignals || null;
@@ -245,7 +260,9 @@ const analyzeHorse = (horse, raceContext, horses) => {
     return {
       ...horse,
       play: 'Ej tillgängligt',
-      valueStatus: 'Ej tillgängligt'
+      valueStatus: 'Ej tillgängligt',
+      winnerStrengthScore: null,
+      winnerStrengthLabel: 'Ej tillgängligt'
     };
   }
 
@@ -632,8 +649,22 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     confidence * 1.0 * marketWeight +
     componentScores.paceScore * 0.6 * modelWeight;
 
+  const rankingScoreWithoutValue =
+    ipContribution +
+    rsContribution +
+    startSpeedContribution +
+    leadPotentialContribution +
+    paceScenarioContribution;
+  const winStrengthWithoutValue =
+    (0.65 * rankingScoreWithoutValue + 0.35 * horseScore) / 2;
+  const winnerStrengthScore =
+    winStrengthWithoutValue * modelWeight +
+    confidence * 1.0 * marketWeight +
+    componentScores.paceScore * 0.6 * modelWeight;
+
   const finalScore = baseFinalScore + tempoContribution;
   const calibratedFinalScore = baseCalibratedFinalScore + tempoContribution;
+  const adjustedWinnerStrengthScore = winnerStrengthScore + tempoContribution;
 
   const valueScoreContribution = adjustedMarketEdge * 0.25 * marketWeight;
   const marketProbabilityFromBetDistribution = streckPercent;
@@ -785,6 +816,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     valueStatus = 'Överspelad';
   }
 
+  const winnerStrengthLabel = getWinnerStrengthLabel(adjustedWinnerStrengthScore);
+
   if (shouldTracePlayForHorse(horse) || shouldTraceAutoTempoHorse({ tempoContribution, calibratedFinalScore })) {
     const tempoSignal = getHorseTempoSignalForDebug(horse);
     const tempoMetrics = getHorseTempoMetricsForDebug(horse);
@@ -889,6 +922,8 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     marketWeight,
     play,
     valueStatus,
+    winnerStrengthScore: adjustedWinnerStrengthScore,
+    winnerStrengthLabel,
     skrallSignal
   };
 };
