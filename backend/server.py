@@ -107,6 +107,9 @@ def _enrich_horse_object_with_tempo_metrics(horse_obj: dict) -> None:
     if not isinstance(horse_obj, dict):
         return
     horse_obj["tempoMetrics"] = _build_tempo_metrics_for_horse_name(horse_obj.get("name"))
+    # tempoIndicator is pure metadata – mirrors frontend getTempoIndicator().
+    # Has no effect on scoring, ranking, or sorting.
+    horse_obj["tempoIndicator"] = _compute_tempo_indicator_label(horse_obj["tempoMetrics"])
 
 
 def _attach_tempo_metrics_to_game_payload(node) -> None:
@@ -130,6 +133,125 @@ def _to_number_or_none(value):
         return number_value
     except (TypeError, ValueError):
         return None
+
+
+def _compute_tempo_indicator_label(tempo_metrics: dict) -> str:
+    """Mirror of frontend getTempoIndicator() – thresholds MUST stay in sync with HorseTable.jsx.
+
+    Thresholds:
+      Startsnabb : bestFirst200ms  <= 11000  (stark <= 10800, medel <= 11000)
+      Tempostark : averageBest100ms <= 7000   (stark <=  6800, medel <=  7000)
+      sampleSize < 3 always yields 'Ingen tydlig signal'
+
+    Pure metadata – no effect on scoring, ranking, or sorting.
+    """
+    if not isinstance(tempo_metrics, dict):
+        return "Ingen tydlig signal"
+    sample_size = int(tempo_metrics.get("sampleSize") or 0)
+    if sample_size < 3:
+        return "Ingen tydlig signal"
+    best_first_200 = _to_number_or_none(tempo_metrics.get("bestFirst200ms"))
+    avg_best_100 = _to_number_or_none(tempo_metrics.get("averageBest100ms"))
+    if best_first_200 is not None and best_first_200 <= 11000:
+        return "Startsnabb"
+    if avg_best_100 is not None and avg_best_100 <= 7000:
+        return "Tempostark"
+    return "Ingen tydlig signal"
+
+
+def _build_kmtid_debug_stats(payload: dict) -> dict:
+    """Walk the enriched game payload and return per-race KM-tid match statistics.
+
+    Only reads already-attached tempoMetrics/tempoIndicator fields.
+    No scoring, ranking, or sorting effect.
+    """
+    races_source = payload.get("races") or []
+    if not isinstance(races_source, list):
+        races_source = []
+
+    per_race: list[dict] = []
+    total_horses = 0
+    total_hit = 0
+    total_sample_gte1 = 0
+    total_sample_gte3 = 0
+    total_startsnabb = 0
+    total_tempostark = 0
+    no_hit_names: list[str] = []  # sample of horse names that got no history hit
+
+    for race in races_source:
+        if not isinstance(race, dict):
+            continue
+        race_number = race.get("number") or race.get("raceNumber") or "?"
+        starts = race.get("starts") or []
+        if not isinstance(starts, list):
+            starts = []
+
+        race_horses = 0
+        race_hit = 0
+        race_sample_gte1 = 0
+        race_sample_gte3 = 0
+        race_startsnabb = 0
+        race_tempostark = 0
+
+        for start in starts:
+            if not isinstance(start, dict):
+                continue
+            horse = start.get("horse")
+            if not isinstance(horse, dict):
+                continue
+            tempo = horse.get("tempoMetrics")
+            if not isinstance(tempo, dict):
+                continue
+
+            race_horses += 1
+            sample_size = int(tempo.get("sampleSize") or 0)
+            if sample_size >= 1:
+                race_hit += 1
+                race_sample_gte1 += 1
+            else:
+                # Collect up to 5 names to help diagnose name-mismatch issues
+                horse_name = horse.get("name") or ""
+                if horse_name and len(no_hit_names) < 5:
+                    no_hit_names.append(horse_name)
+            if sample_size >= 3:
+                race_sample_gte3 += 1
+
+            indicator = horse.get("tempoIndicator", "")
+            if indicator == "Startsnabb":
+                race_startsnabb += 1
+            elif indicator == "Tempostark":
+                race_tempostark += 1
+
+        per_race.append({
+            "raceNumber": race_number,
+            "totalHorses": race_horses,
+            "kmtidHit": race_hit,
+            "sampleGte1": race_sample_gte1,
+            "sampleGte3": race_sample_gte3,
+            "startsnabb": race_startsnabb,
+            "tempostark": race_tempostark,
+        })
+
+        total_horses += race_horses
+        total_hit += race_hit
+        total_sample_gte1 += race_sample_gte1
+        total_sample_gte3 += race_sample_gte3
+        total_startsnabb += race_startsnabb
+        total_tempostark += race_tempostark
+
+    result = {
+        "totalHorses": total_horses,
+        "kmtidHit": total_hit,
+        "sampleGte1": total_sample_gte1,
+        "sampleGte3": total_sample_gte3,
+        "startsnabb": total_startsnabb,
+        "tempostark": total_tempostark,
+        "perRace": per_race,
+    }
+    if no_hit_names:
+        # Include a sample of miss-names to help diagnose normalization issues
+        result["noHitNameSample"] = no_hit_names
+    return result
 
 
 def _normalize_iso_date(input_date: str, fallback_date: str | None = None) -> str | None:
@@ -697,6 +819,31 @@ def atg_game(gameId: str = Query(..., description="ATG game ID")):
     try:
         payload = resp.json()
         _attach_tempo_metrics_to_game_payload(payload)
+        debug_stats = _build_kmtid_debug_stats(payload)
+        # Attach debug stats to response – pure observability, no scoring effect.
+        payload["_kmtidDebug"] = debug_stats
+        logger.info(
+            "ATG game kmtid_debug gameId=%s totalHorses=%d kmtidHit=%d "
+            "sampleGte1=%d sampleGte3=%d startsnabb=%d tempostark=%d noHitSample=%s",
+            gameId,
+            debug_stats["totalHorses"],
+            debug_stats["kmtidHit"],
+            debug_stats["sampleGte1"],
+            debug_stats["sampleGte3"],
+            debug_stats["startsnabb"],
+            debug_stats["tempostark"],
+            debug_stats.get("noHitNameSample", []),
+        )
+        if debug_stats["totalHorses"] > 0 and debug_stats["kmtidHit"] == 0:
+            logger.warning(
+                "ATG game NO kmtid hits gameId=%s – all %d horses missed. "
+                "Likely causes: (1) historical DB empty/thin – run auto-bootstrap; "
+                "(2) name normalisation mismatch between ATG and KM-tid source. "
+                "Sample ATG names without match: %s",
+                gameId,
+                debug_stats["totalHorses"],
+                debug_stats.get("noHitNameSample", []),
+            )
         return JSONResponse(content=payload, status_code=resp.status_code)
     except Exception as exc:
         logger.warning("ATG game tempo enrichment failed gameId=%s error=%s", gameId, exc)
