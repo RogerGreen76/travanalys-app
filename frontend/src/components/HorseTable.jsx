@@ -241,6 +241,11 @@ const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
 const HorseTable = ({ horses }) => {
+  const fullRaceHorses = useMemo(
+    () => (Array.isArray(horses) ? horses : []),
+    [horses]
+  );
+
   const [sortField, setSortField] = useState('finalScore');
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterValue, setFilterValue] = useState('');
@@ -264,8 +269,7 @@ const HorseTable = ({ horses }) => {
   };
 
   const tempoDistributions = useMemo(() => {
-    const source = Array.isArray(horses) ? horses : [];
-    const metricsList = source.map((horse) => getTempoMetrics(horse));
+    const metricsList = fullRaceHorses.map((horse) => getTempoMetrics(horse));
 
     const averageFirst200Values = metricsList
       .map((metrics) => Number(metrics?.averageFirst200ms))
@@ -284,7 +288,7 @@ const HorseTable = ({ horses }) => {
       bestFirst200ms: buildMetricDistributionStats(bestFirst200Values),
       averageBest100ms: buildMetricDistributionStats(averageBest100Values)
     };
-  }, [horses]);
+  }, [fullRaceHorses]);
 
   // Loppklassificering
   const getRaceClassification = () => {
@@ -361,11 +365,11 @@ const HorseTable = ({ horses }) => {
   };
 
   const sortedAndFilteredHorses = useMemo(() => {
-    let filtered = [...horses];
+    let filtered = [...fullRaceHorses];
 
     // Detect whether any horse in this race has real analysis scores.
     // When all finalScores are 0/missing, betting data was not published yet.
-    const hasRealScores = horses.some(h => getEffectiveFinalScore(h) > 0);
+    const hasRealScores = fullRaceHorses.some(h => getEffectiveFinalScore(h) > 0);
 
     // Filtrera baserat på namn
     if (filterValue) {
@@ -440,12 +444,11 @@ const HorseTable = ({ horses }) => {
 });
 
     return filtered;
-  }, [horses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly, tempoSignalTypeFilter, tempoDistributions]);
+  }, [fullRaceHorses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly, tempoSignalTypeFilter, tempoDistributions]);
 
   const tempoSignalSummary = useMemo(() => {
-    const source = Array.isArray(horses) ? horses : [];
-    const totalCount = source.length;
-    const signalCount = source.filter((horse) => {
+    const totalCount = fullRaceHorses.length;
+    const signalCount = fullRaceHorses.filter((horse) => {
       const label = getTempoIndicator(getTempoMetrics(horse), tempoDistributions).label;
       return label === 'Startsnabb' || label === 'Tempostark';
     }).length;
@@ -454,17 +457,16 @@ const HorseTable = ({ horses }) => {
       totalCount,
       signalCount
     };
-  }, [horses, tempoDistributions]);
+  }, [fullRaceHorses, tempoDistributions]);
 
   const tempoLabelSummary = useMemo(() => {
-    const source = Array.isArray(horses) ? horses : [];
     const summary = {
       startsnabb: 0,
       tempostark: 0,
       ingenTydligSignal: 0
     };
 
-    source.forEach((horse) => {
+    fullRaceHorses.forEach((horse) => {
       const label = getTempoIndicator(getTempoMetrics(horse), tempoDistributions).label;
       if (label === 'Startsnabb') {
         summary.startsnabb += 1;
@@ -476,7 +478,7 @@ const HorseTable = ({ horses }) => {
     });
 
     return summary;
-  }, [horses, tempoDistributions]);
+  }, [fullRaceHorses, tempoDistributions]);
 
   const getValueClass = (valueRatio) => {
     if (valueRatio > 1.20) return 'value-positive';
@@ -531,7 +533,7 @@ const HorseTable = ({ horses }) => {
           <div>
             <CardTitle className="text-white">Hästar & Spelvärde</CardTitle>
             <CardDescription className="text-gray-400">
-              {sortedAndFilteredHorses.length} av {horses.length} hästar
+              {sortedAndFilteredHorses.length} av {fullRaceHorses.length} hästar
             </CardDescription>
           </div>
 
