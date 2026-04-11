@@ -759,11 +759,18 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const playAfterTempoContribution = resolvePlayDecision(calibratedFinalScore, valueRatio);
   const play = playAfterTempoContribution;
 
-  // Value status with neutral tolerance band to reduce market-noise overclassification.
+  // Value status with odds-dependent tolerance to avoid over-penalizing favorites.
+  let valueTolerance = 0.95;
+  if (odds <= 5) {
+    valueTolerance = 0.85;
+  } else if (odds <= 10) {
+    valueTolerance = 0.90;
+  }
+
   let valueStatus = 'Neutral';
   if (valueRatio >= 1.15) {
     valueStatus = 'Spelvärd';
-  } else if (valueRatio < 0.90) {
+  } else if (valueRatio < valueTolerance) {
     valueStatus = 'Överspelad';
   }
 
