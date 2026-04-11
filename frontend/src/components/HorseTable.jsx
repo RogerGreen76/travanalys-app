@@ -114,6 +114,7 @@ const HorseTable = ({ horses }) => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [filterValue, setFilterValue] = useState('');
   const [showFilter, setShowFilter] = useState('all'); // all, positive, favorites
+  const [showTempoSignalOnly, setShowTempoSignalOnly] = useState(false);
 
   // Loppklassificering
   const getRaceClassification = () => {
@@ -211,6 +212,13 @@ const HorseTable = ({ horses }) => {
       filtered = filtered.filter(h => h.odds < 10);
     }
 
+    if (showTempoSignalOnly) {
+      filtered = filtered.filter(horse => {
+        const label = getTempoIndicator(getTempoMetrics(horse)).label;
+        return label === 'Startsnabb' || label === 'Tempostark';
+      });
+    }
+
     // Sortera
     // When no real analysis scores exist, always sort by ascending horse number.
     if (!hasRealScores) {
@@ -254,7 +262,7 @@ const HorseTable = ({ horses }) => {
 });
 
     return filtered;
-  }, [horses, sortField, sortDirection, filterValue, showFilter]);
+  }, [horses, sortField, sortDirection, filterValue, showFilter, showTempoSignalOnly]);
 
   const getValueClass = (valueRatio) => {
     if (valueRatio > 1.20) return 'value-positive';
@@ -333,6 +341,19 @@ const HorseTable = ({ horses }) => {
               onChange={(e) => setFilterValue(e.target.value)}
               className="w-[200px] bg-[#0a0e1a] border-gray-700"
             />
+
+            <label
+              className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-300 cursor-pointer"
+              data-testid="tempo-signal-filter"
+            >
+              <input
+                type="checkbox"
+                checked={showTempoSignalOnly}
+                onChange={(e) => setShowTempoSignalOnly(e.target.checked)}
+                className="h-3.5 w-3.5 accent-cyan-500"
+              />
+              Visa bara hästar med temposignal
+            </label>
 
             <Button
               data-testid="export-csv-button"
