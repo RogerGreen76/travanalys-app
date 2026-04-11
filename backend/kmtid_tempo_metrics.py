@@ -3,7 +3,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from kmtid_history_store import find_similar_horse_names, get_horse_history, sanitize_kmtid_tempo_value
+from kmtid_history_store import (
+    find_similar_horse_names,
+    get_horse_history_with_debug,
+    sanitize_kmtid_tempo_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,12 @@ def safe_min(values: list[Any]) -> float | None:
 
 
 def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
-    history = get_horse_history(normalized_horse_name)
+    metrics, _ = get_horse_tempo_metrics_with_debug(normalized_horse_name)
+    return metrics
+
+
+def get_horse_tempo_metrics_with_debug(normalized_horse_name: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    history, history_debug = get_horse_history_with_debug(normalized_horse_name)
     history_count = len(history) if history else 0
     if not history:
         similar = find_similar_horse_names(normalized_horse_name[:8])
@@ -46,6 +55,11 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
             "bestFirst200ms": None,
             "averageBest100ms": None,
             "averageSlipstreamDistance": None,
+        }, {
+            **history_debug,
+            "nonNullFirst200": 0,
+            "nonNullBest100": 0,
+            "historyCount": history_count,
         }
 
     logger.info(
@@ -82,4 +96,9 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
         "averageSlipstreamDistance": safe_average(slipstream_values),
     }
     logger.info('KM lookup normalized="%s" foundStarts=%s result=%s', normalized_horse_name, result["sampleSize"], result)
-    return result
+    return result, {
+        **history_debug,
+        "nonNullFirst200": non_null_f200,
+        "nonNullBest100": non_null_b100,
+        "historyCount": history_count,
+    }

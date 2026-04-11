@@ -421,10 +421,10 @@ def get_starts_for_horse(
     return get_horse_history(normalized_horse_name, db_path)
 
 
-def get_horse_history(
+def get_horse_history_with_debug(
     normalized_horse_name: str,
     db_path: str | Path | None = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     init_kmtid_history_store(db_path)
     key = normalize_horse_name(normalized_horse_name)
     resolved_db_path = _resolve_db_path(db_path)
@@ -456,7 +456,26 @@ def get_horse_history(
             key, sample["date"], sample["first200ms"], sample["best100ms"],
         )
 
-    return [row_to_dict(row) for row in rows]
+    history = [row_to_dict(row) for row in rows]
+    debug = {
+        "normalizedName": key,
+        "dbPath": str(resolved_db_path),
+        "dbExists": bool(resolved_db_path.exists()),
+        "dbTotalRows": int(total_in_db),
+        "matchedRows": len(rows),
+        "table": "kmtid_starts",
+        "sql": " ".join(sql.split()),
+        "params": {"name": key},
+    }
+    return history, debug
+
+
+def get_horse_history(
+    normalized_horse_name: str,
+    db_path: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    history, _ = get_horse_history_with_debug(normalized_horse_name, db_path)
+    return history
 
 
 def find_similar_horse_names(

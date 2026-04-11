@@ -23,7 +23,7 @@ from kmtid_history_store import (
     sanitize_kmtid_tempo_value,
     save_starts,
 )
-from kmtid_tempo_metrics import get_horse_tempo_metrics
+from kmtid_tempo_metrics import get_horse_tempo_metrics, get_horse_tempo_metrics_with_debug
 
 MAX_KMTID_IMPORT_RANGE_DAYS = 31
 
@@ -96,6 +96,27 @@ def _normalize_tempo_metrics_object(metrics: dict | None) -> dict:
     }
 
 
+def _classify_km_fail_reason(
+    db_exists: bool,
+    db_total_rows: int,
+    matched_rows: int,
+    non_null_first200: int,
+    non_null_best100: int,
+    final_sample_size: int,
+) -> str:
+    if not db_exists:
+        return "NO_DB"
+    if db_total_rows == 0:
+        return "EMPTY_DB"
+    if db_total_rows > 0 and matched_rows == 0:
+        return "NAME_MISMATCH"
+    if matched_rows > 0 and non_null_first200 == 0 and non_null_best100 == 0:
+        return "ALL_VALUES_REJECTED"
+    if matched_rows > 0 and (non_null_first200 > 0 or non_null_best100 > 0) and final_sample_size == 0:
+        return "LOST_AFTER_NORMALIZATION"
+    return "LOST_AFTER_NORMALIZATION"
+
+
 def _build_tempo_metrics_for_horse_name(horse_name: str | None) -> dict:
     name = str(horse_name or "").strip()
     if not name:
@@ -107,8 +128,37 @@ def _build_tempo_metrics_for_horse_name(horse_name: str | None) -> dict:
             logger.info('KM lookup horse="%s" normalized=(empty) foundStarts=0', name)
             return _empty_tempo_metrics()
 
-        metrics = get_horse_tempo_metrics(normalized_name)
+        metrics, km_debug = get_horse_tempo_metrics_with_debug(normalized_name)
         normalized = _normalize_tempo_metrics_object(metrics)
+        final_sample_size = int(normalized.get("sampleSize") or 0)
+        if final_sample_size == 0:
+            db_path = str(km_debug.get("dbPath") or "")
+            db_exists = bool(km_debug.get("dbExists"))
+            db_total_rows = int(km_debug.get("dbTotalRows") or 0)
+            matched_rows = int(km_debug.get("matchedRows") or 0)
+            non_null_first200 = int(km_debug.get("nonNullFirst200") or 0)
+            non_null_best100 = int(km_debug.get("nonNullBest100") or 0)
+            category = _classify_km_fail_reason(
+                db_exists=db_exists,
+                db_total_rows=db_total_rows,
+                matched_rows=matched_rows,
+                non_null_first200=non_null_first200,
+                non_null_best100=non_null_best100,
+                final_sample_size=final_sample_size,
+            )
+            logger.info(
+                'KM FAIL horse="%s" normalized="%s" category=%s db=%s exists=%s total=%s matched=%s non_null_first200=%s non_null_best100=%s finalSampleSize=%s',
+                name,
+                normalized_name,
+                category,
+                db_path,
+                db_exists,
+                db_total_rows,
+                matched_rows,
+                non_null_first200,
+                non_null_best100,
+                final_sample_size,
+            )
         logger.info(
             'KM lookup horse="%s" normalized="%s" foundStarts=%s -> after _normalize_tempo_metrics_object sampleSize=%s full=%s',
             name, normalized_name, metrics.get("sampleSize", 0),
