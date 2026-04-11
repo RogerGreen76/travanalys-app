@@ -206,6 +206,13 @@ export const fetchGameData = async (selectedGameType) => {
         ? `/api/atg/dd-game?id=${encodeURIComponent(gameId)}`
         : `/api/atg/game?gameId=${encodeURIComponent(gameId)}`;
 
+      if (!isDD) {
+        console.log('[ATG TRACE] /api/atg/game request', {
+          resolvedGameId: gameId,
+          requestUrl: detailsUrl,
+        });
+      }
+
       const gameRes = await fetch(detailsUrl);
       if (gameRes.ok) {
         const gameData = await gameRes.json();

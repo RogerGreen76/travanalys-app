@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Query, Response
+from fastapi import FastAPI, APIRouter, Query, Request, Response
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -1090,7 +1090,13 @@ def atg_calendar(date: str = Query(..., description="Date in YYYY-MM-DD format")
 
 
 @api_router.get("/atg/game")
-def atg_game(gameId: str = Query(..., description="ATG game ID")):
+def atg_game(request: Request, gameId: str = Query(..., description="ATG game ID")):
+    logger.info(
+        'ATG TRACE /api/atg/game gameId="%s" requestUrl="%s" userAgent="%s"',
+        gameId,
+        str(request.url),
+        request.headers.get("user-agent", ""),
+    )
     url = f"https://horse-betting-info.prod.c1.atg.cloud/api-public/v0/games/{gameId}"
     resp = http_requests.get(url, timeout=15)
     if resp.status_code != 200:
