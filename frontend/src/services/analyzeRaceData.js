@@ -54,6 +54,8 @@ const analyzeHorses = (horses, raceContext) => {
   return results;
 };
 
+const DEFAULT_PLAY_DEBUG_HORSE = 'evangelista face';
+
 const getPlayDebugTargetHorse = () => {
   const fromEnv = String(process.env.REACT_APP_PLAY_DEBUG_HORSE || '').trim();
   if (fromEnv) {
@@ -62,12 +64,12 @@ const getPlayDebugTargetHorse = () => {
 
   try {
     if (typeof window === 'undefined' || !window.localStorage) {
-      return '';
+      return DEFAULT_PLAY_DEBUG_HORSE;
     }
     const fromStorage = String(window.localStorage.getItem('travanalys_play_debug_horse') || '').trim();
-    return fromStorage.toLowerCase();
+    return fromStorage ? fromStorage.toLowerCase() : DEFAULT_PLAY_DEBUG_HORSE;
   } catch {
-    return '';
+    return DEFAULT_PLAY_DEBUG_HORSE;
   }
 };
 
@@ -500,6 +502,10 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     componentScores.paceScore * 0.6 * modelWeight;
 
   const valueScoreContribution = adjustedMarketEdge * 0.25 * marketWeight;
+  const marketProbabilityFromBetDistribution = streckPercent;
+  const impliedProbabilityFromOdds = impliedProbability;
+  const rawValueEdgePctPoints = impliedProbabilityFromOdds - marketProbabilityFromBetDistribution;
+  const normalizedValueScore = normValueRatio;
 
   // Upset detection reuses existing strength, value and trip signals.
   const effectiveStrength = Number.isFinite(calibratedFinalScore) ? calibratedFinalScore : finalScore;
@@ -634,20 +640,39 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     play = "No play";
   }
 
+  // Value status - adjusted thresholds
+  const horseNumber = Number(horse?.number);
+  const sortedByScore = [...(horses || [])].sort((a, b) => {
+    const scoreA = Number.isFinite(a.calibratedFinalScore) ? a.calibratedFinalScore : a.finalScore;
+    const scoreB = Number.isFinite(b.calibratedFinalScore) ? b.calibratedFinalScore : b.finalScore;
+    return scoreB - scoreA;
+  });
+  const horseRank = sortedByScore.findIndex(h => Number(h?.number) === horseNumber) + 1;
+
+  let valueStatus = 'Neutral';
+  if (valueRatio > 1.20 && odds <= 15 && horseRank <= 5) {
+    valueStatus = 'Spelvärd';
+  } else if (valueRatio < 1.05) {
+    valueStatus = 'Överspelad';
+  }
+
   if (shouldTracePlayForHorse(horse)) {
     const tempoSignal = getHorseTempoSignalForDebug(horse);
     const tempoMetrics = getHorseTempoMetricsForDebug(horse);
     const tempoContribution = 0;
 
-    console.log('[PLAY TRACE]', {
+    console.log('[VALUE TRACE]', {
       horse: horse?.name,
       odds,
       betDistribution: horse?.betDistribution ?? null,
       streckPercent,
-      impliedProbability,
+      impliedProbability: impliedProbabilityFromOdds,
+      marketProbabilityFromBetDistribution,
+      rawValueEdgePctPoints,
+      rawValueEdgeDecimal: valueGap,
+      normalizedValueScore,
       valueScore: valueScoreContribution,
       valueRatio,
-      valueGap,
       rankingScore,
       tempoSignal,
       tempoContribution,
@@ -655,6 +680,23 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
       finalScore,
       calibratedFinalScore,
       play,
+      valueStatus,
+      formulas: {
+        impliedProbability: 'impliedProbability = (1 / oddsDecimal) * 100',
+        valueEdgePctPoints: 'rawValueEdgePctPoints = impliedProbability - streckPercent',
+        valueGapDecimal: 'valueGap = (impliedProbability / 100) - (streckPercent / 100)',
+        normalizedValueScore: 'normValueRatio = clamp(valueRatio / 3, 0, 1)',
+        valueLabel: 'Spelvärd if valueRatio > 1.20 and odds <= 15 and horseRank <= 5; Överspelad if valueRatio < 1.05; else Neutral',
+      },
+      scaleCheck: {
+        oddsRaw: horse?.odds,
+        oddsDecimalUsed: odds,
+        betDistributionRaw: horse?.betDistribution,
+        streckPercentUsed: streckPercent,
+        streckFractionUsed: streckPercent / 100,
+        oddsLooksDecimal: Number.isFinite(odds) && odds > 1 && odds < 100,
+        betDistributionLooksPercentScaledBy100: Number.isFinite(horse?.betDistribution) && horse.betDistribution >= 0 && horse.betDistribution <= 10000,
+      },
       thresholds: {
         starkPlay: { minScore: 50, minValueRatio: 1.20 },
         mojligPlay: { minScore: 34, minValueRatio: 1.08 },
@@ -672,22 +714,6 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
         confidence,
       },
     });
-  }
-
-  // Value status - adjusted thresholds
-  const horseNumber = Number(horse?.number);
-  const sortedByScore = [...(horses || [])].sort((a, b) => {
-    const scoreA = Number.isFinite(a.calibratedFinalScore) ? a.calibratedFinalScore : a.finalScore;
-    const scoreB = Number.isFinite(b.calibratedFinalScore) ? b.calibratedFinalScore : b.finalScore;
-    return scoreB - scoreA;
-  });
-  const horseRank = sortedByScore.findIndex(h => Number(h?.number) === horseNumber) + 1;
-
-  let valueStatus = 'Neutral';
-  if (valueRatio > 1.20 && odds <= 15 && horseRank <= 5) {
-    valueStatus = 'Spelvärd';
-  } else if (valueRatio < 1.05) {
-    valueStatus = 'Överspelad';
   }
 
   // Surprise indicator
