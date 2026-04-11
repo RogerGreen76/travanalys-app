@@ -772,10 +772,12 @@ const HorseTable = ({ horses }) => {
                   <td className="text-center w-32 py-4">
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border ${
                       horse.winnerStrengthLabel === 'Trolig vinnare'
-                        ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                        ? 'bg-teal-600/20 text-teal-400 border-teal-500/40'
+                        : horse.winnerStrengthLabel === 'Stark favorit'
+                        ? 'bg-indigo-600/20 text-indigo-400 border-indigo-500/40'
                         : horse.winnerStrengthLabel === 'Utmanare'
-                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                        : 'bg-gray-800/50 text-gray-500 border-gray-700/30'
+                        ? 'bg-slate-600/20 text-slate-300 border-slate-500/40'
+                        : 'bg-gray-700/40 text-gray-400 border-gray-600/30'
                     }`}>
                       {horse.winnerStrengthLabel || 'Övrig'}
                     </span>
@@ -783,12 +785,12 @@ const HorseTable = ({ horses }) => {
                   <td className="text-center w-32 py-4">
                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap border ${
                       displayPlayLabel === 'Stark play' 
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                        ? 'bg-green-600/20 text-green-400 border-green-500/40' 
                         : displayPlayLabel === 'Möjlig play'
-                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                        ? 'bg-blue-600/20 text-blue-400 border-blue-500/40'
                         : displayPlayLabel === 'Låg edge favorit'
-                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                        : 'bg-gray-800/50 text-gray-500 border-gray-700/30'
+                        ? 'bg-amber-600/20 text-amber-400 border-amber-500/40'
+                        : 'bg-gray-700/40 text-gray-400 border-gray-600/30'
                     }`}>
                       {displayPlayLabel}
                     </span>
