@@ -759,19 +759,11 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const playAfterTempoContribution = resolvePlayDecision(calibratedFinalScore, valueRatio);
   const play = playAfterTempoContribution;
 
-  // Value status - adjusted thresholds
-  const horseNumber = Number(horse?.number);
-  const sortedByScore = [...(horses || [])].sort((a, b) => {
-    const scoreA = Number.isFinite(a.calibratedFinalScore) ? a.calibratedFinalScore : a.finalScore;
-    const scoreB = Number.isFinite(b.calibratedFinalScore) ? b.calibratedFinalScore : b.finalScore;
-    return scoreB - scoreA;
-  });
-  const horseRank = sortedByScore.findIndex(h => Number(h?.number) === horseNumber) + 1;
-
+  // Value status with neutral tolerance band to reduce market-noise overclassification.
   let valueStatus = 'Neutral';
-  if (valueRatio > 1.20 && odds <= 15 && horseRank <= 5) {
+  if (valueRatio >= 1.15) {
     valueStatus = 'Spelvärd';
-  } else if (valueRatio < 1.05) {
+  } else if (valueRatio < 0.90) {
     valueStatus = 'Överspelad';
   }
 
