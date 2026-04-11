@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from kmtid_history_store import (
@@ -10,6 +11,12 @@ from kmtid_history_store import (
 )
 
 logger = logging.getLogger(__name__)
+KM_VERBOSE_DEBUG = os.environ.get("KM_VERBOSE_DEBUG", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def _to_float_or_none(value: Any) -> float | None:
@@ -44,11 +51,12 @@ def get_horse_tempo_metrics_with_debug(normalized_horse_name: str) -> tuple[dict
     history_count = len(history) if history else 0
     if not history:
         similar = find_similar_horse_names(normalized_horse_name[:8])
-        logger.info(
-            'KM lookup normalized="%s" foundStarts=0 similarInDB=%s',
-            normalized_horse_name,
-            similar,
-        )
+        if KM_VERBOSE_DEBUG:
+            logger.info(
+                'KM lookup normalized="%s" foundStarts=0 similarInDB=%s',
+                normalized_horse_name,
+                similar,
+            )
         return {
             "sampleSize": 0,
             "averageFirst200ms": None,
@@ -62,11 +70,12 @@ def get_horse_tempo_metrics_with_debug(normalized_horse_name: str) -> tuple[dict
             "historyCount": history_count,
         }
 
-    logger.info(
-        'KMTID metrics raw_rows=%s normalized="%s" sample=%s',
-        len(history), normalized_horse_name,
-        [{"d": r.get("date"), "f200": r.get("first200ms"), "b100": r.get("best100ms")} for r in history[:3]],
-    )
+    if KM_VERBOSE_DEBUG:
+        logger.info(
+            'KMTID metrics raw_rows=%s normalized="%s" sample=%s',
+            len(history), normalized_horse_name,
+            [{"d": r.get("date"), "f200": r.get("first200ms"), "b100": r.get("best100ms")} for r in history[:3]],
+        )
 
     first200_values = [
         sanitize_kmtid_tempo_value(row.get("first200ms"), "first200ms")
@@ -83,10 +92,11 @@ def get_horse_tempo_metrics_with_debug(normalized_horse_name: str) -> tuple[dict
 
     non_null_f200 = sum(1 for v in first200_values if v is not None)
     non_null_b100 = sum(1 for v in best100_values if v is not None)
-    logger.info(
-        'KMTID metrics normalized="%s" rows=%s non_null_first200=%s non_null_best100=%s',
-        normalized_horse_name, len(history), non_null_f200, non_null_b100,
-    )
+    if KM_VERBOSE_DEBUG:
+        logger.info(
+            'KMTID metrics normalized="%s" rows=%s non_null_first200=%s non_null_best100=%s',
+            normalized_horse_name, len(history), non_null_f200, non_null_b100,
+        )
 
     result = {
         "sampleSize": len(history),
@@ -95,7 +105,8 @@ def get_horse_tempo_metrics_with_debug(normalized_horse_name: str) -> tuple[dict
         "averageBest100ms": safe_average(best100_values),
         "averageSlipstreamDistance": safe_average(slipstream_values),
     }
-    logger.info('KM lookup normalized="%s" foundStarts=%s result=%s', normalized_horse_name, result["sampleSize"], result)
+    if KM_VERBOSE_DEBUG:
+        logger.info('KM lookup normalized="%s" foundStarts=%s result=%s', normalized_horse_name, result["sampleSize"], result)
     return result, {
         **history_debug,
         "nonNullFirst200": non_null_f200,

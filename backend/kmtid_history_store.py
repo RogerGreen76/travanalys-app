@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import re
 import sqlite3
 import unicodedata
@@ -9,6 +10,12 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 logger = logging.getLogger(__name__)
+KM_VERBOSE_DEBUG = os.environ.get("KM_VERBOSE_DEBUG", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 ROOT_DIR = Path(__file__).parent
 DEFAULT_DB_PATH = ROOT_DIR / "data" / "kmtid_history.sqlite3"
@@ -146,12 +153,12 @@ def row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     raw_best100 = row["best100ms"]
     san_first200 = sanitize_kmtid_tempo_value(raw_first200, "first200ms")
     san_best100 = sanitize_kmtid_tempo_value(raw_best100, "best100ms")
-    if san_first200 is None and raw_first200 is not None:
+    if KM_VERBOSE_DEBUG and san_first200 is None and raw_first200 is not None:
         logger.debug(
             'KMTID row_to_dict SANITIZE DROP horse=%s date=%s first200ms raw=%s (out of range, dropped)',
             row["normalized_horse_name"], row["date"], raw_first200,
         )
-    if san_best100 is None and raw_best100 is not None:
+    if KM_VERBOSE_DEBUG and san_best100 is None and raw_best100 is not None:
         logger.debug(
             'KMTID row_to_dict SANITIZE DROP horse=%s date=%s best100ms raw=%s (out of range, dropped)',
             row["normalized_horse_name"], row["date"], raw_best100,
@@ -429,11 +436,12 @@ def get_horse_history_with_debug(
     key = normalize_horse_name(normalized_horse_name)
     resolved_db_path = _resolve_db_path(db_path)
 
-    logger.info(
-        'KMTID get_horse_history input="%s" key="%s" db=%s exists=%s',
-        normalized_horse_name, key, resolved_db_path,
-        resolved_db_path.exists(),
-    )
+    if KM_VERBOSE_DEBUG:
+        logger.info(
+            'KMTID get_horse_history input="%s" key="%s" db=%s exists=%s',
+            normalized_horse_name, key, resolved_db_path,
+            resolved_db_path.exists(),
+        )
 
     sql = f"""
             {_SELECT_FIELDS_SQL}
@@ -445,11 +453,12 @@ def get_horse_history_with_debug(
         total_in_db = conn.execute("SELECT COUNT(*) FROM kmtid_starts").fetchone()[0]
         rows = conn.execute(sql, (key,)).fetchall()
 
-    logger.info(
-        'KMTID get_horse_history key="%s" table=kmtid_starts db_total_rows=%s matched_rows=%s',
-        key, total_in_db, len(rows),
-    )
-    if rows:
+    if KM_VERBOSE_DEBUG:
+        logger.info(
+            'KMTID get_horse_history key="%s" table=kmtid_starts db_total_rows=%s matched_rows=%s',
+            key, total_in_db, len(rows),
+        )
+    if KM_VERBOSE_DEBUG and rows:
         sample = rows[0]
         logger.debug(
             'KMTID get_horse_history key="%s" first_row_raw: date=%s first200ms=%s best100ms=%s',

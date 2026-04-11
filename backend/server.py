@@ -39,6 +39,12 @@ AUTO_KMTID_THIN_DAYS_THRESHOLD = max(1, int(os.environ.get("AUTO_KMTID_THIN_DAYS
 AUTO_KMTID_TOPUP_MAX_FUTURE_DAYS = max(1, int(os.environ.get("AUTO_KMTID_TOPUP_MAX_FUTURE_DAYS", "14")))
 # Guard: stop topup if N consecutive 404s detected for future dates
 AUTO_KMTID_CONSECUTIVE_404_LIMIT = max(1, int(os.environ.get("AUTO_KMTID_CONSECUTIVE_404_LIMIT", "3")))
+KM_VERBOSE_DEBUG = os.environ.get("KM_VERBOSE_DEBUG", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 _auto_kmtid_task_running = False
 
@@ -125,7 +131,8 @@ def _build_tempo_metrics_for_horse_name(horse_name: str | None) -> dict:
     try:
         normalized_name = normalize_horse_name(name)
         if not normalized_name:
-            logger.info('KM lookup horse="%s" normalized=(empty) foundStarts=0', name)
+            if KM_VERBOSE_DEBUG:
+                logger.info('KM lookup horse="%s" normalized=(empty) foundStarts=0', name)
             return _empty_tempo_metrics()
 
         metrics, km_debug = get_horse_tempo_metrics_with_debug(normalized_name)
@@ -159,11 +166,12 @@ def _build_tempo_metrics_for_horse_name(horse_name: str | None) -> dict:
                 non_null_best100,
                 final_sample_size,
             )
-        logger.info(
-            'KM lookup horse="%s" normalized="%s" foundStarts=%s -> after _normalize_tempo_metrics_object sampleSize=%s full=%s',
-            name, normalized_name, metrics.get("sampleSize", 0),
-            normalized.get("sampleSize"), normalized,
-        )
+        if KM_VERBOSE_DEBUG:
+            logger.info(
+                'KM lookup horse="%s" normalized="%s" foundStarts=%s -> after _normalize_tempo_metrics_object sampleSize=%s full=%s',
+                name, normalized_name, metrics.get("sampleSize", 0),
+                normalized.get("sampleSize"), normalized,
+            )
         return normalized
     except Exception as exc:
         logger.warning("Tempo metrics lookup failed horse=%s error=%s", name, exc)
