@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from kmtid_history_store import get_horse_history, sanitize_kmtid_tempo_value
+
+logger = logging.getLogger(__name__)
 
 
 def _to_float_or_none(value: Any) -> float | None:
@@ -29,7 +32,10 @@ def safe_min(values: list[Any]) -> float | None:
 
 def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
     history = get_horse_history(normalized_horse_name)
+    history_count = len(history) if history else 0
+    logger.info(f"TEMPO DEBUG normalized={normalized_horse_name} historyStarts={history_count}")
     if not history:
+        logger.info(f"TEMPO DEBUG normalized={normalized_horse_name} sampleSize=0")
         return {
             "sampleSize": 0,
             "averageFirst200ms": None,
@@ -51,10 +57,12 @@ def get_horse_tempo_metrics(normalized_horse_name: str) -> dict[str, Any]:
         for row in history
     ]
 
-    return {
+    result = {
         "sampleSize": len(history),
         "averageFirst200ms": safe_average(first200_values),
         "bestFirst200ms": safe_min(first200_values),
         "averageBest100ms": safe_average(best100_values),
         "averageSlipstreamDistance": safe_average(slipstream_values),
     }
+    logger.info(f"TEMPO DEBUG normalized={normalized_horse_name} sampleSize={result['sampleSize']}")
+    return result

@@ -99,10 +99,13 @@ def _build_tempo_metrics_for_horse_name(horse_name: str | None) -> dict:
 
     try:
         normalized_name = normalize_horse_name(name)
+        logger.info(f"TEMPO DEBUG horse={name} normalized={normalized_name}")
         if not normalized_name:
+            logger.info(f"TEMPO DEBUG horse={name} normalized=(empty)")
             return _empty_tempo_metrics()
 
         metrics = get_horse_tempo_metrics(normalized_name)
+        logger.info(f"TEMPO DEBUG horse={name} normalized={normalized_name} resolved_sampleSize={metrics.get('sampleSize', 0)}")
         return _normalize_tempo_metrics_object(metrics)
     except Exception as exc:
         logger.warning("Tempo metrics lookup failed horse=%s error=%s", name, exc)
