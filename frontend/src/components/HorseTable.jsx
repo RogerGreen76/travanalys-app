@@ -61,15 +61,7 @@ const getTempoIndicator = (tempoMetrics) => {
     };
   }
 
-  if (Number.isFinite(bestFirst200ms) && bestFirst200ms <= 10800) {
-    return {
-      label: 'Startsnabb',
-      strength: 'stark',
-      className: 'text-cyan-300 border-cyan-700/40 bg-cyan-900/20'
-    };
-  }
-
-  if (Number.isFinite(bestFirst200ms) && bestFirst200ms <= 11000) {
+  if (Number.isFinite(bestFirst200ms) && bestFirst200ms < 65000) {
     return {
       label: 'Startsnabb',
       strength: 'medel',
@@ -77,15 +69,7 @@ const getTempoIndicator = (tempoMetrics) => {
     };
   }
 
-  if (Number.isFinite(averageBest100ms) && averageBest100ms <= 6800) {
-    return {
-      label: 'Tempostark',
-      strength: 'stark',
-      className: 'text-teal-300 border-teal-700/40 bg-teal-900/20'
-    };
-  }
-
-  if (Number.isFinite(averageBest100ms) && averageBest100ms <= 7000) {
+  if (Number.isFinite(averageBest100ms) && averageBest100ms < 64000) {
     return {
       label: 'Tempostark',
       strength: 'medel',
