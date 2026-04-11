@@ -59,6 +59,12 @@ const analyzeHorses = (horses, raceContext) => {
 const AUTO_TEMPO_TRACE_TARGET = '__auto_tempo__';
 const DEFAULT_PLAY_DEBUG_HORSE = AUTO_TEMPO_TRACE_TARGET;
 const AUTO_TEMPO_NEAR_THRESHOLD_WINDOW = 4;
+const VALUE_LABEL_SPELVARD_MIN_RATIO = 1.15;
+const VALUE_LABEL_FAVORITE_ODDS_MAX = 5;
+const VALUE_LABEL_MID_ODDS_MAX = 10;
+const VALUE_LABEL_OVERSPELAD_RATIO_FAVORITE = 0.85;
+const VALUE_LABEL_OVERSPELAD_RATIO_MID = 0.90;
+const VALUE_LABEL_OVERSPELAD_RATIO_HIGH = 0.95;
 let hasTracedAutoTempoHorse = false;
 
 const resetPlayTraceAutoSelection = () => {
@@ -146,6 +152,16 @@ const getTempoStrengthWeight = (strength) => {
     return 0.40;
   }
   return 0;
+};
+
+const getOverspeladThresholdByOdds = (odds) => {
+  if (odds <= VALUE_LABEL_FAVORITE_ODDS_MAX) {
+    return VALUE_LABEL_OVERSPELAD_RATIO_FAVORITE;
+  }
+  if (odds <= VALUE_LABEL_MID_ODDS_MAX) {
+    return VALUE_LABEL_OVERSPELAD_RATIO_MID;
+  }
+  return VALUE_LABEL_OVERSPELAD_RATIO_HIGH;
 };
 
 const getHorseTempoContribution = (horse) => {
@@ -760,17 +776,12 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
   const play = playAfterTempoContribution;
 
   // Value status with odds-dependent tolerance to avoid over-penalizing favorites.
-  let valueTolerance = 0.95;
-  if (odds <= 5) {
-    valueTolerance = 0.85;
-  } else if (odds <= 10) {
-    valueTolerance = 0.90;
-  }
+  const overspeladThreshold = getOverspeladThresholdByOdds(odds);
 
   let valueStatus = 'Neutral';
-  if (valueRatio >= 1.15) {
+  if (valueRatio >= VALUE_LABEL_SPELVARD_MIN_RATIO) {
     valueStatus = 'Spelvärd';
-  } else if (valueRatio < valueTolerance) {
+  } else if (valueRatio < overspeladThreshold) {
     valueStatus = 'Överspelad';
   }
 
