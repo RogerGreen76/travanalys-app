@@ -262,23 +262,53 @@ def _first_not_none(*values):
 def _compute_tempo_indicator_label(tempo_metrics: dict) -> str:
     """Mirror of frontend getTempoIndicator() – thresholds MUST stay in sync with HorseTable.jsx.
 
-    Thresholds:
-      Startsnabb : bestFirst200ms  <= 11000  (stark <= 10800, medel <= 11000)
-      Tempostark : averageBest100ms <= 7000   (stark <=  6800, medel <=  7000)
-      sampleSize < 3 always yields 'Ingen tydlig signal'
+    Uses value-based weighting with sample size as confidence multiplier.
+    No hard n-threshold: small samples are downweighted, not discarded.
+
+    confidenceFactor = min(1.0, n * 0.25)  →  n=1: 0.25 | n=2: 0.50 | n=3: 0.75 | n≥4: 1.0
+    finalTempoScore  = rawMetricScore * confidenceFactor
+    MIN_SIGNAL  = 0.15  (minimum finalScore to show any label)
+    STARK_SCORE = 0.60  (minimum finalScore for 'stark' – label only; strength not stored here)
 
     Pure metadata – no effect on scoring, ranking, or sorting.
     """
     if not isinstance(tempo_metrics, dict):
         return "Ingen tydlig signal"
     sample_size = int(tempo_metrics.get("sampleSize") or 0)
-    if sample_size < 3:
+    if sample_size == 0:
         return "Ingen tydlig signal"
+
+    confidence_factor = min(1.0, sample_size * 0.25)
+
     best_first_200 = _to_number_or_none(tempo_metrics.get("bestFirst200ms"))
     avg_best_100 = _to_number_or_none(tempo_metrics.get("averageBest100ms"))
-    if best_first_200 is not None and best_first_200 <= 11000:
+
+    STARTSNABB_THRESHOLD = 70_000
+    STARTSNABB_STRONG = 60_000
+    raw_startsnabb = 0.0
+    if best_first_200 is not None and best_first_200 < STARTSNABB_THRESHOLD:
+        raw_startsnabb = min(
+            1.0,
+            (STARTSNABB_THRESHOLD - best_first_200) / (STARTSNABB_THRESHOLD - STARTSNABB_STRONG),
+        )
+
+    TEMPOSTARK_THRESHOLD = 68_000
+    TEMPOSTARK_STRONG = 58_000
+    raw_tempostark = 0.0
+    if avg_best_100 is not None and avg_best_100 < TEMPOSTARK_THRESHOLD:
+        raw_tempostark = min(
+            1.0,
+            (TEMPOSTARK_THRESHOLD - avg_best_100) / (TEMPOSTARK_THRESHOLD - TEMPOSTARK_STRONG),
+        )
+
+    startsnabb_score = raw_startsnabb * confidence_factor
+    tempostark_score = raw_tempostark * confidence_factor
+
+    MIN_SIGNAL = 0.15
+
+    if startsnabb_score >= tempostark_score and startsnabb_score >= MIN_SIGNAL:
         return "Startsnabb"
-    if avg_best_100 is not None and avg_best_100 <= 7000:
+    if tempostark_score >= MIN_SIGNAL:
         return "Tempostark"
     return "Ingen tydlig signal"
 
@@ -313,12 +343,12 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
     all_best_f200: list[float] = []
     all_avg_b100: list[float] = []
 
-    # Threshold reference values (current code; known to need correction)
-    CURRENT_THRESHOLD_F200 = 11_000
-    CURRENT_THRESHOLD_B100 = 7_000
-    # Candidate realistic thresholds (ms/km) for reference only – NOT applied here
-    CANDIDATE_F200_FAST = 66_000  # ≈ 1:06/km at start → Startsnabb
-    CANDIDATE_B100_FAST = 65_000  # ≈ 1:05/km top speed → Tempostark
+    # Threshold reference values (ms/km) matching the current confidence-weighted logic
+    CURRENT_THRESHOLD_F200 = 70_000
+    CURRENT_THRESHOLD_B100 = 68_000
+    # Candidate stricter thresholds for reference – NOT applied here
+    CANDIDATE_F200_FAST = 60_000
+    CANDIDATE_B100_FAST = 58_000
 
     current_threshold_matches = 0
     candidate_threshold_matches = 0

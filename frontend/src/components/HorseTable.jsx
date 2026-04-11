@@ -66,18 +66,48 @@ const getTempoIndicator = (tempoMetrics) => {
     };
   }
 
-  if (Number.isFinite(bestFirst200ms) && bestFirst200ms < 70000) {
+  // Confidence multiplier based on sample size.
+  // n=1 → 0.25, n=2 → 0.50, n=3 → 0.75, n≥4 → 1.0
+  // Small samples still contribute but are downweighted, not discarded.
+  const confidenceFactor = Math.min(1.0, sampleSize * 0.25);
+
+  // Raw score: how strongly does this metric indicate a fast start? (ms/km pace – lower = faster)
+  // Threshold: 70 000 ms/km  →  Strong floor: 60 000 ms/km (full raw score above that)
+  const STARTSNABB_THRESHOLD = 70000;
+  const STARTSNABB_STRONG    = 60000;
+  const rawStartsnabb =
+    Number.isFinite(bestFirst200ms) && bestFirst200ms < STARTSNABB_THRESHOLD
+      ? Math.min(1.0, (STARTSNABB_THRESHOLD - bestFirst200ms) / (STARTSNABB_THRESHOLD - STARTSNABB_STRONG))
+      : 0;
+
+  // Raw score: how strongly does this metric indicate high top speed?
+  // Threshold: 68 000 ms/km  →  Strong floor: 58 000 ms/km
+  const TEMPOSTARK_THRESHOLD = 68000;
+  const TEMPOSTARK_STRONG    = 58000;
+  const rawTempostark =
+    Number.isFinite(averageBest100ms) && averageBest100ms < TEMPOSTARK_THRESHOLD
+      ? Math.min(1.0, (TEMPOSTARK_THRESHOLD - averageBest100ms) / (TEMPOSTARK_THRESHOLD - TEMPOSTARK_STRONG))
+      : 0;
+
+  // finalTempoScore = rawScore * confidenceFactor
+  const startsnabbScore = rawStartsnabb * confidenceFactor;
+  const tempostarkScore = rawTempostark * confidenceFactor;
+
+  const MIN_SIGNAL  = 0.15; // minimum combined score to show any label
+  const STARK_SCORE = 0.60; // minimum combined score for 'stark' strength
+
+  if (startsnabbScore >= tempostarkScore && startsnabbScore >= MIN_SIGNAL) {
     return {
       label: 'Startsnabb',
-      strength: 'medel',
+      strength: startsnabbScore >= STARK_SCORE ? 'stark' : 'medel',
       className: 'text-cyan-300 border-cyan-700/40 bg-cyan-900/20'
     };
   }
 
-  if (Number.isFinite(averageBest100ms) && averageBest100ms < 68000) {
+  if (tempostarkScore >= MIN_SIGNAL) {
     return {
       label: 'Tempostark',
-      strength: 'medel',
+      strength: tempostarkScore >= STARK_SCORE ? 'stark' : 'medel',
       className: 'text-teal-300 border-teal-700/40 bg-teal-900/20'
     };
   }
