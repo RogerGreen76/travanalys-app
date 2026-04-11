@@ -9,6 +9,7 @@ import requests as http_requests
 import httpx
 import json
 import re
+import asyncio
 from urllib.parse import unquote
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
@@ -19,6 +20,17 @@ from kmtid_history_store import get_all_history, get_horse_history, normalize_ho
 from kmtid_tempo_metrics import get_horse_tempo_metrics
 
 MAX_KMTID_IMPORT_RANGE_DAYS = 31
+
+AUTO_KMTID_BACKFILL_ENABLED = os.environ.get("AUTO_KMTID_BACKFILL_ENABLED", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+AUTO_KMTID_BACKFILL_MONTHS = max(1, int(os.environ.get("AUTO_KMTID_BACKFILL_MONTHS", "12")))
+AUTO_KMTID_THIN_DAYS_THRESHOLD = max(1, int(os.environ.get("AUTO_KMTID_THIN_DAYS_THRESHOLD", "60")))
+
+_auto_kmtid_task_running = False
 
 
 ROOT_DIR = Path(__file__).parent
@@ -540,6 +552,105 @@ async def _import_kmtid_monthly_core(start_date_text: str, end_date_text: str) -
         "monthResults": month_results,
     }
 
+
+def _subtract_months(anchor_date, months_back: int):
+    year = anchor_date.year
+    month = anchor_date.month - months_back
+    while month <= 0:
+        month += 12
+        year -= 1
+    day = min(anchor_date.day, _last_day_of_month(datetime(year, month, 1).date()).day)
+    return datetime(year, month, day).date()
+
+
+def _get_stored_kmtid_dates() -> set:
+    try:
+        history = get_all_history()
+    except Exception as exc:
+        logger.warning("Auto KMTid: failed to load stored history dates: %s", exc)
+        return set()
+
+    dates = set()
+    for row in history if isinstance(history, list) else []:
+        date_text = str((row or {}).get("date") or "").strip()
+        if not date_text:
+            continue
+        try:
+            parsed_date = datetime.strptime(date_text, "%Y-%m-%d").date()
+            dates.add(parsed_date)
+        except ValueError:
+            continue
+
+    return dates
+
+
+async def _run_auto_kmtid_bootstrap() -> None:
+    global _auto_kmtid_task_running
+    if _auto_kmtid_task_running:
+        logger.info("Auto KMTid bootstrap already running - skipping duplicate start")
+        return
+
+    _auto_kmtid_task_running = True
+    try:
+        if not AUTO_KMTID_BACKFILL_ENABLED:
+            logger.info("Auto KMTid bootstrap is disabled by config")
+            return
+
+        today = datetime.now().date()
+        stored_dates = _get_stored_kmtid_dates()
+        unique_days = len(stored_dates)
+
+        logger.info(
+            "Auto KMTid bootstrap starting (stored_days=%s threshold=%s months_back=%s)",
+            unique_days,
+            AUTO_KMTID_THIN_DAYS_THRESHOLD,
+            AUTO_KMTID_BACKFILL_MONTHS,
+        )
+
+        if unique_days < AUTO_KMTID_THIN_DAYS_THRESHOLD:
+            backfill_end = today
+            backfill_start = _subtract_months(backfill_end, AUTO_KMTID_BACKFILL_MONTHS)
+            logger.info(
+                "Auto KMTid bootstrap backfill range=%s..%s",
+                backfill_start.isoformat(),
+                backfill_end.isoformat(),
+            )
+            monthly_result = await _import_kmtid_monthly_core(
+                backfill_start.isoformat(),
+                backfill_end.isoformat(),
+            )
+            logger.info(
+                "Auto KMTid bootstrap monthly summary months=%s days=%s inserted=%s skipped=%s",
+                monthly_result.get("monthsProcessed", 0),
+                monthly_result.get("daysProcessed", 0),
+                monthly_result.get("totalInserted", 0),
+                monthly_result.get("totalSkipped", 0),
+            )
+            stored_dates = _get_stored_kmtid_dates()
+
+        # Always attempt a lightweight top-up for missing recent dates.
+        latest_date = max(stored_dates) if stored_dates else None
+        start_topup = (latest_date + timedelta(days=1)) if latest_date else _subtract_months(today, 1)
+        if start_topup <= today:
+            logger.info(
+                "Auto KMTid bootstrap top-up range=%s..%s",
+                start_topup.isoformat(),
+                today.isoformat(),
+            )
+            topup_result = await _import_kmtid_range_core(start_topup.isoformat(), today.isoformat())
+            logger.info(
+                "Auto KMTid bootstrap top-up summary days=%s inserted=%s skipped=%s",
+                topup_result.get("daysProcessed", 0),
+                topup_result.get("totalInserted", 0),
+                topup_result.get("totalSkipped", 0),
+            )
+        else:
+            logger.info("Auto KMTid bootstrap top-up skipped: no new dates")
+    except Exception as exc:
+        logger.exception("Auto KMTid bootstrap failed: %s", exc)
+    finally:
+        _auto_kmtid_task_running = False
+
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
@@ -843,6 +954,12 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_kmtid_bootstrap():
+    # Run bootstrap in background so API startup is not blocked by long backfill jobs.
+    asyncio.create_task(_run_auto_kmtid_bootstrap())
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
