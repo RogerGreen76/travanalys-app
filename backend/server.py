@@ -262,13 +262,14 @@ def _first_not_none(*values):
 def _compute_tempo_indicator_label(tempo_metrics: dict) -> str:
     """Mirror of frontend getTempoIndicator() – thresholds MUST stay in sync with HorseTable.jsx.
 
-    Uses value-based weighting with sample size as confidence multiplier.
-    No hard n-threshold: small samples are downweighted, not discarded.
+        Value-based classifier:
+            - Startsnabb from 200m performance (avg first, best first secondary)
+            - Tempostark from 100m/speed performance (avg best first, optional best100 secondary)
 
-    confidenceFactor = min(1.0, n * 0.25)  →  n=1: 0.25 | n=2: 0.50 | n=3: 0.75 | n≥4: 1.0
-    finalTempoScore  = rawMetricScore * confidenceFactor
-    MIN_SIGNAL  = 0.15  (minimum finalScore to show any label)
-    STARK_SCORE = 0.60  (minimum finalScore for 'stark' – label only; strength not stored here)
+        Sample size is only a minor confidence modifier:
+            confidenceFactor = 0.85 + 0.15 * min(1.0, n / 4)
+
+        No hard sample-size cutoff beyond n=0 (no metrics).
 
     Pure metadata – no effect on scoring, ranking, or sorting.
     """
@@ -278,33 +279,44 @@ def _compute_tempo_indicator_label(tempo_metrics: dict) -> str:
     if sample_size == 0:
         return "Ingen tydlig signal"
 
-    confidence_factor = min(1.0, sample_size * 0.25)
+    confidence_factor = 0.85 + 0.15 * min(1.0, sample_size / 4.0)
 
+    avg_first_200 = _to_number_or_none(tempo_metrics.get("averageFirst200ms"))
     best_first_200 = _to_number_or_none(tempo_metrics.get("bestFirst200ms"))
     avg_best_100 = _to_number_or_none(tempo_metrics.get("averageBest100ms"))
+    best_100 = _first_not_none(
+        _to_number_or_none(tempo_metrics.get("best100ms")),
+        _to_number_or_none(tempo_metrics.get("bestBest100ms")),
+    )
 
-    STARTSNABB_THRESHOLD = 70_000
-    STARTSNABB_STRONG = 60_000
-    raw_startsnabb = 0.0
-    if best_first_200 is not None and best_first_200 < STARTSNABB_THRESHOLD:
-        raw_startsnabb = min(
-            1.0,
-            (STARTSNABB_THRESHOLD - best_first_200) / (STARTSNABB_THRESHOLD - STARTSNABB_STRONG),
-        )
+    START_200_THRESHOLD = 70_000
+    START_200_STRONG = 60_000
 
-    TEMPOSTARK_THRESHOLD = 68_000
-    TEMPOSTARK_STRONG = 58_000
-    raw_tempostark = 0.0
-    if avg_best_100 is not None and avg_best_100 < TEMPOSTARK_THRESHOLD:
-        raw_tempostark = min(
-            1.0,
-            (TEMPOSTARK_THRESHOLD - avg_best_100) / (TEMPOSTARK_THRESHOLD - TEMPOSTARK_STRONG),
-        )
+    def _score_from_200(value: float | None) -> float:
+        if value is None or value >= START_200_THRESHOLD:
+            return 0.0
+        return min(1.0, (START_200_THRESHOLD - value) / (START_200_THRESHOLD - START_200_STRONG))
+
+    avg200_score = _score_from_200(avg_first_200)
+    best200_score = _score_from_200(best_first_200)
+    raw_startsnabb = (avg200_score * 0.7) + (best200_score * 0.3)
+
+    SPEED_100_THRESHOLD = 68_000
+    SPEED_100_STRONG = 58_000
+
+    def _score_from_100(value: float | None) -> float:
+        if value is None or value >= SPEED_100_THRESHOLD:
+            return 0.0
+        return min(1.0, (SPEED_100_THRESHOLD - value) / (SPEED_100_THRESHOLD - SPEED_100_STRONG))
+
+    avg100_score = _score_from_100(avg_best_100)
+    best100_score = _score_from_100(best_100)
+    raw_tempostark = (avg100_score * 0.8) + (best100_score * 0.2)
 
     startsnabb_score = raw_startsnabb * confidence_factor
     tempostark_score = raw_tempostark * confidence_factor
 
-    MIN_SIGNAL = 0.15
+    MIN_SIGNAL = 0.20
 
     if startsnabb_score >= tempostark_score and startsnabb_score >= MIN_SIGNAL:
         return "Startsnabb"

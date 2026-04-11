@@ -17,6 +17,7 @@ const EMPTY_TEMPO_METRICS = {
   averageFirst200ms: null,
   bestFirst200ms: null,
   averageBest100ms: null,
+  best100ms: null,
   averageSlipstreamDistance: null
 };
 
@@ -42,6 +43,9 @@ const getTempoMetrics = (horse) => {
     averageBest100ms: Number.isFinite(Number(metrics.averageBest100ms))
       ? Number(metrics.averageBest100ms)
       : null,
+    best100ms: Number.isFinite(Number(metrics.best100ms))
+      ? Number(metrics.best100ms)
+      : null,
     averageSlipstreamDistance: Number.isFinite(Number(metrics.averageSlipstreamDistance))
       ? Number(metrics.averageSlipstreamDistance)
       : null
@@ -55,8 +59,10 @@ const formatTempoValue = (value, decimals = 0) => {
 
 const getTempoIndicator = (tempoMetrics) => {
   const sampleSize = Number(tempoMetrics?.sampleSize);
+  const averageFirst200ms = Number(tempoMetrics?.averageFirst200ms);
   const bestFirst200ms = Number(tempoMetrics?.bestFirst200ms);
   const averageBest100ms = Number(tempoMetrics?.averageBest100ms);
+  const best100ms = Number(tempoMetrics?.best100ms);
 
   if (!Number.isFinite(sampleSize) || sampleSize === 0) {
     return {
@@ -66,34 +72,36 @@ const getTempoIndicator = (tempoMetrics) => {
     };
   }
 
-  // Confidence multiplier based on sample size.
-  // n=1 → 0.25, n=2 → 0.50, n=3 → 0.75, n≥4 → 1.0
-  // Small samples still contribute but are downweighted, not discarded.
-  const confidenceFactor = Math.min(1.0, sampleSize * 0.25);
+  // Sample size is a minor confidence adjustment, not the main rule.
+  const confidenceFactor = 0.85 + 0.15 * Math.min(1.0, sampleSize / 4);
 
-  // Raw score: how strongly does this metric indicate a fast start? (ms/km pace – lower = faster)
-  // Threshold: 70 000 ms/km  →  Strong floor: 60 000 ms/km (full raw score above that)
-  const STARTSNABB_THRESHOLD = 70000;
-  const STARTSNABB_STRONG    = 60000;
-  const rawStartsnabb =
-    Number.isFinite(bestFirst200ms) && bestFirst200ms < STARTSNABB_THRESHOLD
-      ? Math.min(1.0, (STARTSNABB_THRESHOLD - bestFirst200ms) / (STARTSNABB_THRESHOLD - STARTSNABB_STRONG))
-      : 0;
+  // 200m performance drives Startsnabb, primarily from averageFirst200ms and secondarily bestFirst200ms.
+  const START_200_THRESHOLD = 70000;
+  const START_200_STRONG = 60000;
+  const scoreFromFirst200 = (value) => {
+    if (!Number.isFinite(value) || value >= START_200_THRESHOLD) return 0;
+    return Math.min(1.0, (START_200_THRESHOLD - value) / (START_200_THRESHOLD - START_200_STRONG));
+  };
+  const avg200Score = scoreFromFirst200(averageFirst200ms);
+  const best200Score = scoreFromFirst200(bestFirst200ms);
+  const rawStartsnabb = avg200Score * 0.7 + best200Score * 0.3;
 
-  // Raw score: how strongly does this metric indicate high top speed?
-  // Threshold: 68 000 ms/km  →  Strong floor: 58 000 ms/km
-  const TEMPOSTARK_THRESHOLD = 68000;
-  const TEMPOSTARK_STRONG    = 58000;
-  const rawTempostark =
-    Number.isFinite(averageBest100ms) && averageBest100ms < TEMPOSTARK_THRESHOLD
-      ? Math.min(1.0, (TEMPOSTARK_THRESHOLD - averageBest100ms) / (TEMPOSTARK_THRESHOLD - TEMPOSTARK_STRONG))
-      : 0;
+  // 100m/speed performance drives Tempostark, primarily from averageBest100ms and optionally best100ms.
+  const SPEED_100_THRESHOLD = 68000;
+  const SPEED_100_STRONG = 58000;
+  const scoreFromBest100 = (value) => {
+    if (!Number.isFinite(value) || value >= SPEED_100_THRESHOLD) return 0;
+    return Math.min(1.0, (SPEED_100_THRESHOLD - value) / (SPEED_100_THRESHOLD - SPEED_100_STRONG));
+  };
+  const avg100Score = scoreFromBest100(averageBest100ms);
+  const best100Score = scoreFromBest100(best100ms);
+  const rawTempostark = avg100Score * 0.8 + best100Score * 0.2;
 
   // finalTempoScore = rawScore * confidenceFactor
   const startsnabbScore = rawStartsnabb * confidenceFactor;
   const tempostarkScore = rawTempostark * confidenceFactor;
 
-  const MIN_SIGNAL  = 0.15; // minimum combined score to show any label
+  const MIN_SIGNAL  = 0.20; // minimum combined score to show any label
   const STARK_SCORE = 0.60; // minimum combined score for 'stark' strength
 
   if (startsnabbScore >= tempostarkScore && startsnabbScore >= MIN_SIGNAL) {
@@ -146,7 +154,6 @@ const TEMPO_INDICATOR_HELP_TEXT =
   'Styrka stark: tydligare historisk signal. Styrka medel: viss historisk signal.';
 
 const SHOW_TEMPO_ONLY_KEY = 'travanalys_showTempoOnly';
-const SHOW_TEMPO_DETAILS_KEY = 'travanalys_showTempoDetails';
 const TEMPO_SIGNAL_TYPE_FILTER_KEY = 'travanalys_tempoSignalTypeFilter';
 
 const readStoredBoolean = (key, fallbackValue) => {
@@ -227,9 +234,6 @@ const HorseTable = ({ horses }) => {
   const [showTempoSignalOnly, setShowTempoSignalOnly] = useState(() =>
     readStoredBoolean(SHOW_TEMPO_ONLY_KEY, false)
   );
-  const [showTempoDetails, setShowTempoDetails] = useState(() =>
-    readStoredBoolean(SHOW_TEMPO_DETAILS_KEY, true)
-  );
   const [tempoSignalTypeFilter, setTempoSignalTypeFilter] = useState(() =>
     readStoredTempoSignalTypeFilter()
   );
@@ -237,11 +241,6 @@ const HorseTable = ({ horses }) => {
   const handleTempoSignalOnlyChange = (checked) => {
     setShowTempoSignalOnly(checked);
     writeStoredBoolean(SHOW_TEMPO_ONLY_KEY, checked);
-  };
-
-  const handleTempoDetailsChange = (checked) => {
-    setShowTempoDetails(checked);
-    writeStoredBoolean(SHOW_TEMPO_DETAILS_KEY, checked);
   };
 
   const handleTempoSignalTypeFilterChange = (value) => {
@@ -584,10 +583,11 @@ const HorseTable = ({ horses }) => {
               data-testid="export-csv-button"
               onClick={exportToCSV}
               variant="outline"
-              className="border-gray-700 hover:bg-gray-800"
+              size="icon"
+              className="border-gray-700 hover:bg-gray-800 h-8 w-8 shrink-0"
+              title="Exportera CSV"
             >
-              <Download className="w-4 h-4 mr-2" />
-              CSV
+              <Download className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -664,7 +664,6 @@ const HorseTable = ({ horses }) => {
                 const tempoIndicator = getTempoIndicator(tempoMetrics);
                 const hasTempoHistory = tempoMetrics.sampleSize > 0;
                 const hasTempoSignal = tempoIndicator.label === 'Startsnabb' || tempoIndicator.label === 'Tempostark';
-                const tempoSignalExplanation = getTempoSignalExplanation(tempoIndicator, tempoMetrics);
 
                 return (
                 <tr
@@ -693,9 +692,6 @@ const HorseTable = ({ horses }) => {
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-gray-600 font-mono mt-0.5" data-testid={`tempo-debug-${horse.number}`}>
-                      DBG tempo direct={horse.tempoMetrics?.sampleSize ?? 0} nested={horse.horse?.tempoMetrics?.sampleSize ?? 0} resolved={tempoMetrics.sampleSize}
-                    </div>
                     {(horse.driver || horse.trainer) && (
                       <div className="text-xs text-gray-500 mt-1 tracking-wide">
                         {horse.driver && <span>{horse.driver}</span>}
@@ -718,29 +714,15 @@ const HorseTable = ({ horses }) => {
                         </span>
                       </div>
                     )}
-                    <div className="mt-1 text-[11px] text-gray-500 leading-snug" data-testid={`tempo-metrics-${horse.number}`}>
-                      {hasTempoHistory ? (
-                        <span>
-                          Tempo: n={tempoMetrics.sampleSize} • avg200 {formatTempoValue(tempoMetrics.averageFirst200ms)} • best200 {formatTempoValue(tempoMetrics.bestFirst200ms)} • avg100 {formatTempoValue(tempoMetrics.averageBest100ms)} • slip {formatTempoValue(tempoMetrics.averageSlipstreamDistance)}
-                        </span>
-                      ) : (
-                        <span>Tempo: ingen historik</span>
-                      )}
-                    </div>
                     <div className="mt-1" data-testid={`tempo-indicator-${horse.number}`}>
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}
-                        title={TEMPO_INDICATOR_HELP_TEXT}
+                        title={hasTempoHistory ? `n=${tempoMetrics.sampleSize} • avg200: ${formatTempoValue(tempoMetrics.averageFirst200ms)} • best200: ${formatTempoValue(tempoMetrics.bestFirst200ms)} • avg100: ${formatTempoValue(tempoMetrics.averageBest100ms)} • slip: ${formatTempoValue(tempoMetrics.averageSlipstreamDistance)}` : TEMPO_INDICATOR_HELP_TEXT}
                       >
-                        Tempoindikator: {tempoIndicator.label}
+                        {tempoIndicator.label}
                         {tempoIndicator.strength !== 'none' ? ` (${tempoIndicator.strength})` : ''}
                       </span>
                     </div>
-                    {showTempoDetails && tempoSignalExplanation && (
-                      <div className="mt-1 text-[10px] text-gray-500" data-testid={`tempo-explanation-${horse.number}`}>
-                        {tempoSignalExplanation.text} • {tempoSignalExplanation.valueLabel}: {formatTempoValue(tempoSignalExplanation.value)}
-                      </div>
-                    )}
                   </td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.odds, 2)}</td>
                   <td className="text-center text-gray-200 font-mono w-20 py-4 tabular-nums">{formatNumber(horse.streckPercent, 1)}%</td>
