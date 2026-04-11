@@ -694,7 +694,7 @@ const HorseTable = ({ horses }) => {
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${tempoIndicator.className}`}
                         title={TEMPO_INDICATOR_HELP_TEXT}
                       >
-                        Tempoindikator: TEST123
+                        Tempoindikator: {JSON.stringify(tempoIndicator)}
                         {tempoIndicator.strength !== 'none' ? ` (${tempoIndicator.strength})` : ''}
                       </span>
                     </div>
