@@ -179,6 +179,15 @@ const getWinnerStrengthLabel = (winnerStrengthScore) => {
   return 'Övrig';
 };
 
+const shouldTraceWinnerStrength = (horse) => {
+  const target = getPlayDebugTargetHorse();
+  if (!target || target === AUTO_TEMPO_TRACE_TARGET) {
+    return false;
+  }
+  const horseName = String(horse?.name || '').trim().toLowerCase();
+  return horseName === target;
+};
+
 const getHorseTempoContribution = (horse) => {
   const indicator = horse?.tempoIndicator || horse?.horse?.tempoIndicator || null;
   const tempoSignals = horse?.tempoSignals || horse?.horse?.tempoSignals || null;
@@ -818,6 +827,23 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
 
   const winnerStrengthLabel = getWinnerStrengthLabel(adjustedWinnerStrengthScore);
 
+  if (shouldTraceWinnerStrength(horse)) {
+    console.log('[WINNER STRENGTH TRACE]', {
+      horse: horse?.name,
+      winnerStrengthScore: adjustedWinnerStrengthScore,
+      winnerStrengthLabel,
+      calibratedFinalScore,
+      valueStatus,
+      valueRatio,
+      play,
+      thresholds: {
+        troligVinnareMin: WINNER_STRENGTH_TROLIG_VINNARE_MIN,
+        utmanareMin: WINNER_STRENGTH_UTMANARE_MIN,
+      },
+      memo: 'Use REACT_APP_PLAY_DEBUG_HORSE or localStorage travanalys_play_debug_horse to set target horse name',
+    });
+  }
+
   if (shouldTracePlayForHorse(horse) || shouldTraceAutoTempoHorse({ tempoContribution, calibratedFinalScore })) {
     const tempoSignal = getHorseTempoSignalForDebug(horse);
     const tempoMetrics = getHorseTempoMetricsForDebug(horse);
@@ -868,6 +894,14 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
         tempostarkContribution,
         cappedTotal: tempoContribution,
         tempoMetrics,
+      },
+      winnerStrength: {
+        score: adjustedWinnerStrengthScore,
+        label: winnerStrengthLabel,
+        thresholds: {
+          troligVinnareMin: WINNER_STRENGTH_TROLIG_VINNARE_MIN,
+          utmanareMin: WINNER_STRENGTH_UTMANARE_MIN,
+        },
       },
       playDecision: {
         beforeTempoContribution: playBeforeTempoContribution,
