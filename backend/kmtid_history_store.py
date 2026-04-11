@@ -81,12 +81,16 @@ def sanitize_kmtid_tempo_value(value: Any, field_name: str) -> float | None:
     if abs(number) >= 1_000_000_000_000:
         return None
 
+    # All timing values are expressed as ms/km (milliseconds per kilometre pace).
+    # A good trotting horse runs ~1:04-1:08/km = 64 000-68 000 ms/km.
+    # Slow horses or heavy conditions can reach ~1:40/km = 100 000 ms/km.
+    # These ranges intentionally exclude impossible sentinel values and physics violations.
     ranges = {
-        "first200ms": (1_000, 60_000),
-        "last200ms": (1_000, 60_000),
-        "best100ms": (500, 30_000),
-        "slipstreamDistance": (0, 2_000),
-        "actualKMTime": (30, 500),
+        "first200ms": (58_000, 105_000),   # pace during first 200 m in ms/km
+        "last200ms":  (58_000, 110_000),   # pace during last 200 m in ms/km
+        "best100ms":  (55_000, 100_000),   # fastest 100 m segment pace in ms/km
+        "slipstreamDistance": (0, 3_000),  # distance behind leader in metres
+        "actualKMTime": (50_000, 130_000), # overall race pace in ms/km (if numeric)
     }
     lower_upper = ranges.get(field_name)
     if lower_upper is None:

@@ -175,6 +175,13 @@ def _compute_tempo_indicator_label(tempo_metrics: dict) -> str:
 def _build_kmtid_debug_stats(payload: dict) -> dict:
     """Walk the enriched game payload and return per-race KM-tid match statistics.
 
+    Includes value distributions for bestFirst200ms and averageBest100ms so that
+    threshold calibration can be done based on real data.
+
+    All values are ms/km pace (milliseconds per kilometre).  Good trotters: ~64 000-68 000.
+    Current thresholds: bestFirst200ms<=11000, averageBest100ms<=7000 (WRONG UNITS – for
+    reference only until corrected).
+
     Only reads already-attached tempoMetrics/tempoIndicator fields.
     No scoring, ranking, or sorting effect.
     """
@@ -189,7 +196,21 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
     total_sample_gte3 = 0
     total_startsnabb = 0
     total_tempostark = 0
-    no_hit_names: list[str] = []  # sample of horse names that got no history hit
+    no_hit_names: list[str] = []
+
+    # Across-game value lists for distribution analysis
+    all_best_f200: list[float] = []
+    all_avg_b100: list[float] = []
+
+    # Threshold reference values (current code; known to need correction)
+    CURRENT_THRESHOLD_F200 = 11_000
+    CURRENT_THRESHOLD_B100 = 7_000
+    # Candidate realistic thresholds (ms/km) for reference only – NOT applied here
+    CANDIDATE_F200_FAST = 66_000  # ≈ 1:06/km at start → Startsnabb
+    CANDIDATE_B100_FAST = 65_000  # ≈ 1:05/km top speed → Tempostark
+
+    current_threshold_matches = 0
+    candidate_threshold_matches = 0
 
     for race in races_source:
         if not isinstance(race, dict):
@@ -205,6 +226,8 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
         race_sample_gte3 = 0
         race_startsnabb = 0
         race_tempostark = 0
+        race_f200_values: list[float] = []
+        race_b100_values: list[float] = []
 
         for start in starts:
             if not isinstance(start, dict):
@@ -222,7 +245,6 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
                 race_hit += 1
                 race_sample_gte1 += 1
             else:
-                # Collect up to 5 names to help diagnose name-mismatch issues
                 horse_name = horse.get("name") or ""
                 if horse_name and len(no_hit_names) < 5:
                     no_hit_names.append(horse_name)
@@ -235,7 +257,25 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
             elif indicator == "Tempostark":
                 race_tempostark += 1
 
-        per_race.append({
+            # Collect value distributions for calibration
+            bf200 = _to_number_or_none(tempo.get("bestFirst200ms"))
+            ab100 = _to_number_or_none(tempo.get("averageBest100ms"))
+            if bf200 is not None:
+                race_f200_values.append(bf200)
+                all_best_f200.append(bf200)
+                if bf200 <= CURRENT_THRESHOLD_F200:
+                    current_threshold_matches += 1
+                if bf200 <= CANDIDATE_F200_FAST:
+                    candidate_threshold_matches += 1
+            if ab100 is not None:
+                race_b100_values.append(ab100)
+                all_avg_b100.append(ab100)
+                if ab100 <= CURRENT_THRESHOLD_B100:
+                    current_threshold_matches += 1
+                if ab100 <= CANDIDATE_B100_FAST:
+                    candidate_threshold_matches += 1
+
+        race_entry: dict = {
             "raceNumber": race_number,
             "totalHorses": race_horses,
             "kmtidHit": race_hit,
@@ -243,7 +283,26 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
             "sampleGte3": race_sample_gte3,
             "startsnabb": race_startsnabb,
             "tempostark": race_tempostark,
-        })
+        }
+
+        if race_f200_values:
+            race_entry["bestFirst200ms_stats"] = {
+                "count": len(race_f200_values),
+                "min": min(race_f200_values),
+                "max": max(race_f200_values),
+                "avg": sum(race_f200_values) / len(race_f200_values),
+                "sample": sorted(race_f200_values)[:5],
+            }
+        if race_b100_values:
+            race_entry["averageBest100ms_stats"] = {
+                "count": len(race_b100_values),
+                "min": min(race_b100_values),
+                "max": max(race_b100_values),
+                "avg": sum(race_b100_values) / len(race_b100_values),
+                "sample": sorted(race_b100_values)[:5],
+            }
+
+        per_race.append(race_entry)
 
         total_horses += race_horses
         total_hit += race_hit
@@ -252,7 +311,7 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
         total_startsnabb += race_startsnabb
         total_tempostark += race_tempostark
 
-    result = {
+    result: dict = {
         "totalHorses": total_horses,
         "kmtidHit": total_hit,
         "sampleGte1": total_sample_gte1,
@@ -261,8 +320,42 @@ def _build_kmtid_debug_stats(payload: dict) -> dict:
         "tempostark": total_tempostark,
         "perRace": per_race,
     }
+
+    # Cross-game distributions – key diagnostic for threshold calibration
+    if all_best_f200:
+        result["gameWide_bestFirst200ms"] = {
+            "unit": "ms/km (milliseconds per kilometre pace)",
+            "count": len(all_best_f200),
+            "min": min(all_best_f200),
+            "max": max(all_best_f200),
+            "avg": sum(all_best_f200) / len(all_best_f200),
+            "sample_sorted_asc": sorted(all_best_f200)[:8],
+            "currentThreshold": CURRENT_THRESHOLD_F200,
+            "matchesCurrentThreshold": sum(1 for v in all_best_f200 if v <= CURRENT_THRESHOLD_F200),
+            "candidateThreshold_1:06/km": CANDIDATE_F200_FAST,
+            "matchesCandidateThreshold": sum(1 for v in all_best_f200 if v <= CANDIDATE_F200_FAST),
+        }
+    if all_avg_b100:
+        result["gameWide_averageBest100ms"] = {
+            "unit": "ms/km (milliseconds per kilometre pace)",
+            "count": len(all_avg_b100),
+            "min": min(all_avg_b100),
+            "max": max(all_avg_b100),
+            "avg": sum(all_avg_b100) / len(all_avg_b100),
+            "sample_sorted_asc": sorted(all_avg_b100)[:8],
+            "currentThreshold": CURRENT_THRESHOLD_B100,
+            "matchesCurrentThreshold": sum(1 for v in all_avg_b100 if v <= CURRENT_THRESHOLD_B100),
+            "candidateThreshold_1:05/km": CANDIDATE_B100_FAST,
+            "matchesCandidateThreshold": sum(1 for v in all_avg_b100 if v <= CANDIDATE_B100_FAST),
+        }
+    if not all_best_f200 and not all_avg_b100:
+        result["DIAGNOSIS"] = (
+            "No tempo values found on any horse. "
+            "Likely causes: (1) DB empty/wrong units – check sanitize range fix; "
+            "(2) sampleSize=0 for all horses; (3) name normalisation mismatch."
+        )
+
     if no_hit_names:
-        # Include a sample of miss-names to help diagnose normalization issues
         result["noHitNameSample"] = no_hit_names
     return result
 
