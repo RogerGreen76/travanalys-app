@@ -1225,6 +1225,64 @@ async def import_kmtid_history_range(
     return await _import_kmtid_range_core(start_date_text, end_date_text)
 
 
+@app.post("/api/kmtid/backfill")
+async def kmtid_manual_backfill(
+    startDate: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    endDate: str = Query(..., description="End date in YYYY-MM-DD format"),
+):
+    """
+    Manual backfill endpoint for importing historical KM-tid data.
+    No maximum date range limit, automatically splits into months for stability.
+    Only stores days with actual data (parsedStarts > 0).
+    
+    Example: /api/kmtid/backfill?startDate=2025-01-01&endDate=2025-12-31
+    """
+    start_date_text = str(startDate or "").strip()
+    end_date_text = str(endDate or "").strip()
+
+    if not _is_valid_iso_date(start_date_text) or not _is_valid_iso_date(end_date_text):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid date format",
+                "details": "expected YYYY-MM-DD",
+                "startDate": start_date_text,
+                "endDate": end_date_text,
+            },
+        )
+
+    start_dt = datetime.strptime(start_date_text, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date_text, "%Y-%m-%d").date()
+    if end_dt < start_dt:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "invalid date range",
+                "details": "endDate must be on or after startDate",
+                "startDate": start_date_text,
+                "endDate": end_date_text,
+            },
+        )
+
+    logger.info(
+        "KMTid manual backfill starting startDate=%s endDate=%s",
+        start_date_text,
+        end_date_text,
+    )
+
+    result = await _import_kmtid_monthly_core(start_date_text, end_date_text)
+    
+    logger.info(
+        "KMTid manual backfill completed startDate=%s endDate=%s daysWithData=%s inserted=%s",
+        start_date_text,
+        end_date_text,
+        result.get("daysWithData", 0),
+        result.get("totalInserted", 0),
+    )
+    
+    return result
+
+
 @app.post("/api/kmtid/import-monthly")
 async def import_kmtid_history_monthly(
     startDate: str = Query(..., description="Start date in YYYY-MM-DD format"),
