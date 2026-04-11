@@ -7,11 +7,14 @@ import os
 import logging
 import requests as http_requests
 import httpx
+import json
+import re
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
 from datetime import datetime, timezone
+from kmtid_history_store import save_starts
 
 
 ROOT_DIR = Path(__file__).parent
@@ -39,6 +42,221 @@ class StatusCheck(BaseModel):
 
 class StatusCheckCreate(BaseModel):
     client_name: str
+
+
+def _to_number_or_none(value):
+    try:
+        number_value = float(value)
+        return number_value
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_iso_date(input_date: str, fallback_date: str | None = None) -> str | None:
+    text = str(input_date or "").strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+
+    compact = text.replace("-", "")
+    if re.fullmatch(r"\d{8}", compact):
+        return f"{compact[:4]}-{compact[4:6]}-{compact[6:8]}"
+    if re.fullmatch(r"\d{6}", compact):
+        return f"20{compact[:2]}-{compact[2:4]}-{compact[4:6]}"
+
+    fallback = str(fallback_date or "").strip().replace("-", "")
+    if re.fullmatch(r"\d{8}", fallback):
+        return f"{fallback[:4]}-{fallback[4:6]}-{fallback[6:8]}"
+    if re.fullmatch(r"\d{6}", fallback):
+        return f"20{fallback[:2]}-{fallback[2:4]}-{fallback[4:6]}"
+
+    return None
+
+
+def _extract_balanced_array_literal(raw_text: str, array_start_index: int) -> str | None:
+    depth = 0
+    in_single_quote = False
+    in_double_quote = False
+    in_template = False
+    in_line_comment = False
+    in_block_comment = False
+
+    for i in range(array_start_index, len(raw_text)):
+        ch = raw_text[i]
+        next_ch = raw_text[i + 1] if i + 1 < len(raw_text) else ""
+        prev_ch = raw_text[i - 1] if i > 0 else ""
+
+        if in_line_comment:
+            if ch == "\n":
+                in_line_comment = False
+            continue
+        if in_block_comment:
+            if prev_ch == "*" and ch == "/":
+                in_block_comment = False
+            continue
+        if in_single_quote:
+            if ch == "'" and prev_ch != "\\":
+                in_single_quote = False
+            continue
+        if in_double_quote:
+            if ch == '"' and prev_ch != "\\":
+                in_double_quote = False
+            continue
+        if in_template:
+            if ch == "`" and prev_ch != "\\":
+                in_template = False
+            continue
+
+        if ch == "/" and next_ch == "/":
+            in_line_comment = True
+            continue
+        if ch == "/" and next_ch == "*":
+            in_block_comment = True
+            continue
+        if ch == "'":
+            in_single_quote = True
+            continue
+        if ch == '"':
+            in_double_quote = True
+            continue
+        if ch == "`":
+            in_template = True
+            continue
+
+        if ch == "[":
+            depth += 1
+            continue
+        if ch == "]":
+            depth -= 1
+            if depth == 0:
+                return raw_text[array_start_index:i + 1]
+
+    return None
+
+
+def _parse_kmtid_races_array(raw_text: str) -> list:
+    if not isinstance(raw_text, str) or not raw_text.strip():
+        return []
+
+    races_decl_index = raw_text.find("const races")
+    if races_decl_index < 0:
+        return []
+
+    array_start_index = raw_text.find("[", races_decl_index)
+    if array_start_index < 0:
+        return []
+
+    array_text = _extract_balanced_array_literal(raw_text, array_start_index)
+    if not array_text:
+        return []
+
+    try:
+        races = json.loads(array_text)
+        return races if isinstance(races, list) else []
+    except Exception:
+        return []
+
+
+def _compute_timing_from_intervals(intervals: list) -> dict:
+    if not isinstance(intervals, list) or len(intervals) < 2:
+        return {}
+
+    durations = [_to_number_or_none((item or {}).get("duration")) for item in intervals]
+    durations = [value for value in durations if value is not None]
+    if len(durations) < 2:
+        return {}
+
+    first200ms = None
+    if len(intervals) >= 2:
+        d0 = _to_number_or_none((intervals[0] or {}).get("duration"))
+        d1 = _to_number_or_none((intervals[1] or {}).get("duration"))
+        if d0 is not None and d1 is not None:
+            first200ms = (d0 + d1) / 2
+
+    last200ms = None
+    if len(intervals) >= 2:
+        d_prev = _to_number_or_none((intervals[-2] or {}).get("duration"))
+        d_last = _to_number_or_none((intervals[-1] or {}).get("duration"))
+        if d_prev is not None and d_last is not None:
+            last200ms = (d_prev + d_last) / 2
+
+    best100ms = min(durations) if durations else None
+
+    return {
+        "first200ms": first200ms,
+        "last200ms": last200ms,
+        "best100ms": best100ms,
+    }
+
+
+def _extract_kmtid_start_rows(raw_text: str, requested_date: str) -> list[dict]:
+    races = _parse_kmtid_races_array(raw_text)
+    extracted_rows: list[dict] = []
+
+    for race in races:
+        race_obj = race if isinstance(race, dict) else {}
+        race_date = _normalize_iso_date(race_obj.get("date"), requested_date)
+        race_id = race_obj.get("id")
+        race_number = _to_number_or_none(race_obj.get("number"))
+        starts = race_obj.get("starts")
+
+        if not isinstance(starts, list):
+            continue
+
+        for start in starts:
+            start_obj = start if isinstance(start, dict) else {}
+            horse_obj = start_obj.get("horse") if isinstance(start_obj.get("horse"), dict) else {}
+            horse_name = str(horse_obj.get("name") or "").strip()
+            if not horse_name:
+                continue
+
+            timings = start_obj.get("timings") if isinstance(start_obj.get("timings"), dict) else {}
+            intervals = timings.get("intervals") if isinstance(timings.get("intervals"), list) else []
+            computed_timing = _compute_timing_from_intervals(intervals)
+
+            first200ms = _to_number_or_none(
+                timings.get("first200ms")
+                or timings.get("first200Ms")
+                or computed_timing.get("first200ms")
+            )
+            last200ms = _to_number_or_none(
+                timings.get("last200ms")
+                or timings.get("last200Ms")
+                or computed_timing.get("last200ms")
+            )
+            best100ms = _to_number_or_none(
+                timings.get("best100ms")
+                or timings.get("best100Ms")
+                or computed_timing.get("best100ms")
+            )
+
+            extracted_rows.append(
+                {
+                    "date": race_date,
+                    "race_id": race_id,
+                    "race_number": int(race_number) if race_number is not None else None,
+                    "horse_name": horse_name,
+                    "first200ms": first200ms,
+                    "last200ms": last200ms,
+                    "best100ms": best100ms,
+                    "actual_km_time": timings.get("actualKMTime") or timings.get("actualKmTime"),
+                    "slipstream_distance": _to_number_or_none(timings.get("slipstreamDistance")),
+                }
+            )
+
+    return extracted_rows
+
+
+def _persist_kmtid_starts_best_effort(raw_text: str, requested_date: str) -> None:
+    try:
+        extracted_rows = _extract_kmtid_start_rows(raw_text, requested_date)
+        if not extracted_rows:
+            logger.info("KMTid persistence skipped: no parsed starts for date=%s", requested_date)
+            return
+
+        save_result = save_starts(extracted_rows)
+        logger.info("KMTid persistence result date=%s result=%s", requested_date, save_result)
+    except Exception as exc:
+        logger.warning("KMTid persistence failed date=%s error=%s", requested_date, exc)
 
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
@@ -122,6 +340,9 @@ async def get_kmtid(date: str):
 
     if r.status_code != 200:
         return Response(status_code=404)
+
+    # Optional side effect: persist parsed starts if parsing succeeds.
+    _persist_kmtid_starts_best_effort(r.text, date)
 
     return Response(
         content=r.text,
