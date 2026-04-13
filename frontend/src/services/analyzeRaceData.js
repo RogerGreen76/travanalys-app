@@ -3,6 +3,8 @@
  * Analyzes normalized race data and adds scoring metrics
  */
 
+import { buildRaceShape, evaluateHorseRaceShapeImpact } from './raceShape';
+
 /**
  * Analyze normalized race data and add scoring metrics to horses
  * @param {Object} normalizedData - Normalized race data
@@ -24,13 +26,15 @@ export const analyzeRaceData = (normalizedData) => {
       }
 
       const raceContext = buildRaceContext(race, race.horses);
+      const raceShape = buildRaceShape(race.horses, raceContext);
 
       // Analyze horses in this race
-      const analyzedHorses = analyzeHorses(race.horses, raceContext);
+      const analyzedHorses = analyzeHorses(race.horses, raceContext, raceShape);
 
       return {
         ...race,
-        horses: analyzedHorses
+        horses: analyzedHorses,
+        raceShape
       };
     });
 
@@ -50,8 +54,8 @@ export const analyzeRaceData = (normalizedData) => {
  * @param {Array} horses - Array of normalized horse objects
  * @returns {Array} Array of analyzed horse objects with scoring metrics
  */
-const analyzeHorses = (horses, raceContext) => {
-  const results = horses.map(horse => analyzeHorse(horse, raceContext, horses));
+const analyzeHorses = (horses, raceContext, raceShape) => {
+  const results = horses.map(horse => analyzeHorse(horse, raceContext, horses, raceShape));
 
   return results;
 };
@@ -267,7 +271,7 @@ const buildRaceContext = (race, horses) => {
   };
 };
 
-const analyzeHorse = (horse, raceContext, horses) => {
+const analyzeHorse = (horse, raceContext, horses, raceShape) => {
   // If this horse has no odds, skip full analysis and return with partial data only
   if (!horse.odds) {
     return {
@@ -280,7 +284,7 @@ const analyzeHorse = (horse, raceContext, horses) => {
   }
 
   const componentScores = getComponentScores(horse, raceContext, horses);
-  const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext, horses);
+  const aggregateScores = getExistingAggregateScores(horse, componentScores, raceContext, horses, raceShape);
 
   return {
     ...horse,
@@ -578,7 +582,7 @@ const getComponentScores = (horse, raceContext, horses) => {
   };
 };
 
-const getExistingAggregateScores = (horse, componentScores, raceContext, horses = []) => {
+const getExistingAggregateScores = (horse, componentScores, raceContext, horses = [], raceShape = null) => {
   const {
     odds,
     streckPercent,
@@ -677,7 +681,11 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
 
   const finalScore = baseFinalScore + tempoContribution;
   const calibratedFinalScore = baseCalibratedFinalScore + tempoContribution;
-  const adjustedWinnerStrengthScore = winnerStrengthScore + tempoContribution;
+  const raceShapeImpact = evaluateHorseRaceShapeImpact(horse, raceShape);
+  const adjustedWinnerStrengthScore =
+    winnerStrengthScore +
+    tempoContribution +
+    raceShapeImpact.winnerStrengthAdjustment;
 
   const valueScoreContribution = adjustedMarketEdge * 0.25 * marketWeight;
   const marketProbabilityFromBetDistribution = streckPercent;
@@ -964,6 +972,9 @@ const getExistingAggregateScores = (horse, componentScores, raceContext, horses 
     valueStatus,
     winnerStrengthScore: adjustedWinnerStrengthScore,
     winnerStrengthLabel,
+    raceShapeImpact,
+    positionRisk: raceShapeImpact.positionRisk,
+    isLeaderCandidate: raceShapeImpact.isLeaderCandidate,
     skrallSignal
   };
 };
