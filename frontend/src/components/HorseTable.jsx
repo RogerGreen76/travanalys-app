@@ -527,7 +527,7 @@ const HorseTable = ({ horses }) => {
           </div>
 
           {/* Row 2: signal chips aligned under the controls */}
-          <div className="flex flex-wrap items-center gap-2 pl-[260px]" data-testid="tempo-label-summary">
+          <div className="flex flex-wrap items-center gap-2 pl-[220px]" data-testid="tempo-label-summary">
             <span className="px-2 py-1 rounded border border-cyan-700/30 bg-cyan-900/10 text-[11px] text-cyan-300">
               Startsnabb: {tempoLabelSummary.startsnabb}
             </span>
