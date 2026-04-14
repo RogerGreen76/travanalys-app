@@ -465,16 +465,17 @@ const HorseTable = ({ horses }) => {
   return (
     <Card className="bg-[#151923] border-gray-800 horse-table-card" data-testid="horse-table-card">
       <CardHeader>
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <div className="shrink-0">
-            <CardTitle className="text-white">Hästar & Spelvärde</CardTitle>
-            <CardDescription className="text-gray-400">
-              {sortedAndFilteredHorses.length} av {fullRaceHorses.length} hästar
-            </CardDescription>
-          </div>
+        <div className="flex flex-col gap-3">
+          {/* Row 1: title + main controls */}
+          <div className="flex items-start justify-between gap-6">
+            <div className="shrink-0">
+              <CardTitle className="text-white">Hästar & Spelvärde</CardTitle>
+              <CardDescription className="text-gray-400">
+                {sortedAndFilteredHorses.length} av {fullRaceHorses.length} hästar
+              </CardDescription>
+            </div>
 
-          <div className="flex flex-col gap-2 md:ml-auto">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-3 min-w-0 flex-1">
               <Select value={showFilter} onValueChange={setShowFilter}>
                 <SelectTrigger className="w-[160px] bg-[#0a0e1a] border-gray-700" data-testid="filter-select">
                   <Filter className="w-4 h-4 mr-2" />
@@ -523,18 +524,19 @@ const HorseTable = ({ horses }) => {
                 <Download className="w-4 h-4" />
               </Button>
             </div>
+          </div>
 
-            <div className="flex items-center gap-1.5" data-testid="tempo-label-summary">
-              <span className="px-2 py-1 rounded border border-cyan-700/30 bg-cyan-900/10 text-[11px] text-cyan-300">
-                Startsnabb: {tempoLabelSummary.startsnabb}
-              </span>
-              <span className="px-2 py-1 rounded border border-teal-700/30 bg-teal-900/10 text-[11px] text-teal-300">
-                Tempostark: {tempoLabelSummary.tempostark}
-              </span>
-              <span className="px-2 py-1 rounded border border-gray-700/40 bg-gray-800/40 text-[11px] text-gray-400">
-                Ingen tydlig signal: {tempoLabelSummary.ingenTydligSignal}
-              </span>
-            </div>
+          {/* Row 2: signal chips aligned under the controls */}
+          <div className="flex flex-wrap items-center gap-2 pl-[260px]" data-testid="tempo-label-summary">
+            <span className="px-2 py-1 rounded border border-cyan-700/30 bg-cyan-900/10 text-[11px] text-cyan-300">
+              Startsnabb: {tempoLabelSummary.startsnabb}
+            </span>
+            <span className="px-2 py-1 rounded border border-teal-700/30 bg-teal-900/10 text-[11px] text-teal-300">
+              Tempostark: {tempoLabelSummary.tempostark}
+            </span>
+            <span className="px-2 py-1 rounded border border-gray-700/40 bg-gray-800/40 text-[11px] text-gray-400">
+              Ingen tydlig signal: {tempoLabelSummary.ingenTydligSignal}
+            </span>
           </div>
         </div>
       </CardHeader>
