@@ -474,7 +474,7 @@ const HorseTable = ({ horses }) => {
               </CardDescription>
             </div>
 
-            <div className="flex flex-col items-end gap-2 min-w-0 flex-1">
+            <div className="flex flex-col items-end gap-2 min-w-0 flex-1 md:ml-10">
               <div className="flex flex-wrap items-center justify-end gap-3 min-w-0">
                 <Select value={showFilter} onValueChange={setShowFilter}>
                   <SelectTrigger className="w-[160px] bg-[#0a0e1a] border-gray-700" data-testid="filter-select">
