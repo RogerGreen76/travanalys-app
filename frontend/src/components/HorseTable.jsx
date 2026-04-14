@@ -466,7 +466,6 @@ const HorseTable = ({ horses }) => {
     <Card className="bg-[#151923] border-gray-800 horse-table-card" data-testid="horse-table-card">
       <CardHeader>
         <div className="flex flex-col gap-3">
-          {/* Row 1: title + main controls */}
           <div className="flex items-start justify-between gap-6">
             <div className="shrink-0">
               <CardTitle className="text-white">Hästar & Spelvärde</CardTitle>
@@ -475,68 +474,69 @@ const HorseTable = ({ horses }) => {
               </CardDescription>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-3 min-w-0 flex-1">
-              <Select value={showFilter} onValueChange={setShowFilter}>
-                <SelectTrigger className="w-[160px] bg-[#0a0e1a] border-gray-700" data-testid="filter-select">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-[#151923] border-gray-700">
-                  <SelectItem value="all">Alla hästar</SelectItem>
-                  <SelectItem value="positive">Spelvärda ({'>'}2%)</SelectItem>
-                  <SelectItem value="favorites">Favoriter ({'<'}10)</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col items-end gap-2 min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-end gap-3 min-w-0">
+                <Select value={showFilter} onValueChange={setShowFilter}>
+                  <SelectTrigger className="w-[160px] bg-[#0a0e1a] border-gray-700" data-testid="filter-select">
+                    <Filter className="w-4 h-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#151923] border-gray-700">
+                    <SelectItem value="all">Alla hästar</SelectItem>
+                    <SelectItem value="positive">Spelvärda ({'>'}2%)</SelectItem>
+                    <SelectItem value="favorites">Favoriter ({'<'}10)</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Input
-                data-testid="search-input"
-                placeholder="Sök häst eller nummer..."
-                value={filterValue}
-                onChange={(e) => setFilterValue(e.target.value)}
-                className="w-[200px] bg-[#0a0e1a] border-gray-700"
-              />
-
-              <label
-                className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-300 cursor-pointer"
-                data-testid="tempo-signal-filter"
-              >
-                <input
-                  type="checkbox"
-                  checked={showTempoSignalOnly}
-                  onChange={(e) => handleTempoSignalOnlyChange(e.target.checked)}
-                  className="h-3.5 w-3.5 accent-cyan-500"
+                <Input
+                  data-testid="search-input"
+                  placeholder="Sök häst eller nummer..."
+                  value={filterValue}
+                  onChange={(e) => setFilterValue(e.target.value)}
+                  className="w-[200px] bg-[#0a0e1a] border-gray-700"
                 />
-                Visa bara hästar med temposignal
-              </label>
 
-              <div className="px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-400" data-testid="tempo-signal-summary">
-                Tempo-signal: {tempoSignalSummary.signalCount} av {tempoSignalSummary.totalCount}
+                <label
+                  className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-300 cursor-pointer"
+                  data-testid="tempo-signal-filter"
+                >
+                  <input
+                    type="checkbox"
+                    checked={showTempoSignalOnly}
+                    onChange={(e) => handleTempoSignalOnlyChange(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-cyan-500"
+                  />
+                  Visa bara hästar med temposignal
+                </label>
+
+                <div className="px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-400" data-testid="tempo-signal-summary">
+                  Tempo-signal: {tempoSignalSummary.signalCount} av {tempoSignalSummary.totalCount}
+                </div>
+
+                <Button
+                  data-testid="export-csv-button"
+                  onClick={exportToCSV}
+                  variant="outline"
+                  size="icon"
+                  className="border-gray-700 hover:bg-gray-800 h-8 w-8 shrink-0"
+                  title="Exportera CSV"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
               </div>
 
-              <Button
-                data-testid="export-csv-button"
-                onClick={exportToCSV}
-                variant="outline"
-                size="icon"
-                className="border-gray-700 hover:bg-gray-800 h-8 w-8 shrink-0"
-                title="Exportera CSV"
-              >
-                <Download className="w-4 h-4" />
-              </Button>
+              <div className="flex flex-wrap items-center gap-2" data-testid="tempo-label-summary">
+                <span className="px-2 py-1 rounded border border-cyan-700/30 bg-cyan-900/10 text-[11px] text-cyan-300">
+                  Startsnabb: {tempoLabelSummary.startsnabb}
+                </span>
+                <span className="px-2 py-1 rounded border border-teal-700/30 bg-teal-900/10 text-[11px] text-teal-300">
+                  Tempostark: {tempoLabelSummary.tempostark}
+                </span>
+                <span className="px-2 py-1 rounded border border-gray-700/40 bg-gray-800/40 text-[11px] text-gray-400">
+                  Ingen tydlig signal: {tempoLabelSummary.ingenTydligSignal}
+                </span>
+              </div>
             </div>
-          </div>
-
-          {/* Row 2: signal chips aligned under the controls */}
-          <div className="flex flex-wrap items-center gap-2 pl-[400px]" data-testid="tempo-label-summary">
-            <span className="px-2 py-1 rounded border border-cyan-700/30 bg-cyan-900/10 text-[11px] text-cyan-300">
-              Startsnabb: {tempoLabelSummary.startsnabb}
-            </span>
-            <span className="px-2 py-1 rounded border border-teal-700/30 bg-teal-900/10 text-[11px] text-teal-300">
-              Tempostark: {tempoLabelSummary.tempostark}
-            </span>
-            <span className="px-2 py-1 rounded border border-gray-700/40 bg-gray-800/40 text-[11px] text-gray-400">
-              Ingen tydlig signal: {tempoLabelSummary.ingenTydligSignal}
-            </span>
           </div>
         </div>
       </CardHeader>
