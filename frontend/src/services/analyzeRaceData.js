@@ -57,12 +57,58 @@ export const analyzeRaceData = (normalizedData) => {
 const analyzeHorses = (horses, raceContext, raceShape) => {
   const results = horses.map(horse => analyzeHorse(horse, raceContext, horses, raceShape));
 
-  return results;
+  return applyDominantFavoritePlayOverride(results);
 };
 
 const AUTO_TEMPO_TRACE_TARGET = '__auto_tempo__';
 const DEFAULT_PLAY_DEBUG_HORSE = AUTO_TEMPO_TRACE_TARGET;
 const AUTO_TEMPO_NEAR_THRESHOLD_WINDOW = 4;
+const DOMINANT_FAVORITE_MIN_WINNER_STRENGTH = 70;
+const DOMINANT_FAVORITE_MIN_GAP = 12;
+
+/**
+ * Post-processing step: upgrades a clearly dominant favorite from "No play" to
+ * "Möjlig play" when its winnerStrengthScore leads the field by a clear margin.
+ * Does not downgrade an existing "Stark play" or "Möjlig play" decision.
+ */
+const applyDominantFavoritePlayOverride = (horses = []) => {
+  if (!Array.isArray(horses) || horses.length === 0) {
+    return horses;
+  }
+
+  const ranked = horses
+    .filter((h) => Number.isFinite(Number(h?.winnerStrengthScore)))
+    .sort((a, b) => Number(b.winnerStrengthScore) - Number(a.winnerStrengthScore));
+
+  if (ranked.length === 0) {
+    return horses;
+  }
+
+  const topHorse = ranked[0];
+  const topScore = Number(topHorse.winnerStrengthScore);
+  const secondScore = Number.isFinite(Number(ranked[1]?.winnerStrengthScore))
+    ? Number(ranked[1].winnerStrengthScore)
+    : -Infinity;
+  const gap = topScore - secondScore;
+
+  const isDominant =
+    topScore >= DOMINANT_FAVORITE_MIN_WINNER_STRENGTH &&
+    gap >= DOMINANT_FAVORITE_MIN_GAP;
+
+  if (!isDominant) {
+    return horses;
+  }
+
+  return horses.map((horse) => {
+    if (horse !== topHorse) {
+      return horse;
+    }
+    if (horse.play === 'Stark play' || horse.play === 'Möjlig play') {
+      return horse;
+    }
+    return { ...horse, play: 'Möjlig play' };
+  });
+};
 const VALUE_LABEL_SPELVARD_MIN_RATIO = 1.15;
 const VALUE_LABEL_FAVORITE_ODDS_MAX = 5;
 const VALUE_LABEL_MID_ODDS_MAX = 10;
