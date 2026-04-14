@@ -473,42 +473,55 @@ const HorseTable = ({ horses }) => {
             </CardDescription>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Select value={showFilter} onValueChange={setShowFilter}>
-              <SelectTrigger className="w-[160px] bg-[#0a0e1a] border-gray-700" data-testid="filter-select">
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#151923] border-gray-700">
-                <SelectItem value="all">Alla hästar</SelectItem>
-                <SelectItem value="positive">Spelvärda ({'>'}2%)</SelectItem>
-                <SelectItem value="favorites">Favoriter ({'<'}10)</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={showFilter} onValueChange={setShowFilter}>
+                <SelectTrigger className="w-[160px] bg-[#0a0e1a] border-gray-700" data-testid="filter-select">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#151923] border-gray-700">
+                  <SelectItem value="all">Alla hästar</SelectItem>
+                  <SelectItem value="positive">Spelvärda ({'>'}2%)</SelectItem>
+                  <SelectItem value="favorites">Favoriter ({'<'}10)</SelectItem>
+                </SelectContent>
+              </Select>
 
-            <Input
-              data-testid="search-input"
-              placeholder="Sök häst eller nummer..."
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              className="w-[200px] bg-[#0a0e1a] border-gray-700"
-            />
-
-            <label
-              className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-300 cursor-pointer"
-              data-testid="tempo-signal-filter"
-            >
-              <input
-                type="checkbox"
-                checked={showTempoSignalOnly}
-                onChange={(e) => handleTempoSignalOnlyChange(e.target.checked)}
-                className="h-3.5 w-3.5 accent-cyan-500"
+              <Input
+                data-testid="search-input"
+                placeholder="Sök häst eller nummer..."
+                value={filterValue}
+                onChange={(e) => setFilterValue(e.target.value)}
+                className="w-[200px] bg-[#0a0e1a] border-gray-700"
               />
-              Visa bara hästar med temposignal
-            </label>
 
-            <div className="px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-400" data-testid="tempo-signal-summary">
-              Tempo-signal: {tempoSignalSummary.signalCount} av {tempoSignalSummary.totalCount}
+              <label
+                className="flex items-center gap-2 px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-300 cursor-pointer"
+                data-testid="tempo-signal-filter"
+              >
+                <input
+                  type="checkbox"
+                  checked={showTempoSignalOnly}
+                  onChange={(e) => handleTempoSignalOnlyChange(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-cyan-500"
+                />
+                Visa bara hästar med temposignal
+              </label>
+
+              <div className="px-3 py-2 rounded-md border border-gray-700 bg-[#0a0e1a] text-xs text-gray-400" data-testid="tempo-signal-summary">
+                Tempo-signal: {tempoSignalSummary.signalCount} av {tempoSignalSummary.totalCount}
+              </div>
+
+              <Button
+                data-testid="export-csv-button"
+                onClick={exportToCSV}
+                variant="outline"
+                size="icon"
+                className="border-gray-700 hover:bg-gray-800 h-8 w-8 shrink-0"
+                title="Exportera CSV"
+              >
+                <Download className="w-4 h-4" />
+              </Button>
             </div>
 
             <div className="flex items-center gap-1.5" data-testid="tempo-label-summary">
@@ -522,17 +535,6 @@ const HorseTable = ({ horses }) => {
                 Ingen tydlig signal: {tempoLabelSummary.ingenTydligSignal}
               </span>
             </div>
-
-            <Button
-              data-testid="export-csv-button"
-              onClick={exportToCSV}
-              variant="outline"
-              size="icon"
-              className="border-gray-700 hover:bg-gray-800 h-8 w-8 shrink-0"
-              title="Exportera CSV"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
           </div>
         </div>
       </CardHeader>
@@ -595,8 +597,8 @@ const HorseTable = ({ horses }) => {
                   </div>
                 </th>
                 <th onClick={() => handleSort('winnerStrengthScore')} className="cursor-pointer w-32 text-center pb-3">
-                  <div className="flex items-center justify-center gap-1 normal-case">
-                    Vinststyrka
+                  <div className="flex items-center justify-center gap-1">
+                    VINSTYRKA
                     {getSortIcon('winnerStrengthScore')}
                   </div>
                 </th>
