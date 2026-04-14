@@ -465,15 +465,15 @@ const HorseTable = ({ horses }) => {
   return (
     <Card className="bg-[#151923] border-gray-800 horse-table-card" data-testid="horse-table-card">
       <CardHeader>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <div className="shrink-0">
             <CardTitle className="text-white">Hästar & Spelvärde</CardTitle>
             <CardDescription className="text-gray-400">
               {sortedAndFilteredHorses.length} av {fullRaceHorses.length} hästar
             </CardDescription>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 md:ml-auto">
             <div className="flex flex-wrap items-center gap-2">
               <Select value={showFilter} onValueChange={setShowFilter}>
                 <SelectTrigger className="w-[160px] bg-[#0a0e1a] border-gray-700" data-testid="filter-select">
