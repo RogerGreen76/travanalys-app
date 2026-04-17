@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardDescription, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Slider } from './ui/slider';
 import { Sparkles, Target, Lock, Shield, Shuffle, Zap, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -884,24 +883,6 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const targetBudget = budget;
   const estimatedRows = Math.max(1, Math.round(budget / rowPrice));
 
-  const handleBudgetChange = (valueOrEvent) => {
-    let next;
-
-    if (Array.isArray(valueOrEvent)) {
-      next = Number(valueOrEvent[0]);
-    } else if (typeof valueOrEvent === 'number') {
-      next = Number(valueOrEvent);
-    } else {
-      next = Number(valueOrEvent?.target?.value);
-    }
-
-    if (!Number.isFinite(next)) return;
-
-    setBudget(next);
-    console.log('SLIDER UPDATED', { sliderBudget: next });
-    setIsExpanded(true);
-  };
-
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoTicket = useMemo(() => {
     const races = Array.isArray(allRaces) && allRaces.length > 0 ? allRaces : null;
@@ -995,12 +976,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       };
     });
 
-    console.log('BUDGET STATE', {
-      budgetUsedBySlider: budget,
-      budgetUsedByBuilder: budget,
-      selectedSize,
-      finalTargetBudget: targetBudget,
-    });
+    console.log('BUDGET STATE', budget);
 
     const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, targetBudget);
 
@@ -1009,7 +985,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       strategy: race.strategy,
       horses: race.horses,
     }));
-  }, [allRaces, horses, gameType, selectedSize, rowPrice, budget, targetBudget]);
+  }, [allRaces, horses, gameType, selectedSize, rowPrice, budget]);
 
   const totalRows = useMemo(() => {
     return calculateRows(autoTicket);
@@ -1139,18 +1115,22 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-gray-400">Budget</span>
-              <span className="text-sm font-semibold text-white">{budget.toLocaleString('sv-SE')} kr</span>
+              <div className="text-sm font-semibold text-white">{budget.toLocaleString('sv-SE')} kr</div>
             </div>
-            <Slider
+            <input
               data-testid="budget-slider"
+              type="range"
               min={50}
               max={10000}
-              step={100}
-              value={[budget]}
-              onValueChange={handleBudgetChange}
-              onValueCommit={handleBudgetChange}
-              onChange={handleBudgetChange}
-              className="w-full"
+              step={50}
+              value={budget}
+              onChange={(e) => {
+                const newBudget = Number(e.target.value);
+                setBudget(newBudget);
+                console.log('SLIDER CHANGE', newBudget);
+                setIsExpanded(true);
+              }}
+              className="w-full h-2 rounded-lg accent-purple-500"
             />
             <p className="text-xs text-gray-500">
               Estimerat: cirka {estimatedRows.toLocaleString('sv-SE')} rader ({formattedRowPrice} kr / rad)
