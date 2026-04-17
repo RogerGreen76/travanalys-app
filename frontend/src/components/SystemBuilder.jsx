@@ -1175,12 +1175,18 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       };
     });
 
-    console.log('BUDGET SYNC CHECK', {
+    // Compute targetBudget INSIDE the memo so the closure always sees the current liveBudget.
+    const currentTargetBudget = Number.isFinite(Number(liveBudget)) ? Number(liveBudget) : 400;
+
+    console.log('RECALCULATING SYSTEM', {
       liveBudget,
-      targetBudget,
+      targetBudget: currentTargetBudget,
+      selectedSize,
     });
 
-    const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, targetBudget);
+    console.log('CALL adjustTicketToBudget', { targetBudget: currentTargetBudget });
+
+    const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, currentTargetBudget);
 
     return budgetAdjusted.map((race) => ({
       label: race.label,
