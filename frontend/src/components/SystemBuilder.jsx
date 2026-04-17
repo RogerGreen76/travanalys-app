@@ -61,13 +61,13 @@ const MAX_GARDERA_BY_SIZE = {
   Stor: Number.POSITIVE_INFINITY,
 };
 
-const TARGET_SPIK_BY_SIZE = {
-  Liten: 2,
-  Mellan: 2,
-  Stor: 1,
-};
-
 const CLEAR_MARGIN_GAP = 5;
+
+const TARGET_BUDGET_BY_SIZE = {
+  Liten: { min: 100, max: 300 },
+  Mellan: { min: 300, max: 500 },
+  Stor: { min: 500, max: 3000 },
+};
 
 const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
 
@@ -112,12 +112,6 @@ const isStrongSpikCandidate = ({ tillit, strategy, scoreGap, topHorsePlay }) => 
   && (Number(scoreGap) || 0) >= CLEAR_MARGIN_GAP
 );
 
-const getLitenForcedSpikCount = (raceMeta) => {
-  const strongCandidateCount = raceMeta.filter((race) => isStrongSpikCandidate(race)).length;
-  const target = strongCandidateCount >= 3 ? 3 : 2;
-  return Math.min(target, raceMeta.length);
-};
-
 const getRaceConfidenceScore = ({ tillit, scoreGap, topHorsePlay }) => {
   const tillitScore = (TILLIT_PRIORITY[tillit] ?? 1) * 100;
   const gapScore = Math.max(Number(scoreGap) || 0, 0) * 10;
@@ -125,15 +119,115 @@ const getRaceConfidenceScore = ({ tillit, scoreGap, topHorsePlay }) => {
   return tillitScore + gapScore + playScore;
 };
 
-const getTargetSpikCount = (size, availableSpikCandidates, raceCount) => {
+const getForcedSpikCount = (size, raceMeta) => {
+  const raceCount = raceMeta.length;
+  const strongCandidateCount = raceMeta.filter((race) => isStrongSpikCandidate(race)).length;
+
   if (size === 'Liten') {
-    return Math.min(TARGET_SPIK_BY_SIZE.Liten, raceCount);
+    const target = strongCandidateCount >= 3 ? 3 : 2;
+    return Math.min(target, raceCount);
   }
-  const target = TARGET_SPIK_BY_SIZE[size] ?? TARGET_SPIK_BY_SIZE.Mellan;
-  return Math.min(target, availableSpikCandidates);
+
+  if (size === 'Mellan') {
+    // Mellan should land at 1-2 spiks depending on strength, always at least 1 when races exist.
+    const target = strongCandidateCount >= 2 ? 2 : 1;
+    return Math.min(target, raceCount);
+  }
+
+  // Stor: at least 1 spik when races exist.
+  return Math.min(1, raceCount);
 };
 
 const getMaxGarderaRaces = (size) => MAX_GARDERA_BY_SIZE[size] ?? MAX_GARDERA_BY_SIZE.Mellan;
+
+const calculateRows = (ticketRows) => {
+  if (!Array.isArray(ticketRows) || ticketRows.length === 0) return 0;
+  return ticketRows.reduce((product, race) => product * Math.max(race.horses.length, 1), 1);
+};
+
+const calculateCost = (ticketRows, rowPrice) => calculateRows(ticketRows) * rowPrice;
+
+const reduceTicketOneStep = (ticketRows) => {
+  const reduced = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+
+  // Reduce wide spreads first by removing the lowest-ranked horse.
+  const wideIndex = reduced
+    .map((race, index) => ({ index, race }))
+    .filter(({ race }) => race.strategy === 'Gardera brett' && race.horses.length > 1)
+    .sort((a, b) => b.race.horses.length - a.race.horses.length)[0]?.index;
+
+  if (wideIndex !== undefined) {
+    reduced[wideIndex].horses.pop();
+    return { changed: true, ticketRows: reduced };
+  }
+
+  // Then reduce Lås races from 3+ to 2.
+  const lasIndex = reduced
+    .map((race, index) => ({ index, race }))
+    .filter(({ race }) => race.strategy === 'Lås / 2-3 hästar' && race.horses.length > 2)
+    .sort((a, b) => b.race.horses.length - a.race.horses.length)[0]?.index;
+
+  if (lasIndex !== undefined) {
+    reduced[lasIndex].horses.pop();
+    return { changed: true, ticketRows: reduced };
+  }
+
+  return { changed: false, ticketRows: reduced };
+};
+
+const expandTicketOneStep = (ticketRows) => {
+  const expanded = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+
+  // Expand wide spreads first by adding next ranked horse.
+  const wideIndex = expanded
+    .map((race, index) => ({ index, race }))
+    .filter(({ race }) => race.strategy === 'Gardera brett' && race.horses.length < race.ranked.length)[0]?.index;
+
+  if (wideIndex !== undefined) {
+    const race = expanded[wideIndex];
+    race.horses.push(race.ranked[race.horses.length]);
+    return { changed: true, ticketRows: expanded };
+  }
+
+  // Then expand Lås from 2 to 3 when possible.
+  const lasIndex = expanded
+    .map((race, index) => ({ index, race }))
+    .filter(({ race }) => race.strategy === 'Lås / 2-3 hästar' && race.horses.length === 2 && race.ranked.length >= 3)[0]?.index;
+
+  if (lasIndex !== undefined) {
+    const race = expanded[lasIndex];
+    race.horses.push(race.ranked[2]);
+    return { changed: true, ticketRows: expanded };
+  }
+
+  return { changed: false, ticketRows: expanded };
+};
+
+const adjustTicketToBudget = (ticketRows, size, rowPrice) => {
+  const target = TARGET_BUDGET_BY_SIZE[size] || TARGET_BUDGET_BY_SIZE.Mellan;
+  let adjustedRows = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+
+  // Hard iteration cap prevents infinite loops if no more valid adjustments exist.
+  for (let i = 0; i < 500; i += 1) {
+    const totalCost = calculateCost(adjustedRows, rowPrice);
+    if (totalCost >= target.min && totalCost <= target.max) {
+      break;
+    }
+
+    if (totalCost > target.max) {
+      const reduction = reduceTicketOneStep(adjustedRows);
+      adjustedRows = reduction.ticketRows;
+      if (!reduction.changed) break;
+      continue;
+    }
+
+    const expansion = expandTicketOneStep(adjustedRows);
+    adjustedRows = expansion.ticketRows;
+    if (!expansion.changed) break;
+  }
+
+  return adjustedRows;
+};
 
 const getTicketHorsesForRace = (raceHorses, strategySuggestion, size, raceContext = {}) => {
   if (!Array.isArray(raceHorses) || raceHorses.length === 0) return [];
@@ -384,6 +478,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   };
 
   const currentSelection = mode === 'auto' ? autoSuggestion : manualSelection;
+  const normalizedGameType = gameType?.toUpperCase().split('-')[0];
+  const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoTicket = useMemo(() => {
@@ -430,17 +526,12 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       };
     });
 
-    const spikCandidates = raceMeta
-      .filter((race) => race.strategy === 'Spik-kandidat')
-      .sort((a, b) => getSpikPriorityScore(b) - getSpikPriorityScore(a));
+    const forcedSpikCount = getForcedSpikCount(selectedSize, raceMeta);
 
-    const forcedSpikCount = selectedSize === 'Liten'
-      ? getLitenForcedSpikCount(raceMeta)
-      : getTargetSpikCount(selectedSize, spikCandidates.length, raceMeta.length);
-
-    const spikSelectionPool = selectedSize === 'Liten'
-      ? [...raceMeta].sort((a, b) => getSpikPriorityScore(b) - getSpikPriorityScore(a))
-      : spikCandidates;
+    // All sizes use the same spik priority order with fallback to best races.
+    const spikSelectionPool = [...raceMeta].sort(
+      (a, b) => getSpikPriorityScore(b) - getSpikPriorityScore(a)
+    );
 
     const forcedSpikIndexes = new Set(
       spikSelectionPool.slice(0, forcedSpikCount).map((race) => race.index)
@@ -460,7 +551,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         .map((race) => race.index)
     );
 
-    return raceMeta.map((race) => {
+    const initialTicket = raceMeta.map((race) => {
       const strategy = forcedSpikIndexes.has(race.index)
         ? 'Spik-kandidat'
         : downgradedWideIndexes.has(race.index)
@@ -477,17 +568,23 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         label: race.label,
         strategy,
         horses: picked,
+        ranked: race.ranked,
       };
     });
-  }, [allRaces, horses, gameType, size]);
+
+    const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice);
+
+    return budgetAdjusted.map((race) => ({
+      label: race.label,
+      strategy: race.strategy,
+      horses: race.horses,
+    }));
+  }, [allRaces, horses, gameType, size, rowPrice]);
 
   const totalRows = useMemo(() => {
-    if (autoTicket.length === 0) return 0;
-    return autoTicket.reduce((product, race) => product * Math.max(race.horses.length, 1), 1);
+    return calculateRows(autoTicket);
   }, [autoTicket]);
 
-  const normalizedGameType = gameType?.toUpperCase().split('-')[0];
-  const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
   const totalCost = totalRows * rowPrice;
   const formattedRowPrice = rowPrice.toLocaleString('sv-SE', {
     minimumFractionDigits: 2,
