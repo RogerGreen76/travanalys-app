@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Sparkles, Target, Lock, Shield, Shuffle, Zap } from 'lucide-react';
+import { Sparkles, Target, Lock, Shield, Shuffle, Zap, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Import the new data pipeline services
@@ -83,7 +83,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   });
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
   const [systemTab, setSystemTab] = useState('auto'); // 'auto' or 'value'
-  const [size, setSize] = useState('Mellan'); // 'Liten' | 'Mellan' | 'Stor'
+  const [size, setSize] = useState(null); // 'Liten' | 'Mellan' | 'Stor'
+  const [isExpanded, setIsExpanded] = useState(false);
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -93,6 +94,12 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       generateAutoSuggestion();
     }
   }, [horses, gameType]);
+
+  useEffect(() => {
+    if (size || systemTab !== 'auto') {
+      setIsExpanded(true);
+    }
+  }, [size, systemTab]);
 
   // Generera DD-kombinationer
   const generateDDCombinations = () => {
@@ -310,7 +317,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         || raceHorses[0]?.strategySuggestion
         || 'Gardera brett';
       const label = `${gameType}-${raceItem.race?.number || index + 1}`;
-      const picked = getTicketHorsesForRace(raceHorses, strategy, size);
+      const picked = getTicketHorsesForRace(raceHorses, strategy, size || 'Mellan');
       return { label, strategy, horses: picked };
     });
   }, [allRaces, horses, gameType, size]);
@@ -360,22 +367,42 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   return (
     <Card className="bg-[#151923] border-gray-800 system-builder-card" data-testid="system-builder-card">
       <CardHeader>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Sparkles className="w-5 h-5 text-blue-400" />
-              Systembyggare
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Automatiskt förslag eller avancerat value-system
-            </CardDescription>
+        <button
+          type="button"
+          onClick={() => setIsExpanded(prev => !prev)}
+          className="w-full text-left"
+          data-testid="system-builder-toggle"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Sparkles className="w-5 h-5 text-purple-400" />
+                Systemförslag
+              </CardTitle>
+              <CardDescription className="text-gray-400 mt-1">
+                Välj systemtyp och storlek
+              </CardDescription>
+            </div>
+            <div className="text-gray-400">
+              {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            </div>
           </div>
+        </button>
+      </CardHeader>
+
+      <div
+        className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[2200px] opacity-100' : 'max-h-0 opacity-0'}`}
+      >
+        <CardContent className="space-y-6 pt-0 md:pt-0">
 
           {/* Top-level mode tabs */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               data-testid="system-tab-auto"
-              onClick={() => setSystemTab('auto')}
+              onClick={() => {
+                setSystemTab('auto');
+                setIsExpanded(true);
+              }}
               variant={systemTab === 'auto' ? 'default' : 'outline'}
               size="sm"
               className={systemTab === 'auto' ? 'bg-purple-600 hover:bg-purple-700' : 'border-gray-700 hover:bg-gray-800'}
@@ -385,7 +412,10 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
             </Button>
             <Button
               data-testid="system-tab-value"
-              onClick={() => setSystemTab('value')}
+              onClick={() => {
+                setSystemTab('value');
+                setIsExpanded(true);
+              }}
               variant={systemTab === 'value' ? 'default' : 'outline'}
               size="sm"
               className={systemTab === 'value' ? 'bg-blue-600 hover:bg-blue-700' : 'border-gray-700 hover:bg-gray-800'}
@@ -394,87 +424,80 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
               Value-system (beta)
             </Button>
           </div>
-        </div>
-      </CardHeader>
 
-      <CardContent className="space-y-6">
-
-        {/* ===== AUTO-SYSTEM TAB ===== */}
-        {systemTab === 'auto' && (
-          <div className="space-y-5">
-
-            {/* Size selector */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-400 whitespace-nowrap">Systemstorlek:</span>
-              <div className="flex gap-2">
-                {['Liten', 'Mellan', 'Stor'].map(s => (
-                  <Button
-                    key={s}
-                    data-testid={`size-${s.toLowerCase()}`}
-                    onClick={() => setSize(s)}
-                    variant={size === s ? 'default' : 'outline'}
-                    size="sm"
-                    className={size === s ? 'bg-purple-600 hover:bg-purple-700' : 'border-gray-700 hover:bg-gray-800 text-gray-300'}
-                  >
-                    {s}
-                  </Button>
-                ))}
-              </div>
+          {/* Size selector */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-gray-400 whitespace-nowrap">Systemstorlek:</span>
+            <div className="flex flex-wrap gap-2">
+              {['Liten', 'Mellan', 'Stor'].map(s => (
+                <Button
+                  key={s}
+                  data-testid={`size-${s.toLowerCase()}`}
+                  onClick={() => {
+                    setSize(s);
+                    setIsExpanded(true);
+                  }}
+                  variant={size === s ? 'default' : 'outline'}
+                  size="sm"
+                  className={size === s ? 'bg-purple-600 hover:bg-purple-700' : 'border-gray-700 hover:bg-gray-800 text-gray-300'}
+                >
+                  {s}
+                </Button>
+              ))}
             </div>
+          </div>
 
-            {/* Per-race ticket rows */}
-            <div className="space-y-2" data-testid="auto-ticket-rows">
-              {autoTicket.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4 text-center">Ingen loppdata tillgänglig.</p>
-              ) : (
-                autoTicket.map((race, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-md bg-[#0a0e1a] border border-gray-800"
-                    data-testid={`auto-ticket-race-${i}`}
-                  >
-                    <span className="text-gray-400 font-medium text-sm w-16 shrink-0">{race.label}:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {race.horses.length === 0 ? (
-                        <span className="text-xs text-gray-600">–</span>
-                      ) : (
-                        race.horses.map(h => (
-                          <span
-                            key={h.number}
-                            className="px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-purple-600/20 text-purple-300 border border-purple-600/30"
-                          >
-                            {h.number}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                    <span className="ml-auto text-[11px] text-gray-600 whitespace-nowrap">{race.strategy}</span>
+          {/* Per-race ticket rows */}
+          <div className="space-y-2" data-testid="auto-ticket-rows">
+            {autoTicket.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">Ingen loppdata tillgänglig.</p>
+            ) : (
+              autoTicket.map((race, i) => (
+                <div
+                  key={i}
+                  className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-md bg-[#0a0e1a] border border-gray-800"
+                  data-testid={`auto-ticket-race-${i}`}
+                >
+                  <span className="text-gray-400 font-medium text-sm w-16 shrink-0">{race.label}:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {race.horses.length === 0 ? (
+                      <span className="text-xs text-gray-600">–</span>
+                    ) : (
+                      race.horses.map(h => (
+                        <span
+                          key={h.number}
+                          className="px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-purple-600/20 text-purple-300 border border-purple-600/30"
+                        >
+                          {h.number}
+                        </span>
+                      ))
+                    )}
                   </div>
-                ))
-              )}
-            </div>
-
-            {/* Cost summary */}
-            {autoTicket.length > 0 && (
-              <div
-                className="flex flex-wrap items-center gap-4 px-4 py-3 rounded-lg border border-purple-600/30 bg-purple-600/10"
-                data-testid="auto-ticket-cost"
-              >
-                <div className="text-sm text-gray-300">
-                  <span className="font-semibold text-white">{totalRows.toLocaleString('sv-SE')}</span>
-                  <span className="ml-1 text-gray-500">rader</span>
+                  <span className="ml-auto text-[11px] text-gray-600 whitespace-nowrap">{race.strategy}</span>
                 </div>
-                <div className="text-sm text-gray-300">
-                  Kostnad:{' '}
-                  <span className="font-semibold text-white">
-                    {totalCost.toLocaleString('sv-SE')} kr
-                  </span>
-                </div>
-                <div className="text-xs text-gray-600 ml-auto">{rowPrice} kr / rad · {gameType}</div>
-              </div>
+              ))
             )}
           </div>
-        )}
+
+          {/* Cost summary */}
+          {autoTicket.length > 0 && (
+            <div
+              className="flex flex-wrap items-center gap-4 px-4 py-3 rounded-lg border border-purple-600/30 bg-purple-600/10"
+              data-testid="auto-ticket-cost"
+            >
+              <div className="text-sm text-gray-300">
+                <span className="font-semibold text-white">{totalRows.toLocaleString('sv-SE')}</span>
+                <span className="ml-1 text-gray-500">rader</span>
+              </div>
+              <div className="text-sm text-gray-300">
+                Kostnad:{' '}
+                <span className="font-semibold text-white">
+                  {totalCost.toLocaleString('sv-SE')} kr
+                </span>
+              </div>
+              <div className="text-xs text-gray-600 ml-auto">{rowPrice} kr / rad · {gameType}</div>
+            </div>
+          )}
 
         {/* ===== VALUE-SYSTEM (BETA) TAB ===== */}
         {systemTab === 'value' && (
@@ -717,7 +740,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           </>
         )}
 
-      </CardContent>
+        </CardContent>
+      </div>
     </Card>
   );
 };

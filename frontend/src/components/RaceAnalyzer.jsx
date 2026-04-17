@@ -612,36 +612,14 @@ const RaceAnalyzer = () => {
           </CardContent>
         </Card>
 
-        {/* Ticket Suggestion Summary */}
-        {allRaces.length > 0 && !showManualInput && allRaces.some(r => r.race?.ticketSuggestion?.length > 0) && (
-          <Card className="bg-[#151923] border-gray-800" data-testid="ticket-suggestion-summary">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-white text-base flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-purple-400" />
-                Systembiljett
-              </CardTitle>
-              <CardDescription className="text-gray-400">
-                Automatisk hästarfördelning per lopp
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {allRaces.map((raceItem, index) => {
-                  const numbers = raceItem.race?.ticketSuggestion;
-                  if (!Array.isArray(numbers) || numbers.length === 0) return null;
-                  const label = `${selectedGameType}-${raceItem.race.number || index + 1}`;
-                  return (
-                    <div key={index} className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-400 font-medium whitespace-nowrap">{label}:</span>
-                      <span className="text-white font-mono font-semibold tracking-wide">
-                        {numbers.join(', ')}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+        {/* System Builder - primary placement (replaces old Systembiljett slot) */}
+        {allRaces.length > 0 && !showManualInput && (
+          <SystemBuilder
+            horses={analyzedHorses || []}
+            gameType={selectedGameType}
+            allRaces={allRaces}
+            selectedRaceIndex={selectedRaceIndex}
+          />
         )}
 
         {/* Race Tabs - visas när lopp finns */}
@@ -813,12 +791,6 @@ const RaceAnalyzer = () => {
               raceTillit={currentRace.race?.tillit}
               raceScoreGap={currentRace.race?.scoreGap}
               raceStrategySuggestion={currentRace.race?.strategySuggestion}
-            />
-            <SystemBuilder 
-              horses={analyzedHorses || []} 
-              gameType={selectedGameType}
-              allRaces={allRaces}
-              selectedRaceIndex={selectedRaceIndex}
             />
           </div>
         )}
