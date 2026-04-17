@@ -884,6 +884,24 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const targetBudget = budget;
   const estimatedRows = Math.max(1, Math.round(budget / rowPrice));
 
+  const handleBudgetChange = (valueOrEvent) => {
+    let next;
+
+    if (Array.isArray(valueOrEvent)) {
+      next = Number(valueOrEvent[0]);
+    } else if (typeof valueOrEvent === 'number') {
+      next = Number(valueOrEvent);
+    } else {
+      next = Number(valueOrEvent?.target?.value);
+    }
+
+    if (!Number.isFinite(next)) return;
+
+    setBudget(next);
+    console.log('SLIDER UPDATED', { sliderBudget: next });
+    setIsExpanded(true);
+  };
+
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoTicket = useMemo(() => {
     const races = Array.isArray(allRaces) && allRaces.length > 0 ? allRaces : null;
@@ -1129,14 +1147,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
               max={10000}
               step={100}
               value={[budget]}
-              onValueChange={(value) => {
-                const next = Number(value?.[0]);
-                if (Number.isFinite(next)) {
-                  setBudget(next);
-                  console.log('SLIDER UPDATED', { sliderBudget: next });
-                  setIsExpanded(true);
-                }
-              }}
+              onValueChange={handleBudgetChange}
+              onValueCommit={handleBudgetChange}
+              onChange={handleBudgetChange}
               className="w-full"
             />
             <p className="text-xs text-gray-500">
