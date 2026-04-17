@@ -1,12 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Sparkles, Target, Lock, Shield, Shuffle } from 'lucide-react';
+import { Sparkles, Target, Lock, Shield, Shuffle, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Import the new data pipeline services
 import { analyzeRaceData } from '../services/analyzeRaceData';
+
+// Standard ATG row prices in SEK
+const ROW_PRICE_BY_GAME = {
+  V64: 1,
+  V65: 1,
+  V75: 1,
+  V85: 1,
+  V86: 1,
+  GS75: 1,
+  DD: 1,
+  V5: 1,
+};
+
+const PLAY_PRIORITY = {
+  'Stark play': 3,
+  'Möjlig play': 2,
+  'Låg edge favorit': 1,
+  'No play': 0,
+};
+
+// How many horses to pick per strategy and size
+const TICKET_COUNTS = {
+  Liten: {
+    'Spik-kandidat': 1,
+    'Försiktig spik / 2 hästar': 2,
+    'Lås / 2-3 hästar': 2,
+    'Gardera brett': 3,
+  },
+  Mellan: {
+    'Spik-kandidat': 1,
+    'Försiktig spik / 2 hästar': 2,
+    'Lås / 2-3 hästar': 3,
+    'Gardera brett': 4,
+  },
+  Stor: {
+    'Spik-kandidat': 2,
+    'Försiktig spik / 2 hästar': 2,
+    'Lås / 2-3 hästar': 4,
+    'Gardera brett': 6,
+  },
+};
+
+const getTicketHorsesForRace = (raceHorses, strategySuggestion, size) => {
+  if (!Array.isArray(raceHorses) || raceHorses.length === 0) return [];
+
+  const counts = TICKET_COUNTS[size] || TICKET_COUNTS['Mellan'];
+  let count = counts[strategySuggestion] ?? counts['Gardera brett'];
+  count = Math.min(count, raceHorses.length);
+
+  const ranked = [...raceHorses].sort((a, b) => {
+    const pa = PLAY_PRIORITY[a?.play] ?? 0;
+    const pb = PLAY_PRIORITY[b?.play] ?? 0;
+    if (pb !== pa) return pb - pa;
+    return (Number(b?.finalScore) || 0) - (Number(a?.finalScore) || 0);
+  });
+
+  return ranked.slice(0, count);
+};
 
 const formatNumber = (value, decimals = 1) => {
   const num = Number(value);
@@ -24,6 +82,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
     gardering: []
   });
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
+  const [systemTab, setSystemTab] = useState('auto'); // 'auto' or 'value'
+  const [size, setSize] = useState('Mellan'); // 'Liten' | 'Mellan' | 'Stor'
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -233,6 +293,36 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
   const currentSelection = mode === 'auto' ? autoSuggestion : manualSelection;
 
+  // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
+  const autoTicket = useMemo(() => {
+    const races = Array.isArray(allRaces) && allRaces.length > 0 ? allRaces : null;
+    if (!races) {
+      // Single-race fallback: use current horses + a default strategy
+      if (!Array.isArray(horses) || horses.length === 0) return [];
+      const strategy = horses[0]?.strategySuggestion || 'Gardera brett';
+      const picked = getTicketHorsesForRace(horses, strategy, size);
+      return [{ label: `${gameType}-1`, strategy, horses: picked }];
+    }
+
+    return races.map((raceItem, index) => {
+      const raceHorses = raceItem.horses || [];
+      const strategy = raceItem.race?.strategySuggestion
+        || raceHorses[0]?.strategySuggestion
+        || 'Gardera brett';
+      const label = `${gameType}-${raceItem.race?.number || index + 1}`;
+      const picked = getTicketHorsesForRace(raceHorses, strategy, size);
+      return { label, strategy, horses: picked };
+    });
+  }, [allRaces, horses, gameType, size]);
+
+  const totalRows = useMemo(() => {
+    if (autoTicket.length === 0) return 0;
+    return autoTicket.reduce((product, race) => product * Math.max(race.horses.length, 1), 1);
+  }, [autoTicket]);
+
+  const rowPrice = ROW_PRICE_BY_GAME[gameType?.toUpperCase()] ?? 1;
+  const totalCost = totalRows * rowPrice;
+
   const getValueColor = (valueRatio) => {
     if (valueRatio > 1.20) return 'bg-green-500/20 text-green-400 border-green-500/40';
     if (valueRatio < 1.05) return 'bg-red-500/20 text-red-400 border-red-500/40';
@@ -274,275 +364,359 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           <div>
             <CardTitle className="flex items-center gap-2 text-white">
               <Sparkles className="w-5 h-5 text-blue-400" />
-              Systemförslag
+              Systembyggare
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Baserat på value ratio och ranking score
+              Automatiskt förslag eller avancerat value-system
             </CardDescription>
           </div>
 
+          {/* Top-level mode tabs */}
           <div className="flex gap-2">
             <Button
-              data-testid="auto-mode-button"
-              onClick={() => setMode('auto')}
-              variant={mode === 'auto' ? 'default' : 'outline'}
-              className={mode === 'auto' ? 'bg-blue-600' : 'border-gray-700'}
+              data-testid="system-tab-auto"
+              onClick={() => setSystemTab('auto')}
+              variant={systemTab === 'auto' ? 'default' : 'outline'}
+              size="sm"
+              className={systemTab === 'auto' ? 'bg-purple-600 hover:bg-purple-700' : 'border-gray-700 hover:bg-gray-800'}
             >
-              Automatiskt
+              <Zap className="w-3.5 h-3.5 mr-1.5" />
+              Auto-system
             </Button>
             <Button
-              data-testid="manual-mode-button"
-              onClick={() => setMode('manual')}
-              variant={mode === 'manual' ? 'default' : 'outline'}
-              className={mode === 'manual' ? 'bg-blue-600' : 'border-gray-700'}
+              data-testid="system-tab-value"
+              onClick={() => setSystemTab('value')}
+              variant={systemTab === 'value' ? 'default' : 'outline'}
+              size="sm"
+              className={systemTab === 'value' ? 'bg-blue-600 hover:bg-blue-700' : 'border-gray-700 hover:bg-gray-800'}
             >
-              Manuellt
+              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+              Value-system (beta)
             </Button>
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-6">
-        {mode === 'auto' && autoSuggestion && (
-          <>
-            {/* DD Mode - Visa kombinationer */}
-            {autoSuggestion.isDDMode ? (
-              <div className="space-y-4">
-                <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Shuffle className="w-5 h-5 text-green-400" />
-                    <h3 className="font-semibold text-green-300">Föreslagna DD-kombinationer</h3>
-                  </div>
-                  <p className="text-sm text-gray-400">
-                    Topp 3 hästar från varje lopp baserat på ranking score
-                  </p>
-                </div>
 
-                {/* Visa topp hästar från varje lopp */}
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-1</h4>
-                    {autoSuggestion.topRace1.map((horse) => (
-                      <div key={horse.number} className="mb-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
-                          <Badge className="bg-blue-500/20 text-blue-400">
-                            {formatNumber(horse.rankingScore, 1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-2</h4>
-                    {autoSuggestion.topRace2.map((horse) => (
-                      <div key={horse.number} className="mb-2 p-2 bg-purple-500/10 border border-purple-500/30 rounded text-sm">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
-                          <Badge className="bg-purple-500/20 text-purple-400">
-                            {formatNumber(horse.rankingScore, 1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+        {/* ===== AUTO-SYSTEM TAB ===== */}
+        {systemTab === 'auto' && (
+          <div className="space-y-5">
 
-                {/* Visa kombinationer */}
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-400 mb-3">Bästa kombinationer</h4>
-                  <div className="grid gap-2">
-                    {autoSuggestion.combinations.map((combo, index) => (
-                      <div
-                        key={index}
-                        className={`p-3 rounded-lg border ${
-                          index === 0 ? 'bg-green-500/10 border-green-500/40' :
-                          index < 3 ? 'bg-yellow-500/10 border-yellow-500/30' :
-                          'bg-gray-700/20 border-gray-600/30'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-blue-500/30 text-blue-300">
-                              #{combo.race1Horse.number}
-                            </Badge>
-                            <span className="text-white font-mono">×</span>
-                            <Badge className="bg-purple-500/30 text-purple-300">
-                              #{combo.race2Horse.number}
-                            </Badge>
-                            <span className="text-sm text-gray-300">
-                              {combo.race1Horse.name} / {combo.race2Horse.name}
-                            </span>
-                          </div>
-                          <Badge className={
-                            index === 0 ? 'bg-green-500/20 text-green-400' :
-                            index < 3 ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-gray-600/20 text-gray-400'
-                          }>
-                            Score: {formatNumber(combo.combinedScore, 1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {/* Size selector */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-400 whitespace-nowrap">Systemstorlek:</span>
+              <div className="flex gap-2">
+                {['Liten', 'Mellan', 'Stor'].map(s => (
+                  <Button
+                    key={s}
+                    data-testid={`size-${s.toLowerCase()}`}
+                    onClick={() => setSize(s)}
+                    variant={size === s ? 'default' : 'outline'}
+                    size="sm"
+                    className={size === s ? 'bg-purple-600 hover:bg-purple-700' : 'border-gray-700 hover:bg-gray-800 text-gray-300'}
+                  >
+                    {s}
+                  </Button>
+                ))}
               </div>
-            ) : (
-              /* Normal mode - Spik/Lås/Gardering */
-              <div className="space-y-3">
-              {autoSuggestion.spik ? (
-                <HorseCard
-                  horse={autoSuggestion.spik}
-                  icon={Target}
-                  label="Spik"
-                  color="bg-blue-500/10 border-blue-500/30"
-                />
+            </div>
+
+            {/* Per-race ticket rows */}
+            <div className="space-y-2" data-testid="auto-ticket-rows">
+              {autoTicket.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">Ingen loppdata tillgänglig.</p>
               ) : (
-                <div className="p-3 rounded-lg border bg-gray-700/20 border-gray-600/40" data-testid="no-spik-message">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Target className="w-4 h-4" />
-                    <span className="text-sm font-semibold">Ingen spik</span>
-                    <span className="text-xs opacity-80">• Ingen häst uppfyller score- och longshot-kraven</span>
+                autoTicket.map((race, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-md bg-[#0a0e1a] border border-gray-800"
+                    data-testid={`auto-ticket-race-${i}`}
+                  >
+                    <span className="text-gray-400 font-medium text-sm w-16 shrink-0">{race.label}:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {race.horses.length === 0 ? (
+                        <span className="text-xs text-gray-600">–</span>
+                      ) : (
+                        race.horses.map(h => (
+                          <span
+                            key={h.number}
+                            className="px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-purple-600/20 text-purple-300 border border-purple-600/30"
+                          >
+                            {h.number}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    <span className="ml-auto text-[11px] text-gray-600 whitespace-nowrap">{race.strategy}</span>
                   </div>
-                </div>
-              )}
-
-              {autoSuggestion.las.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    Lås ({autoSuggestion.las.length})
-                  </h3>
-                  {autoSuggestion.las.map(horse => (
-                    <HorseCard
-                      key={horse.number}
-                      horse={horse}
-                      icon={Lock}
-                      label="Lås"
-                      color="bg-purple-500/10 border-purple-500/30"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {autoSuggestion.gardering.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                    <Shield className="w-4 h-4" />
-                    Gardering ({autoSuggestion.gardering.length})
-                  </h3>
-                  {autoSuggestion.gardering.map(horse => (
-                    <HorseCard
-                      key={horse.number}
-                      horse={horse}
-                      icon={Shield}
-                      label="Gardering"
-                      color="bg-gray-700/30 border-gray-600/30"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {autoSuggestion.skrallbud?.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-yellow-300 uppercase flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Skrallbud ({autoSuggestion.skrallbud.length})
-                  </h3>
-                  {autoSuggestion.skrallbud.map(horse => (
-                    <HorseCard
-                      key={`skrall-${horse.number}`}
-                      horse={horse}
-                      icon={Sparkles}
-                      label="Skrallbud"
-                      color="bg-yellow-500/10 border-yellow-500/30"
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-            )}
-
-            {!autoSuggestion.isDDMode && (
-            <Button
-              data-testid="copy-to-manual-button"
-              onClick={copyToManual}
-              variant="outline"
-              className="w-full border-gray-700 hover:bg-gray-800"
-            >
-              Kopiera och anpassa manuellt
-            </Button>
-            )}
-          </>
-        )}
-
-        {mode === 'manual' && (
-          <div className="space-y-4">
-            <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <p className="text-sm text-blue-300">
-                Klicka på hästar i tabellen ovan för att välja:
-                <br />
-                • 1 Spik (mest säker)
-                <br />
-                • 2 Lås (troliga vinnare)
-                <br />
-                • 3-5 Garderingar (extra säkerhet)
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {manualSelection.spik && (
-                <HorseCard
-                  horse={manualSelection.spik}
-                  icon={Target}
-                  label="Spik"
-                  color="bg-blue-500/10 border-blue-500/30"
-                />
-              )}
-
-              {manualSelection.las.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    Lås ({manualSelection.las.length}/2)
-                  </h3>
-                  {manualSelection.las.map(horse => (
-                    <HorseCard
-                      key={horse.number}
-                      horse={horse}
-                      icon={Lock}
-                      label="Lås"
-                      color="bg-purple-500/10 border-purple-500/30"
-                    />
-                  ))}
-                </div>
-              )}
-
-              {manualSelection.gardering.length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                    <Shield className="w-4 h-4" />
-                    Gardering ({manualSelection.gardering.length}/5)
-                  </h3>
-                  {manualSelection.gardering.map(horse => (
-                    <HorseCard
-                      key={horse.number}
-                      horse={horse}
-                      icon={Shield}
-                      label="Gardering"
-                      color="bg-gray-700/30 border-gray-600/30"
-                    />
-                  ))}
-                </div>
+                ))
               )}
             </div>
 
-            {!manualSelection.spik && manualSelection.las.length === 0 && manualSelection.gardering.length === 0 && (
-              <div className="text-center py-8 text-gray-400" data-testid="no-manual-selection-message">
-                Inga hästar valda ännu. Börja med att ladda det automatiska förslaget.
+            {/* Cost summary */}
+            {autoTicket.length > 0 && (
+              <div
+                className="flex flex-wrap items-center gap-4 px-4 py-3 rounded-lg border border-purple-600/30 bg-purple-600/10"
+                data-testid="auto-ticket-cost"
+              >
+                <div className="text-sm text-gray-300">
+                  <span className="font-semibold text-white">{totalRows.toLocaleString('sv-SE')}</span>
+                  <span className="ml-1 text-gray-500">rader</span>
+                </div>
+                <div className="text-sm text-gray-300">
+                  Kostnad:{' '}
+                  <span className="font-semibold text-white">
+                    {totalCost.toLocaleString('sv-SE')} kr
+                  </span>
+                </div>
+                <div className="text-xs text-gray-600 ml-auto">{rowPrice} kr / rad · {gameType}</div>
               </div>
             )}
           </div>
         )}
+
+        {/* ===== VALUE-SYSTEM (BETA) TAB ===== */}
+        {systemTab === 'value' && (
+          <>
+            {/* Sub-mode buttons */}
+            <div className="flex gap-2">
+              <Button
+                data-testid="auto-mode-button"
+                onClick={() => setMode('auto')}
+                variant={mode === 'auto' ? 'default' : 'outline'}
+                size="sm"
+                className={mode === 'auto' ? 'bg-blue-600' : 'border-gray-700'}
+              >
+                Automatiskt
+              </Button>
+              <Button
+                data-testid="manual-mode-button"
+                onClick={() => setMode('manual')}
+                variant={mode === 'manual' ? 'default' : 'outline'}
+                size="sm"
+                className={mode === 'manual' ? 'bg-blue-600' : 'border-gray-700'}
+              >
+                Manuellt
+              </Button>
+            </div>
+
+            {mode === 'auto' && autoSuggestion && (
+              <>
+                {autoSuggestion.isDDMode ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Shuffle className="w-5 h-5 text-green-400" />
+                        <h3 className="font-semibold text-green-300">Föreslagna DD-kombinationer</h3>
+                      </div>
+                      <p className="text-sm text-gray-400">
+                        Topp 3 hästar från varje lopp baserat på ranking score
+                      </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-1</h4>
+                        {autoSuggestion.topRace1.map((horse) => (
+                          <div key={horse.number} className="mb-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
+                              <Badge className="bg-blue-500/20 text-blue-400">
+                                {formatNumber(horse.rankingScore, 1)}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-2</h4>
+                        {autoSuggestion.topRace2.map((horse) => (
+                          <div key={horse.number} className="mb-2 p-2 bg-purple-500/10 border border-purple-500/30 rounded text-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
+                              <Badge className="bg-purple-500/20 text-purple-400">
+                                {formatNumber(horse.rankingScore, 1)}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-400 mb-3">Bästa kombinationer</h4>
+                      <div className="grid gap-2">
+                        {autoSuggestion.combinations.map((combo, index) => (
+                          <div
+                            key={index}
+                            className={`p-3 rounded-lg border ${
+                              index === 0 ? 'bg-green-500/10 border-green-500/40' :
+                              index < 3 ? 'bg-yellow-500/10 border-yellow-500/30' :
+                              'bg-gray-700/20 border-gray-600/30'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge className="bg-blue-500/30 text-blue-300">
+                                  #{combo.race1Horse.number}
+                                </Badge>
+                                <span className="text-white font-mono">×</span>
+                                <Badge className="bg-purple-500/30 text-purple-300">
+                                  #{combo.race2Horse.number}
+                                </Badge>
+                                <span className="text-sm text-gray-300">
+                                  {combo.race1Horse.name} / {combo.race2Horse.name}
+                                </span>
+                              </div>
+                              <Badge className={
+                                index === 0 ? 'bg-green-500/20 text-green-400' :
+                                index < 3 ? 'bg-yellow-500/20 text-yellow-400' :
+                                'bg-gray-600/20 text-gray-400'
+                              }>
+                                Score: {formatNumber(combo.combinedScore, 1)}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {autoSuggestion.spik ? (
+                      <HorseCard
+                        horse={autoSuggestion.spik}
+                        icon={Target}
+                        label="Spik"
+                        color="bg-blue-500/10 border-blue-500/30"
+                      />
+                    ) : (
+                      <div className="p-3 rounded-lg border bg-gray-700/20 border-gray-600/40" data-testid="no-spik-message">
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <Target className="w-4 h-4" />
+                          <span className="text-sm font-semibold">Ingen spik</span>
+                          <span className="text-xs opacity-80">• Ingen häst uppfyller score- och longshot-kraven</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {autoSuggestion.las.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
+                          <Lock className="w-4 h-4" />
+                          Lås ({autoSuggestion.las.length})
+                        </h3>
+                        {autoSuggestion.las.map(horse => (
+                          <HorseCard
+                            key={horse.number}
+                            horse={horse}
+                            icon={Lock}
+                            label="Lås"
+                            color="bg-purple-500/10 border-purple-500/30"
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {autoSuggestion.gardering.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          Gardering ({autoSuggestion.gardering.length})
+                        </h3>
+                        {autoSuggestion.gardering.map(horse => (
+                          <HorseCard
+                            key={horse.number}
+                            horse={horse}
+                            icon={Shield}
+                            label="Gardering"
+                            color="bg-gray-700/30 border-gray-600/30"
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {autoSuggestion.skrallbud?.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-yellow-300 uppercase flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" />
+                          Skrallbud ({autoSuggestion.skrallbud.length})
+                        </h3>
+                        {autoSuggestion.skrallbud.map(horse => (
+                          <HorseCard
+                            key={`skrall-${horse.number}`}
+                            horse={horse}
+                            icon={Sparkles}
+                            label="Skrallbud"
+                            color="bg-yellow-500/10 border-yellow-500/30"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!autoSuggestion.isDDMode && (
+                  <Button
+                    data-testid="copy-to-manual-button"
+                    onClick={copyToManual}
+                    variant="outline"
+                    className="w-full border-gray-700 hover:bg-gray-800"
+                  >
+                    Kopiera och anpassa manuellt
+                  </Button>
+                )}
+              </>
+            )}
+
+            {mode === 'manual' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-sm text-blue-300">
+                    Klicka på hästar i tabellen ovan för att välja:
+                    <br />• 1 Spik (mest säker)
+                    <br />• 2 Lås (troliga vinnare)
+                    <br />• 3-5 Garderingar (extra säkerhet)
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {manualSelection.spik && (
+                    <HorseCard horse={manualSelection.spik} icon={Target} label="Spik" color="bg-blue-500/10 border-blue-500/30" />
+                  )}
+                  {manualSelection.las.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
+                        <Lock className="w-4 h-4" />Lås ({manualSelection.las.length}/2)
+                      </h3>
+                      {manualSelection.las.map(horse => (
+                        <HorseCard key={horse.number} horse={horse} icon={Lock} label="Lås" color="bg-purple-500/10 border-purple-500/30" />
+                      ))}
+                    </div>
+                  )}
+                  {manualSelection.gardering.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
+                        <Shield className="w-4 h-4" />Gardering ({manualSelection.gardering.length}/5)
+                      </h3>
+                      {manualSelection.gardering.map(horse => (
+                        <HorseCard key={horse.number} horse={horse} icon={Shield} label="Gardering" color="bg-gray-700/30 border-gray-600/30" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {!manualSelection.spik && manualSelection.las.length === 0 && manualSelection.gardering.length === 0 && (
+                  <div className="text-center py-8 text-gray-400" data-testid="no-manual-selection-message">
+                    Inga hästar valda ännu. Börja med att ladda det automatiska förslaget.
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
       </CardContent>
     </Card>
   );
