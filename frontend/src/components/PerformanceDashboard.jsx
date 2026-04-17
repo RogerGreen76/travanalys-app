@@ -554,7 +554,7 @@ const PerformanceDashboard = () => {
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-white/5 p-5 rounded-xl border border-white/10 bg-[#0d1119]">
+          <div className="mt-6 pt-6 border-t p-5 rounded-xl border border-white/10 bg-[#0d1119]">
             <div className="text-[11px] text-gray-500 uppercase tracking-widest font-medium mb-3">ROI per oddsintervall (Spelvärda)</div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
