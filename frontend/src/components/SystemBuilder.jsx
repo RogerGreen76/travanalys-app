@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardDescription, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Slider } from './ui/slider';
 import { Sparkles, Target, Lock, Shield, Shuffle, Zap, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,7 +52,7 @@ const TICKET_COUNTS = {
     'Spik-kandidat': 1,
     'Försiktig spik / 2 hästar': 2,
     'Lås / 2-3 hästar': 4,
-    'Gardera brett': 5,
+    'Gardera brett': 6,
   },
 };
 
@@ -68,6 +69,14 @@ const TARGET_BUDGET_BY_SIZE = {
   Mellan: { min: 300, max: 500 },
   Stor: { min: 500, max: 3000 },
 };
+
+const DEFAULT_BUDGET_BY_SIZE = {
+  Liten: 200,
+  Mellan: 400,
+  Stor: 1000,
+};
+
+const SOFT_MAX_ROWS = 50000;
 
 const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
 const isStarkFavorit = (horse) => horse?.winnerStrengthLabel === 'Stark favorit';
@@ -170,6 +179,39 @@ const calculateRows = (ticketRows) => {
 
 const calculateCost = (ticketRows, rowPrice) => calculateRows(ticketRows) * rowPrice;
 
+const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
+  const safeLength = Math.max(Number(rankedLength) || 0, 0);
+  if (safeLength === 0) return 0;
+
+  if (strategy === 'Gardera brett') {
+    const maxBySize = {
+      Liten: 3,
+      Mellan: 4,
+      Stor: 6,
+    };
+    return Math.min(maxBySize[size] ?? 4, safeLength);
+  }
+
+  if (strategy === 'Lås / 2-3 hästar') {
+    const maxBySize = {
+      Liten: 2,
+      Mellan: 3,
+      Stor: 4,
+    };
+    return Math.min(maxBySize[size] ?? 3, safeLength);
+  }
+
+  if (strategy === 'Spik-kandidat') {
+    return Math.min(1, safeLength);
+  }
+
+  if (strategy === 'Försiktig spik / 2 hästar') {
+    return Math.min(2, safeLength);
+  }
+
+  return Math.min(safeLength, 4);
+};
+
 const reduceTicketOneStep = (ticketRows) => {
   const reduced = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
 
@@ -198,13 +240,17 @@ const reduceTicketOneStep = (ticketRows) => {
   return { changed: false, ticketRows: reduced };
 };
 
-const expandTicketOneStep = (ticketRows) => {
+const expandTicketOneStep = (ticketRows, size) => {
   const expanded = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
 
   // Expand wide spreads first by adding next ranked horse.
   const wideIndex = expanded
     .map((race, index) => ({ index, race }))
-    .filter(({ race }) => race.strategy === 'Gardera brett' && race.horses.length < race.ranked.length)[0]?.index;
+    .filter(({ race }) => {
+      if (race.strategy !== 'Gardera brett') return false;
+      const maxHorses = getMaxHorsesForStrategy(size, race.strategy, race.ranked.length);
+      return race.horses.length < maxHorses;
+    })[0]?.index;
 
   if (wideIndex !== undefined) {
     const race = expanded[wideIndex];
@@ -215,7 +261,11 @@ const expandTicketOneStep = (ticketRows) => {
   // Then expand Lås from 2 to 3 when possible.
   const lasIndex = expanded
     .map((race, index) => ({ index, race }))
-    .filter(({ race }) => race.strategy === 'Lås / 2-3 hästar' && race.horses.length === 2 && race.ranked.length >= 3)[0]?.index;
+    .filter(({ race }) => {
+      if (race.strategy !== 'Lås / 2-3 hästar') return false;
+      const maxHorses = getMaxHorsesForStrategy(size, race.strategy, race.ranked.length);
+      return race.horses.length < maxHorses;
+    })[0]?.index;
 
   if (lasIndex !== undefined) {
     const race = expanded[lasIndex];
@@ -226,13 +276,33 @@ const expandTicketOneStep = (ticketRows) => {
   return { changed: false, ticketRows: expanded };
 };
 
-const adjustTicketToBudget = (ticketRows, size, rowPrice) => {
+const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) => {
   const target = TARGET_BUDGET_BY_SIZE[size] || TARGET_BUDGET_BY_SIZE.Mellan;
+  const useExactTarget = Number.isFinite(targetBudget);
+  const exactTarget = useExactTarget ? Number(targetBudget) : null;
   let adjustedRows = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
 
   // Hard iteration cap prevents infinite loops if no more valid adjustments exist.
   for (let i = 0; i < 500; i += 1) {
     const totalCost = calculateCost(adjustedRows, rowPrice);
+    const totalRows = calculateRows(adjustedRows);
+
+    if (totalRows >= SOFT_MAX_ROWS) {
+      break;
+    }
+
+    if (useExactTarget) {
+      // In slider mode, continue expansion until budget target is reached.
+      if (totalCost >= exactTarget) {
+        break;
+      }
+
+      const expansion = expandTicketOneStep(adjustedRows, size);
+      if (!expansion.changed) break;
+      adjustedRows = expansion.ticketRows;
+      continue;
+    }
+
     if (totalCost >= target.min && totalCost <= target.max) {
       break;
     }
@@ -244,7 +314,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice) => {
       continue;
     }
 
-    const expansion = expandTicketOneStep(adjustedRows);
+    const expansion = expandTicketOneStep(adjustedRows, size);
     adjustedRows = expansion.ticketRows;
     if (!expansion.changed) break;
   }
@@ -286,6 +356,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
   const [systemTab, setSystemTab] = useState('auto'); // 'auto' or 'value'
   const [size, setSize] = useState(null); // 'Liten' | 'Mellan' | 'Stor'
+  const [budget, setBudget] = useState(DEFAULT_BUDGET_BY_SIZE.Mellan);
   const [isExpanded, setIsExpanded] = useState(false);
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -503,10 +574,11 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const currentSelection = mode === 'auto' ? autoSuggestion : manualSelection;
   const normalizedGameType = gameType?.toUpperCase().split('-')[0];
   const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
+  const selectedSize = size || 'Mellan';
+  const estimatedRows = Math.max(1, Math.round(budget / rowPrice));
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoTicket = useMemo(() => {
-    const selectedSize = size || 'Mellan';
     const races = Array.isArray(allRaces) && allRaces.length > 0 ? allRaces : null;
 
     if (!races) {
@@ -598,14 +670,14 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       };
     });
 
-    const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice);
+    const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, budget);
 
     return budgetAdjusted.map((race) => ({
       label: race.label,
       strategy: race.strategy,
       horses: race.horses,
     }));
-  }, [allRaces, horses, gameType, size, rowPrice]);
+  }, [allRaces, horses, gameType, size, rowPrice, budget]);
 
   const totalRows = useMemo(() => {
     return calculateRows(autoTicket);
@@ -657,7 +729,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         <button
           type="button"
           onClick={() => setIsExpanded(prev => !prev)}
-          className="w-full text-left"
+          className="w-full text-left rounded-lg px-3 py-2 -mx-3 -my-2 cursor-pointer transition-colors duration-200 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/40"
           data-testid="system-builder-toggle"
         >
           <div className="flex items-center justify-between gap-4">
@@ -670,8 +742,10 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                 Välj systemtyp och storlek
               </CardDescription>
             </div>
-            <div className="text-gray-400">
-              {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+            <div className="text-gray-300">
+              <ChevronRight
+                className={`w-6 h-6 transition-transform duration-300 ease-out ${isExpanded ? 'rotate-90' : 'rotate-0'}`}
+              />
             </div>
           </div>
         </button>
@@ -716,6 +790,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                   data-testid={`size-${s.toLowerCase()}`}
                   onClick={() => {
                     setSize(s);
+                    setBudget(DEFAULT_BUDGET_BY_SIZE[s]);
                     setIsExpanded(true);
                   }}
                   variant={size === s ? 'default' : 'outline'}
@@ -726,6 +801,32 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                 </Button>
               ))}
             </div>
+          </div>
+
+          {/* Budget slider */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-gray-400">Budget</span>
+              <span className="text-sm font-semibold text-white">{budget.toLocaleString('sv-SE')} kr</span>
+            </div>
+            <Slider
+              data-testid="budget-slider"
+              min={50}
+              max={3000}
+              step={50}
+              value={[budget]}
+              onValueChange={(value) => {
+                const next = Number(value?.[0]);
+                if (Number.isFinite(next)) {
+                  setBudget(next);
+                  setIsExpanded(true);
+                }
+              }}
+              className="w-full"
+            />
+            <p className="text-xs text-gray-500">
+              Estimerat: cirka {estimatedRows.toLocaleString('sv-SE')} rader ({formattedRowPrice} kr / rad)
+            </p>
           </div>
         </div>
       </div>
