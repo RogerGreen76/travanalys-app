@@ -78,6 +78,7 @@ const DEFAULT_BUDGET_BY_SIZE = {
 
 const SOFT_MAX_ROWS = 50000;
 const EXACT_BUDGET_MAX_OVERSHOOT_FACTOR = 1.1;
+const MAX_BUDGET_ADJUST_ITERATIONS = 20000;
 
 const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
 const isStarkFavorit = (horse) => horse?.winnerStrengthLabel === 'Stark favorit';
@@ -311,9 +312,11 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   const exactTarget = useExactTarget ? Number(targetBudget) : null;
   let adjustedRows = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
   let stopReason = 'loop-complete';
+  let reachedIterationLimit = true;
 
   if (useExactTarget) {
     console.debug('[SystemBuilder][BudgetLoop] start', {
+      sliderBudget: targetBudget,
       targetBudget: exactTarget,
       currentCost: calculateCost(adjustedRows, rowPrice),
       size,
@@ -321,12 +324,13 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   }
 
   // Hard iteration cap prevents infinite loops if no more valid adjustments exist.
-  for (let i = 0; i < 500; i += 1) {
+  for (let i = 0; i < MAX_BUDGET_ADJUST_ITERATIONS; i += 1) {
     const totalCost = calculateCost(adjustedRows, rowPrice);
     const totalRows = calculateRows(adjustedRows);
 
     if (totalRows >= SOFT_MAX_ROWS) {
       stopReason = 'max horse limits hit';
+      reachedIterationLimit = false;
       break;
     }
 
@@ -334,6 +338,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       // In slider mode, continue expansion until budget target is reached.
       if (totalCost >= exactTarget) {
         stopReason = 'budget reached';
+        reachedIterationLimit = false;
         break;
       }
 
@@ -343,12 +348,14 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
         stopReason = expansionState.hasMoreRankedButBlockedByLimits
           ? 'max horse limits hit'
           : 'no more expandable races';
+        reachedIterationLimit = false;
         break;
       }
 
       const expandedCost = calculateCost(expansion.ticketRows, rowPrice);
       if (expandedCost > exactTarget * EXACT_BUDGET_MAX_OVERSHOOT_FACTOR) {
         stopReason = 'budget reached';
+        reachedIterationLimit = false;
         break;
       }
 
@@ -358,6 +365,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
 
     if (totalCost >= target.min && totalCost <= target.max) {
       stopReason = 'budget reached';
+      reachedIterationLimit = false;
       break;
     }
 
@@ -366,6 +374,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       adjustedRows = reduction.ticketRows;
       if (!reduction.changed) {
         stopReason = 'no more expandable races';
+        reachedIterationLimit = false;
         break;
       }
       continue;
@@ -375,12 +384,18 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
     adjustedRows = expansion.ticketRows;
     if (!expansion.changed) {
       stopReason = 'no more expandable races';
+      reachedIterationLimit = false;
       break;
     }
   }
 
+  if (reachedIterationLimit) {
+    stopReason = 'iteration safety limit hit';
+  }
+
   if (useExactTarget) {
     console.debug('[SystemBuilder][BudgetLoop] stop', {
+      sliderBudget: targetBudget,
       targetBudget: exactTarget,
       currentCost: calculateCost(adjustedRows, rowPrice),
       stopReason,
@@ -737,6 +752,15 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         horses: picked,
         ranked: race.ranked,
       };
+    });
+
+    console.debug('[SystemBuilder][BudgetLoop] input', {
+      sliderBudget: budget,
+      targetBudget: budget,
+      selectedSize,
+      rowPrice,
+      initialCost: calculateCost(initialTicket, rowPrice),
+      initialRows: calculateRows(initialTicket),
     });
 
     const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, budget);
