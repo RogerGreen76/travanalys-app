@@ -839,14 +839,14 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
   const [systemTab, setSystemTab] = useState('auto'); // 'auto' or 'value'
   const [size, setSize] = useState(null); // 'Liten' | 'Mellan' | 'Stor'
-  const [budget, setBudget] = useState(400);
+  const [liveBudget, setLiveBudget] = useState(400);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const updateBudget = (nextBudget) => {
+  const updateLiveBudget = (nextBudget) => {
     const parsed = Number(nextBudget);
     if (!Number.isFinite(parsed)) return;
     const clamped = Math.max(50, Math.min(10000, parsed));
-    setBudget(clamped);
+    setLiveBudget(clamped);
   };
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1065,7 +1065,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const normalizedGameType = gameType?.toUpperCase().split('-')[0];
   const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
   const selectedSize = size || 'Mellan';
-  const targetBudget = Number.isFinite(Number(budget)) ? Number(budget) : 400;
+  const targetBudget = Number.isFinite(Number(liveBudget)) ? Number(liveBudget) : 400;
   const estimatedRows = Math.max(1, Math.round(targetBudget / rowPrice));
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
@@ -1176,7 +1176,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
     });
 
     console.log('BUDGET SYNC CHECK', {
-      budget,
+      liveBudget,
       targetBudget,
     });
 
@@ -1187,7 +1187,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       strategy: race.strategy,
       horses: race.horses,
     }));
-  }, [allRaces, horses, gameType, selectedSize, rowPrice, budget]);
+  }, [allRaces, horses, gameType, selectedSize, rowPrice, liveBudget]);
 
   const totalRows = useMemo(() => {
     return calculateRows(autoTicket);
@@ -1300,9 +1300,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                   data-testid={`size-${s.toLowerCase()}`}
                   onClick={() => {
                     setSize(s);
-                    if (s === 'Liten') updateBudget(200);
-                    if (s === 'Mellan') updateBudget(400);
-                    if (s === 'Stor') updateBudget(1000);
+                    if (s === 'Liten') updateLiveBudget(200);
+                    if (s === 'Mellan') updateLiveBudget(400);
+                    if (s === 'Stor') updateLiveBudget(1000);
                     setIsExpanded(true);
                   }}
                   variant={size === s ? 'default' : 'outline'}
@@ -1319,28 +1319,31 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-gray-400">Budget</span>
-              <div className="text-sm font-semibold text-white">{targetBudget} kr</div>
+              <div>{liveBudget} kr</div>
             </div>
             <Slider
               data-testid="budget-slider"
               min={50}
               max={10000}
               step={50}
-              value={[targetBudget]}
+              value={[liveBudget]}
               onValueChange={(value) => {
                 const newBudget = Number(value?.[0]);
                 if (!Number.isFinite(newBudget)) return;
-                updateBudget(newBudget);
+                updateLiveBudget(newBudget);
                 console.log('SLIDER CHANGE', newBudget);
                 setIsExpanded(true);
               }}
               onValueCommit={(value) => {
                 const newBudget = Number(value?.[0]);
                 if (!Number.isFinite(newBudget)) return;
-                updateBudget(newBudget);
+                updateLiveBudget(newBudget);
               }}
               className="w-full"
             />
+            <div className="text-xs text-red-400">
+              DEBUG liveBudget={liveBudget} targetBudget={targetBudget}
+            </div>
             <p className="text-xs text-gray-500">
               Estimerat: cirka {estimatedRows.toLocaleString('sv-SE')} rader ({formattedRowPrice} kr / rad)
             </p>
