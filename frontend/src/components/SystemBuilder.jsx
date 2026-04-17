@@ -81,6 +81,7 @@ const EXACT_BUDGET_MAX_OVERSHOOT_FACTOR = 1.1;
 const MAX_BUDGET_ADJUST_ITERATIONS = 20000;
 const TIER1_FINAL_SCORE_MIN = 70;
 const TIER2_FINAL_SCORE_MIN = 55;
+const TIER3_FALLBACK_SCORE_MIN = 30; // Fallback: any horse that isn't clearly junk
 
 const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
 const isStarkFavorit = (horse) => horse?.winnerStrengthLabel === 'Stark favorit';
@@ -216,64 +217,73 @@ const evaluateExpansionCandidates = (race, size) => {
     };
   }
 
+  diagnostics.fallback = [];
+
   remaining.forEach((horse) => {
     const play = getHorsePlay(horse);
     const finalScore = getEffectiveFinalScore(horse);
-    const reasons = [];
 
-    if (play === 'No play') {
-      reasons.push('No play');
-    }
-    if (horse?.valueStatus === 'Överspelad') {
-      reasons.push('Överspelad');
-    }
-    if (finalScore < TIER2_FINAL_SCORE_MIN) {
-      reasons.push('below finalScore threshold');
-    }
+    const isPreferred =
+      play !== 'No play'
+      && horse?.valueStatus !== 'Överspelad'
+      && (play === 'Stark play' || play === 'Möjlig play' || finalScore >= TIER1_FINAL_SCORE_MIN);
 
-    const preferred =
-      (play === 'Stark play' || play === 'Möjlig play' || finalScore >= TIER1_FINAL_SCORE_MIN)
-      && reasons.length === 0;
-
-    const acceptable =
-      !preferred
+    const isAcceptable =
+      !isPreferred
       && finalScore >= TIER2_FINAL_SCORE_MIN
       && play !== 'No play'
       && horse?.valueStatus !== 'Överspelad';
 
-    if (preferred) {
+    // Fallback: any horse with acceptable score, even "No play" or "Överspelad"
+    const isFallback =
+      !isPreferred
+      && !isAcceptable
+      && finalScore >= TIER3_FALLBACK_SCORE_MIN;
+
+    if (isPreferred) {
       diagnostics.preferred.push({
         number: horse?.number,
         finalScore: Number(finalScore.toFixed(2)),
+        play,
       });
-      return;
-    }
-
-    if (acceptable) {
+    } else if (isAcceptable) {
       diagnostics.acceptable.push({
         number: horse?.number,
         finalScore: Number(finalScore.toFixed(2)),
+        play,
       });
-      return;
+    } else if (isFallback) {
+      diagnostics.fallback.push({
+        number: horse?.number,
+        finalScore: Number(finalScore.toFixed(2)),
+        play,
+        valueStatus: horse?.valueStatus,
+      });
+    } else {
+      diagnostics.rejected.push({
+        number: horse?.number,
+        reason: `finalScore ${Number(finalScore.toFixed(1))} below floor`,
+        finalScore: Number(finalScore.toFixed(2)),
+        play,
+      });
     }
-
-    diagnostics.rejected.push({
-      number: horse?.number,
-      reason: reasons.join(', ') || 'noAllowedCandidates',
-    });
   });
 
   const preferred = remaining.filter((horse) =>
-    diagnostics.preferred.some((candidate) => Number(candidate.number) === Number(horse?.number))
+    diagnostics.preferred.some((c) => Number(c.number) === Number(horse?.number))
   );
   const acceptable = [...remaining]
-    .filter((horse) => diagnostics.acceptable.some((candidate) => Number(candidate.number) === Number(horse?.number)))
+    .filter((horse) => diagnostics.acceptable.some((c) => Number(c.number) === Number(horse?.number)))
+    .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a));
+  const fallback = [...remaining]
+    .filter((horse) => diagnostics.fallback.some((c) => Number(c.number) === Number(horse?.number)))
     .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a));
 
   return {
     blockedByLimit,
     preferred,
     acceptable,
+    fallback,
     diagnostics,
   };
 };
@@ -355,16 +365,16 @@ const expandTicketOneStep = (ticketRows, size) => {
         console.debug('[SystemBuilder][ExpandCandidates]', {
           race: race.label,
           strategy: race.strategy,
-          remainingCandidates: evaluation.diagnostics.remaining,
           preferredCandidates: evaluation.diagnostics.preferred,
           acceptableCandidates: evaluation.diagnostics.acceptable,
+          fallbackCandidates: evaluation.diagnostics.fallback,
           rejectedCandidates: evaluation.diagnostics.rejected,
         });
 
         if (evaluation.blockedByLimit) {
           blockedByLimitsDetected = true;
         }
-        if (!evaluation.blockedByLimit && evaluation.preferred.length === 0 && evaluation.acceptable.length === 0 && evaluation.diagnostics.remaining.length > 0) {
+        if (!evaluation.blockedByLimit && evaluation.preferred.length === 0 && evaluation.acceptable.length === 0 && evaluation.fallback.length === 0 && evaluation.diagnostics.remaining.length > 0) {
           noAllowedCandidatesDetected = true;
         }
 
@@ -372,6 +382,7 @@ const expandTicketOneStep = (ticketRows, size) => {
           index,
           preferred: evaluation.preferred,
           acceptable: evaluation.acceptable,
+          fallback: evaluation.fallback,
         };
       });
 
@@ -399,6 +410,20 @@ const expandTicketOneStep = (ticketRows, size) => {
     if (acceptablePick) {
       expanded[acceptablePick.index].horses.push(acceptablePick.horse);
       return { changed: true, ticketRows: expanded, reason: 'expandedAcceptable' };
+    }
+
+    // Fallback tier: less restrictive, allows No play / Överspelad if finalScore >= TIER3_FALLBACK_SCORE_MIN
+    const fallbackPick = raceCandidates
+      .filter((candidate) => candidate.fallback.length > 0)
+      .map((candidate) => ({
+        ...candidate,
+        horse: candidate.fallback[0],
+      }))
+      .sort((a, b) => getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse))[0];
+
+    if (fallbackPick) {
+      expanded[fallbackPick.index].horses.push(fallbackPick.horse);
+      return { changed: true, ticketRows: expanded, reason: 'expandedFallback' };
     }
   }
 
@@ -497,12 +522,24 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   }
 
   if (useExactTarget) {
+    const finalEvals = adjustedRows.map((race) => {
+      const ev = evaluateExpansionCandidates(race, size);
+      return {
+        race: race.label,
+        strategy: race.strategy,
+        preferredCandidatesRemaining: ev.preferred.length,
+        acceptableCandidatesRemaining: ev.acceptable.length,
+        fallbackCandidatesRemaining: ev.fallback.length,
+        blockedByLimit: ev.blockedByLimit,
+      };
+    });
     console.debug('[SystemBuilder][BudgetLoop] stop', {
       sliderBudget: targetBudget,
       targetBudget: exactTarget,
       currentCost: calculateCost(adjustedRows, rowPrice),
       stopReason,
       rows: calculateRows(adjustedRows),
+      raceDetails: finalEvals,
     });
   }
 
