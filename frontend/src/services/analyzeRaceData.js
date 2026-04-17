@@ -31,13 +31,15 @@ export const analyzeRaceData = (normalizedData) => {
       // Analyze horses in this race
       const analyzedHorses = analyzeHorses(race.horses, raceContext, raceShape);
       const confidenceIndicator = getRaceConfidenceIndicator(analyzedHorses);
+      const strategySuggestion = getRaceStrategySuggestion(confidenceIndicator.tillit, analyzedHorses);
 
       return {
         ...race,
         horses: analyzedHorses,
         raceShape,
         tillit: confidenceIndicator.tillit,
-        scoreGap: confidenceIndicator.scoreGap
+        scoreGap: confidenceIndicator.scoreGap,
+        strategySuggestion
       };
     });
 
@@ -1119,4 +1121,29 @@ const getRaceConfidenceIndicator = (horses = []) => {
     tillit,
     scoreGap
   };
+};
+
+const getRaceStrategySuggestion = (tillit, horses = []) => {
+  if (tillit === 'Hög') {
+    const topHorse = [...horses]
+      .sort((a, b) => (Number(b?.finalScore) || 0) - (Number(a?.finalScore) || 0))[0];
+
+    const topHorsePlay = String(topHorse?.play || '').trim();
+
+    if (topHorsePlay === 'No play') {
+      return 'Försiktig spik / 2 hästar';
+    }
+
+    if (topHorsePlay === 'Stark play' || topHorsePlay === 'Möjlig play') {
+      return 'Spik-kandidat';
+    }
+
+    return 'Spik-kandidat';
+  }
+
+  if (tillit === 'Medel') {
+    return 'Lås / 2-3 hästar';
+  }
+
+  return 'Gardera brett';
 };

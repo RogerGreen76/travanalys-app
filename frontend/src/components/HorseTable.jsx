@@ -197,7 +197,36 @@ const getConfidenceFromGap = (scoreGap) => {
   return 'Låg';
 };
 
-const HorseTable = ({ horses, raceTillit = null, raceScoreGap = null }) => {
+const getStrategySuggestion = (tillit, horses = []) => {
+  if (tillit === 'Hög') {
+    const topHorse = [...horses]
+      .sort((a, b) => (Number(b?.finalScore) || 0) - (Number(a?.finalScore) || 0))[0];
+    const topHorsePlay = String(topHorse?.play || '').trim();
+
+    if (topHorsePlay === 'No play') {
+      return 'Försiktig spik / 2 hästar';
+    }
+
+    if (topHorsePlay === 'Stark play' || topHorsePlay === 'Möjlig play') {
+      return 'Spik-kandidat';
+    }
+
+    return 'Spik-kandidat';
+  }
+
+  if (tillit === 'Medel') {
+    return 'Lås / 2-3 hästar';
+  }
+
+  return 'Gardera brett';
+};
+
+const HorseTable = ({
+  horses,
+  raceTillit = null,
+  raceScoreGap = null,
+  raceStrategySuggestion = null
+}) => {
   const fullRaceHorses = useMemo(
     () => (Array.isArray(horses) ? horses : []),
     [horses]
@@ -331,6 +360,13 @@ const HorseTable = ({ horses, raceTillit = null, raceScoreGap = null }) => {
       scoreGap
     };
   }, [fullRaceHorses, raceScoreGap, raceTillit]);
+
+  const strategySuggestion = useMemo(() => {
+    if (raceStrategySuggestion) {
+      return raceStrategySuggestion;
+    }
+    return getStrategySuggestion(raceConfidence.tillit, fullRaceHorses);
+  }, [fullRaceHorses, raceConfidence.tillit, raceStrategySuggestion]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -574,8 +610,13 @@ const HorseTable = ({ horses, raceTillit = null, raceScoreGap = null }) => {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="text-sm text-gray-300" data-testid="race-confidence-indicator">
-          Tillit: {raceConfidence.tillit}
+        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
+          <div data-testid="race-confidence-indicator">
+            Tillit: {raceConfidence.tillit}
+          </div>
+          <div data-testid="race-strategy-suggestion">
+            Strategi: {strategySuggestion}
+          </div>
         </div>
 
         {/* Loppklassificering */}

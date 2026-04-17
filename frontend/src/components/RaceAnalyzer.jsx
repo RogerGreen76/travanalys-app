@@ -167,7 +167,8 @@ const RaceAnalyzer = () => {
           distance: race.distance || null,
           startMethod: race.startMethod || null,
           tillit: race.tillit || null,
-          scoreGap: Number.isFinite(Number(race.scoreGap)) ? Number(race.scoreGap) : null
+          scoreGap: Number.isFinite(Number(race.scoreGap)) ? Number(race.scoreGap) : null,
+          strategySuggestion: race.strategySuggestion || null
         },
         horses: race.horses || []
       }));
@@ -249,7 +250,8 @@ const RaceAnalyzer = () => {
             date: date,
             distance: race.distance,
             tillit: race.tillit || null,
-            scoreGap: Number.isFinite(Number(race.scoreGap)) ? Number(race.scoreGap) : null
+            scoreGap: Number.isFinite(Number(race.scoreGap)) ? Number(race.scoreGap) : null,
+            strategySuggestion: race.strategySuggestion || null
           },
           horses: race.horses
         };
@@ -776,6 +778,7 @@ const RaceAnalyzer = () => {
               horses={analyzedHorses || []}
               raceTillit={currentRace.race?.tillit}
               raceScoreGap={currentRace.race?.scoreGap}
+              raceStrategySuggestion={currentRace.race?.strategySuggestion}
             />
             <SystemBuilder 
               horses={analyzedHorses || []} 
