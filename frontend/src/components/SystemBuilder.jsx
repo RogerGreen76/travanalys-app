@@ -9,15 +9,15 @@ import { toast } from 'sonner';
 import { analyzeRaceData } from '../services/analyzeRaceData';
 
 // Standard ATG row prices in SEK
-const ROW_PRICE_BY_GAME = {
+const ROW_PRICE = {
+  V75: 0.5,
+  V85: 0.5,
+  V86: 0.25,
   V64: 1,
   V65: 1,
-  V75: 1,
-  V85: 1,
-  V86: 1,
-  GS75: 1,
-  DD: 1,
   V5: 1,
+  GS75: 1,
+  DD: 5,
 };
 
 const PLAY_PRIORITY = {
@@ -327,8 +327,13 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
     return autoTicket.reduce((product, race) => product * Math.max(race.horses.length, 1), 1);
   }, [autoTicket]);
 
-  const rowPrice = ROW_PRICE_BY_GAME[gameType?.toUpperCase()] ?? 1;
+  const normalizedGameType = gameType?.toUpperCase().split('-')[0];
+  const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
   const totalCost = totalRows * rowPrice;
+  const formattedRowPrice = rowPrice.toLocaleString('sv-SE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   const getValueColor = (valueRatio) => {
     if (valueRatio > 1.20) return 'bg-green-500/20 text-green-400 border-green-500/40';
@@ -388,12 +393,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
             </div>
           </div>
         </button>
-      </div>
-
-      {isExpanded && (
-        <div className="px-6 pb-6">
-          <div className="space-y-6 transition-all duration-300 ease-in-out">
-
+        <div className="mt-4 space-y-4">
           {/* Top-level mode tabs */}
           <div className="flex flex-wrap gap-2">
             <Button
@@ -445,300 +445,67 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
               ))}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Per-race ticket rows */}
-          <div className="space-y-2" data-testid="auto-ticket-rows">
-            {autoTicket.length === 0 ? (
-              <p className="text-sm text-gray-500 py-4 text-center">Ingen loppdata tillgänglig.</p>
-            ) : (
-              autoTicket.map((race, i) => (
-                <div
-                  key={i}
-                  className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-md bg-[#0a0e1a] border border-gray-800"
-                  data-testid={`auto-ticket-race-${i}`}
-                >
-                  <span className="text-gray-400 font-medium text-sm w-16 shrink-0">{race.label}:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {race.horses.length === 0 ? (
-                      <span className="text-xs text-gray-600">–</span>
-                    ) : (
-                      race.horses.map(h => (
-                        <span
-                          key={h.number}
-                          className="px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-purple-600/20 text-purple-300 border border-purple-600/30"
-                        >
-                          {h.number}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                  <span className="ml-auto text-[11px] text-gray-600 whitespace-nowrap">{race.strategy}</span>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Cost summary */}
-          {autoTicket.length > 0 && (
-            <div
-              className="flex flex-wrap items-center gap-4 px-4 py-3 rounded-lg border border-purple-600/30 bg-purple-600/10"
-              data-testid="auto-ticket-cost"
-            >
-              <div className="text-sm text-gray-300">
-                <span className="font-semibold text-white">{totalRows.toLocaleString('sv-SE')}</span>
-                <span className="ml-1 text-gray-500">rader</span>
-              </div>
-              <div className="text-sm text-gray-300">
-                Kostnad:{' '}
-                <span className="font-semibold text-white">
-                  {totalCost.toLocaleString('sv-SE')} kr
-                </span>
-              </div>
-              <div className="text-xs text-gray-600 ml-auto">{rowPrice} kr / rad · {gameType}</div>
-            </div>
-          )}
-
-        {/* ===== VALUE-SYSTEM (BETA) TAB ===== */}
-        {systemTab === 'value' && (
-          <>
-            {/* Sub-mode buttons */}
-            <div className="flex gap-2">
-              <Button
-                data-testid="auto-mode-button"
-                onClick={() => setMode('auto')}
-                variant={mode === 'auto' ? 'default' : 'outline'}
-                size="sm"
-                className={mode === 'auto' ? 'bg-blue-600' : 'border-gray-700'}
-              >
-                Automatiskt
-              </Button>
-              <Button
-                data-testid="manual-mode-button"
-                onClick={() => setMode('manual')}
-                variant={mode === 'manual' ? 'default' : 'outline'}
-                size="sm"
-                className={mode === 'manual' ? 'bg-blue-600' : 'border-gray-700'}
-              >
-                Manuellt
-              </Button>
-            </div>
-
-            {mode === 'auto' && autoSuggestion && (
-              <>
-                {autoSuggestion.isDDMode ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Shuffle className="w-5 h-5 text-green-400" />
-                        <h3 className="font-semibold text-green-300">Föreslagna DD-kombinationer</h3>
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        Topp 3 hästar från varje lopp baserat på ranking score
-                      </p>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-1</h4>
-                        {autoSuggestion.topRace1.map((horse) => (
-                          <div key={horse.number} className="mb-2 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
-                              <Badge className="bg-blue-500/20 text-blue-400">
-                                {formatNumber(horse.rankingScore, 1)}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-400 mb-2">DD-2</h4>
-                        {autoSuggestion.topRace2.map((horse) => (
-                          <div key={horse.number} className="mb-2 p-2 bg-purple-500/10 border border-purple-500/30 rounded text-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-white">#{horse.number} {horse.name}</span>
-                              <Badge className="bg-purple-500/20 text-purple-400">
-                                {formatNumber(horse.rankingScore, 1)}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-400 mb-3">Bästa kombinationer</h4>
-                      <div className="grid gap-2">
-                        {autoSuggestion.combinations.map((combo, index) => (
-                          <div
-                            key={index}
-                            className={`p-3 rounded-lg border ${
-                              index === 0 ? 'bg-green-500/10 border-green-500/40' :
-                              index < 3 ? 'bg-yellow-500/10 border-yellow-500/30' :
-                              'bg-gray-700/20 border-gray-600/30'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Badge className="bg-blue-500/30 text-blue-300">
-                                  #{combo.race1Horse.number}
-                                </Badge>
-                                <span className="text-white font-mono">×</span>
-                                <Badge className="bg-purple-500/30 text-purple-300">
-                                  #{combo.race2Horse.number}
-                                </Badge>
-                                <span className="text-sm text-gray-300">
-                                  {combo.race1Horse.name} / {combo.race2Horse.name}
-                                </span>
-                              </div>
-                              <Badge className={
-                                index === 0 ? 'bg-green-500/20 text-green-400' :
-                                index < 3 ? 'bg-yellow-500/20 text-yellow-400' :
-                                'bg-gray-600/20 text-gray-400'
-                              }>
-                                Score: {formatNumber(combo.combinedScore, 1)}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {autoSuggestion.spik ? (
-                      <HorseCard
-                        horse={autoSuggestion.spik}
-                        icon={Target}
-                        label="Spik"
-                        color="bg-blue-500/10 border-blue-500/30"
-                      />
-                    ) : (
-                      <div className="p-3 rounded-lg border bg-gray-700/20 border-gray-600/40" data-testid="no-spik-message">
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <Target className="w-4 h-4" />
-                          <span className="text-sm font-semibold">Ingen spik</span>
-                          <span className="text-xs opacity-80">• Ingen häst uppfyller score- och longshot-kraven</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {autoSuggestion.las.length > 0 && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                          <Lock className="w-4 h-4" />
-                          Lås ({autoSuggestion.las.length})
-                        </h3>
-                        {autoSuggestion.las.map(horse => (
-                          <HorseCard
-                            key={horse.number}
-                            horse={horse}
-                            icon={Lock}
-                            label="Lås"
-                            color="bg-purple-500/10 border-purple-500/30"
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {autoSuggestion.gardering.length > 0 && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                          <Shield className="w-4 h-4" />
-                          Gardering ({autoSuggestion.gardering.length})
-                        </h3>
-                        {autoSuggestion.gardering.map(horse => (
-                          <HorseCard
-                            key={horse.number}
-                            horse={horse}
-                            icon={Shield}
-                            label="Gardering"
-                            color="bg-gray-700/30 border-gray-600/30"
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    {autoSuggestion.skrallbud?.length > 0 && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-semibold text-yellow-300 uppercase flex items-center gap-2">
-                          <Sparkles className="w-4 h-4" />
-                          Skrallbud ({autoSuggestion.skrallbud.length})
-                        </h3>
-                        {autoSuggestion.skrallbud.map(horse => (
-                          <HorseCard
-                            key={`skrall-${horse.number}`}
-                            horse={horse}
-                            icon={Sparkles}
-                            label="Skrallbud"
-                            color="bg-yellow-500/10 border-yellow-500/30"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!autoSuggestion.isDDMode && (
-                  <Button
-                    data-testid="copy-to-manual-button"
-                    onClick={copyToManual}
-                    variant="outline"
-                    className="w-full border-gray-700 hover:bg-gray-800"
+      {isExpanded && (
+        <div className="px-6 pb-6">
+          <div className="space-y-6 transition-all duration-300 ease-in-out">
+            {/* Generated race rows */}
+            <div className="space-y-2" data-testid="auto-ticket-rows">
+              {autoTicket.length === 0 ? (
+                <p className="text-sm text-gray-500 py-4 text-center">Ingen loppdata tillgänglig.</p>
+              ) : (
+                autoTicket.map((race, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-wrap items-center gap-3 px-3 py-2 rounded-md bg-[#0a0e1a] border border-gray-800"
+                    data-testid={`auto-ticket-race-${i}`}
                   >
-                    Kopiera och anpassa manuellt
-                  </Button>
-                )}
-              </>
-            )}
-
-            {mode === 'manual' && (
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <p className="text-sm text-blue-300">
-                    Klicka på hästar i tabellen ovan för att välja:
-                    <br />• 1 Spik (mest säker)
-                    <br />• 2 Lås (troliga vinnare)
-                    <br />• 3-5 Garderingar (extra säkerhet)
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  {manualSelection.spik && (
-                    <HorseCard horse={manualSelection.spik} icon={Target} label="Spik" color="bg-blue-500/10 border-blue-500/30" />
-                  )}
-                  {manualSelection.las.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                        <Lock className="w-4 h-4" />Lås ({manualSelection.las.length}/2)
-                      </h3>
-                      {manualSelection.las.map(horse => (
-                        <HorseCard key={horse.number} horse={horse} icon={Lock} label="Lås" color="bg-purple-500/10 border-purple-500/30" />
-                      ))}
+                    <span className="text-gray-400 font-medium text-sm w-16 shrink-0">{race.label}:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {race.horses.length === 0 ? (
+                        <span className="text-xs text-gray-600">–</span>
+                      ) : (
+                        race.horses.map(h => (
+                          <span
+                            key={h.number}
+                            className="px-2 py-0.5 rounded-full text-xs font-mono font-semibold bg-purple-600/20 text-purple-300 border border-purple-600/30"
+                          >
+                            {h.number}
+                          </span>
+                        ))
+                      )}
                     </div>
-                  )}
-                  {manualSelection.gardering.length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-400 uppercase flex items-center gap-2">
-                        <Shield className="w-4 h-4" />Gardering ({manualSelection.gardering.length}/5)
-                      </h3>
-                      {manualSelection.gardering.map(horse => (
-                        <HorseCard key={horse.number} horse={horse} icon={Shield} label="Gardering" color="bg-gray-700/30 border-gray-600/30" />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {!manualSelection.spik && manualSelection.las.length === 0 && manualSelection.gardering.length === 0 && (
-                  <div className="text-center py-8 text-gray-400" data-testid="no-manual-selection-message">
-                    Inga hästar valda ännu. Börja med att ladda det automatiska förslaget.
+                    <span className="ml-auto text-[11px] text-gray-600 whitespace-nowrap">{race.strategy}</span>
                   </div>
-                )}
+                ))
+              )}
+            </div>
+
+            {/* Total rows and cost */}
+            {autoTicket.length > 0 && (
+              <div
+                className="flex flex-wrap items-center gap-4 px-4 py-3 rounded-lg border border-purple-600/30 bg-purple-600/10"
+                data-testid="auto-ticket-cost"
+              >
+                <div className="text-sm text-gray-300 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span>
+                    <span className="font-semibold text-white">{totalRows.toLocaleString('sv-SE')}</span>
+                    <span className="ml-1 text-gray-500">rader</span>
+                  </span>
+                  <span className="text-gray-500">•</span>
+                  <span>
+                    Kostnad:{' '}
+                    <span className="font-semibold text-white">
+                      {totalCost.toLocaleString('sv-SE')} kr
+                    </span>
+                  </span>
+                  <span className="text-gray-500">•</span>
+                  <span className="text-gray-400">{formattedRowPrice} kr / rad ({normalizedGameType || gameType})</span>
+                </div>
               </div>
             )}
-          </>
-        )}
-
           </div>
         </div>
       )}
