@@ -457,6 +457,9 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   let reachedIterationLimit = true;
 
   const initialCost = calculateCost(adjustedRows, rowPrice);
+  const adjustmentMode = useExactTarget && initialCost > exactTarget ? 'reduce' : 'expand';
+
+  console.log('[SystemBuilder][BudgetAdjust] START', { initialCost, targetBudget: exactTarget, adjustmentMode });
 
   // Hard iteration cap prevents infinite loops if no more valid adjustments exist.
   for (let i = 0; i < MAX_BUDGET_ADJUST_ITERATIONS; i += 1) {
@@ -469,11 +472,34 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       break;
     }
 
+    if (useExactTarget && adjustmentMode === 'reduce') {
+      // Reduction mode: shrink ticket until cost <= targetBudget.
+      if (totalCost <= exactTarget) {
+        stopReason = 'budget reached';
+        reachedIterationLimit = false;
+        console.log('[SystemBuilder][BudgetAdjust] STOP', { adjustmentMode, currentCost: totalCost, stopReason });
+        break;
+      }
+
+      const reduction = reduceTicketOneStep(adjustedRows);
+      if (!reduction.changed) {
+        stopReason = 'cannot reduce further';
+        reachedIterationLimit = false;
+        console.log('[SystemBuilder][BudgetAdjust] STOP', { adjustmentMode, currentCost: totalCost, stopReason });
+        break;
+      }
+
+      adjustedRows = reduction.ticketRows;
+      console.log('[SystemBuilder][BudgetAdjust] reduce step', { currentCost: calculateCost(adjustedRows, rowPrice) });
+      continue;
+    }
+
     if (useExactTarget) {
-      // In slider mode, continue expansion until budget target is reached.
+      // Expansion mode: grow ticket until budget target is reached.
       if (totalCost >= exactTarget) {
         stopReason = 'budget reached';
         reachedIterationLimit = false;
+        console.log('[SystemBuilder][BudgetAdjust] STOP', { adjustmentMode, currentCost: totalCost, stopReason });
         break;
       }
 
@@ -497,6 +523,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
           }
         });
 
+        console.log('[SystemBuilder][BudgetAdjust] STOP', { adjustmentMode, currentCost: totalCost, stopReason });
         break;
       }
 
@@ -509,6 +536,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       if (expandedCost > exactTarget * EXACT_BUDGET_MAX_OVERSHOOT_FACTOR) {
         stopReason = 'budget reached';
         reachedIterationLimit = false;
+        console.log('[SystemBuilder][BudgetAdjust] STOP overshoot', { adjustmentMode, expandedCost, exactTarget });
         break;
       }
 
