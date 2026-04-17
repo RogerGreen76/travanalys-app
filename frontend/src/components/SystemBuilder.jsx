@@ -294,20 +294,20 @@ const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
 
   if (strategy === 'Gardera brett') {
     const maxBySize = {
-      Liten: 3,
-      Mellan: 5,
+      Liten: 5,
+      Mellan: 6,
       Stor: safeLength,
     };
-    return Math.min(maxBySize[size] ?? 4, safeLength);
+    return Math.min(maxBySize[size] ?? 6, safeLength);
   }
 
   if (strategy === 'Lås / 2-3 hästar') {
     const maxBySize = {
-      Liten: 2,
-      Mellan: 3,
-      Stor: 4,
+      Liten: 3,
+      Mellan: 4,
+      Stor: 5,
     };
-    return Math.min(maxBySize[size] ?? 3, safeLength);
+    return Math.min(maxBySize[size] ?? 4, safeLength);
   }
 
   if (strategy === 'Spik-kandidat') {
@@ -509,21 +509,38 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
         stopReason = expansion.reason || 'no more expandable races';
         reachedIterationLimit = false;
 
-        // Log each blocked race
-        adjustedRows.forEach((race) => {
+        // Detailed per-race expansion stop diagnostics
+        const raceDiagnostics = adjustedRows.map((race) => {
           const ev = evaluateExpansionCandidates(race, size);
           const evRem = ev.diagnostics?.remaining || [];
           const evFb = ev.fallback || [];
-          const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, (Array.isArray(race?.ranked) ? race.ranked : []).length);
-          let reason = 'expandable';
-          if (ev.blockedByLimit) reason = 'maxHorsesReached';
-          else if (evRem.length === 0) reason = 'noRemainingCandidates';
-          else if ((ev.preferred || []).length === 0 && (ev.acceptable || []).length === 0 && evFb.length === 0) reason = 'noFallbackCandidates';
-          if (reason !== 'expandable') {
-          }
+          const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
+          const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
+          let raceStop = 'expandable';
+          if (ev.blockedByLimit) raceStop = 'maxHorsesReached';
+          else if (evRem.length === 0) raceStop = 'noRemainingCandidates';
+          else if ((ev.preferred || []).length === 0 && (ev.acceptable || []).length === 0 && evFb.length === 0) raceStop = 'noFallbackCandidates';
+          return {
+            raceId: race.label,
+            strategy: race.strategy,
+            selectedCount: (race.horses || []).length,
+            maxAllowed,
+            remainingCandidates: evRem.length,
+            fallbackCandidates: evFb.length,
+            expandable: raceStop === 'expandable',
+            stopReason: raceStop,
+          };
         });
 
-        console.log('[SystemBuilder][BudgetAdjust] STOP', { adjustmentMode, currentCost: totalCost, stopReason });
+        console.log('[SystemBuilder][BudgetAdjust] EXPANSION STOP', {
+          adjustmentMode,
+          currentRows: totalRows,
+          currentCost: totalCost,
+          targetBudget: exactTarget,
+          expandableRaces: raceDiagnostics.filter((r) => r.expandable).length,
+          stopReason,
+          raceDiagnostics,
+        });
         break;
       }
 
