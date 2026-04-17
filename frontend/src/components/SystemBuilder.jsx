@@ -362,30 +362,42 @@ const expandTicketOneStep = (ticketRows, size) => {
       .map(({ race, index }) => {
         const evaluation = evaluateExpansionCandidates(race, size);
 
-        console.debug('[SystemBuilder][ExpandCandidates]', {
-          race: race.label,
+        const evPreferred = evaluation.preferred || [];
+        const evAcceptable = evaluation.acceptable || [];
+        const evFallback = evaluation.fallback || [];
+        const evRemaining = evaluation.diagnostics?.remaining || [];
+        const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
+        const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
+
+        let raceStopReason = 'expandable';
+        if (evaluation.blockedByLimit) {
+          raceStopReason = 'maxHorsesReached';
+        } else if (evRemaining.length === 0) {
+          raceStopReason = 'noRemainingCandidates';
+        } else if (evPreferred.length === 0 && evAcceptable.length === 0 && evFallback.length === 0) {
+          // horses remain but all were rejected — find most common rejection reason
+          const reasons = (evaluation.diagnostics?.rejected || []).map((r) => r.reason || 'unknown');
+          const topReason = reasons.length > 0 ? reasons[0] : 'candidateRejectedLowFinalScore';
+          raceStopReason = topReason.includes('below floor') ? 'candidateRejectedLowFinalScore' : 'candidateRejectedExpansionRule';
+        }
+
+        console.debug('[SystemBuilder][RaceDiagnostic]', {
+          raceId: race.label,
           strategy: race.strategy,
-          preferredCandidates: evaluation.diagnostics.preferred,
-          acceptableCandidates: evaluation.diagnostics.acceptable,
-          fallbackCandidates: evaluation.diagnostics.fallback,
-          rejectedCandidates: evaluation.diagnostics.rejected,
+          selected: (race.horses || []).map((h) => h?.number),
+          remainingCandidates: evRemaining.length,
+          preferredCandidates: evPreferred.length,
+          acceptableCandidates: evAcceptable.length,
+          fallbackCandidates: evFallback.length,
+          rejectedCandidates: (evaluation.diagnostics?.rejected || []).map((r) => ({ number: r.number, reason: r.reason, finalScore: r.finalScore })),
+          maxAllowed,
+          expandable: raceStopReason === 'expandable',
+          stopReason: raceStopReason,
         });
 
         if (evaluation.blockedByLimit) {
           blockedByLimitsDetected = true;
         }
-        const evPreferred = evaluation.preferred || [];
-        const evAcceptable = evaluation.acceptable || [];
-        const evFallback = evaluation.fallback || [];
-        const evRemaining = evaluation.diagnostics?.remaining || [];
-        console.debug('[SystemBuilder][ExpandCandidates] nullCheck', {
-          race: race.label,
-          preferredCandidatesRemaining: evPreferred.length,
-          acceptableCandidatesRemaining: evAcceptable.length,
-          fallbackCandidatesRemaining: evFallback.length,
-          totalRemaining: evRemaining.length,
-          blockedByLimit: evaluation.blockedByLimit,
-        });
         if (!evaluation.blockedByLimit && evPreferred.length === 0 && evAcceptable.length === 0 && evFallback.length === 0 && evRemaining.length > 0) {
           noAllowedCandidatesDetected = true;
         }
@@ -534,24 +546,47 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   }
 
   if (useExactTarget) {
+    const ranked = (race) => Array.isArray(race?.ranked) ? race.ranked : [];
     const finalEvals = adjustedRows.map((race) => {
       const ev = evaluateExpansionCandidates(race, size);
+      const evPref = ev.preferred || [];
+      const evAcc = ev.acceptable || [];
+      const evFb = ev.fallback || [];
+      const evRem = ev.diagnostics?.remaining || [];
+      const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked(race).length);
+
+      let raceStopReason = 'expandable';
+      if (ev.blockedByLimit) raceStopReason = 'maxHorsesReached';
+      else if (evRem.length === 0) raceStopReason = 'noRemainingCandidates';
+      else if (evPref.length === 0 && evAcc.length === 0 && evFb.length === 0) {
+        const reasons = (ev.diagnostics?.rejected || []).map((r) => r.reason || 'unknown');
+        const topReason = reasons.length > 0 ? reasons[0] : 'candidateRejectedLowFinalScore';
+        raceStopReason = topReason.includes('below floor') ? 'candidateRejectedLowFinalScore' : 'candidateRejectedExpansionRule';
+      }
+
       return {
-        race: race.label,
+        raceId: race.label,
         strategy: race.strategy,
-        preferredCandidatesRemaining: ev.preferred.length,
-        acceptableCandidatesRemaining: ev.acceptable.length,
-        fallbackCandidatesRemaining: ev.fallback.length,
-        blockedByLimit: ev.blockedByLimit,
+        selected: (race.horses || []).map((h) => h?.number),
+        remainingCandidates: evRem.length,
+        preferredCandidates: evPref.length,
+        acceptableCandidates: evAcc.length,
+        fallbackCandidates: evFb.length,
+        maxAllowed,
+        expandable: raceStopReason === 'expandable',
+        stopReason: raceStopReason,
       };
     });
-    console.debug('[SystemBuilder][BudgetLoop] stop', {
-      sliderBudget: targetBudget,
+
+    console.debug('[SystemBuilder][BudgetLoop] STOP SUMMARY', {
       targetBudget: exactTarget,
       currentCost: calculateCost(adjustedRows, rowPrice),
-      stopReason,
+      stopReasonGlobal: stopReason,
       rows: calculateRows(adjustedRows),
-      raceDetails: finalEvals,
+      size,
+      raceDiagnostics: finalEvals,
+      expandableRaces: finalEvals.filter((r) => r.expandable).length,
+      blockedRaces: finalEvals.filter((r) => !r.expandable).length,
     });
   }
 
