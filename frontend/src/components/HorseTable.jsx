@@ -629,26 +629,23 @@ const HorseTable = ({
         {/* Loppklassificering */}
         {raceClassification && (
           <div className={`p-3 rounded-lg border ${raceClassification.color}`} data-testid="race-classification">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-0">
                 <span className="font-bold text-lg">{raceClassification.type}</span>
                 <span className="text-sm opacity-80"> • {raceClassification.description}</span>
               </div>
-
-              <div className="ml-auto flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap ${tillitBadgeClassName}`}
-                  data-testid="race-confidence-indicator"
-                >
-                  Tillit: {raceConfidence.tillit}
-                </span>
-                <span
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap ${strategyBadgeClassName}`}
-                  data-testid="race-strategy-suggestion"
-                >
-                  Strategi: {strategySuggestion}
-                </span>
-              </div>
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap ${tillitBadgeClassName}`}
+                data-testid="race-confidence-indicator"
+              >
+                Tillit: {raceConfidence.tillit}
+              </span>
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap ${strategyBadgeClassName}`}
+                data-testid="race-strategy-suggestion"
+              >
+                Strategi: {strategySuggestion}
+              </span>
             </div>
           </div>
         )}
