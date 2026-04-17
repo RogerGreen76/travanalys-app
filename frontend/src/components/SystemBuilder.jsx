@@ -179,7 +179,7 @@ const getMaxGarderaRaces = (size) => MAX_GARDERA_BY_SIZE[size] ?? MAX_GARDERA_BY
 
 const calculateRows = (ticketRows) => {
   if (!Array.isArray(ticketRows) || ticketRows.length === 0) return 0;
-  return ticketRows.reduce((product, race) => product * Math.max(race.horses.length, 1), 1);
+  return ticketRows.reduce((product, race) => product * Math.max((race.horses || []).length, 1), 1);
 };
 
 const calculateCost = (ticketRows, rowPrice) => calculateRows(ticketRows) * rowPrice;
@@ -202,6 +202,7 @@ const evaluateExpansionCandidates = (race, size) => {
     rejected: [],
     preferred: [],
     acceptable: [],
+    fallback: [],
   };
 
   if (blockedByLimit) {
@@ -213,11 +214,10 @@ const evaluateExpansionCandidates = (race, size) => {
       blockedByLimit,
       preferred: [],
       acceptable: [],
+      fallback: [],
       diagnostics,
     };
   }
-
-  diagnostics.fallback = [];
 
   remaining.forEach((horse) => {
     const play = getHorsePlay(horse);
@@ -322,13 +322,13 @@ const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
 };
 
 const reduceTicketOneStep = (ticketRows) => {
-  const reduced = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+  const reduced = ticketRows.map((race) => ({ ...race, horses: [...(race.horses || [])] }));
 
   // Reduce wide spreads first by removing the lowest-ranked horse.
   const wideIndex = reduced
     .map((race, index) => ({ index, race }))
-    .filter(({ race }) => race.strategy === 'Gardera brett' && race.horses.length > 1)
-    .sort((a, b) => b.race.horses.length - a.race.horses.length)[0]?.index;
+    .filter(({ race }) => race.strategy === 'Gardera brett' && (race.horses || []).length > 1)
+    .sort((a, b) => (b.race.horses || []).length - (a.race.horses || []).length)[0]?.index;
 
   if (wideIndex !== undefined) {
     reduced[wideIndex].horses.pop();
@@ -338,8 +338,8 @@ const reduceTicketOneStep = (ticketRows) => {
   // Then reduce Lås races from 3+ to 2.
   const lasIndex = reduced
     .map((race, index) => ({ index, race }))
-    .filter(({ race }) => race.strategy === 'Lås / 2-3 hästar' && race.horses.length > 2)
-    .sort((a, b) => b.race.horses.length - a.race.horses.length)[0]?.index;
+    .filter(({ race }) => race.strategy === 'Lås / 2-3 hästar' && (race.horses || []).length > 2)
+    .sort((a, b) => (b.race.horses || []).length - (a.race.horses || []).length)[0]?.index;
 
   if (lasIndex !== undefined) {
     reduced[lasIndex].horses.pop();
@@ -350,7 +350,7 @@ const reduceTicketOneStep = (ticketRows) => {
 };
 
 const expandTicketOneStep = (ticketRows, size) => {
-  const expanded = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+  const expanded = ticketRows.map((race) => ({ ...race, horses: [...(race.horses || [])] }));
   const strategyOrder = ['Gardera brett', 'Lås / 2-3 hästar'];
   let blockedByLimitsDetected = false;
   let noAllowedCandidatesDetected = false;
@@ -374,15 +374,27 @@ const expandTicketOneStep = (ticketRows, size) => {
         if (evaluation.blockedByLimit) {
           blockedByLimitsDetected = true;
         }
-        if (!evaluation.blockedByLimit && evaluation.preferred.length === 0 && evaluation.acceptable.length === 0 && evaluation.fallback.length === 0 && evaluation.diagnostics.remaining.length > 0) {
+        const evPreferred = evaluation.preferred || [];
+        const evAcceptable = evaluation.acceptable || [];
+        const evFallback = evaluation.fallback || [];
+        const evRemaining = evaluation.diagnostics?.remaining || [];
+        console.debug('[SystemBuilder][ExpandCandidates] nullCheck', {
+          race: race.label,
+          preferredCandidatesRemaining: evPreferred.length,
+          acceptableCandidatesRemaining: evAcceptable.length,
+          fallbackCandidatesRemaining: evFallback.length,
+          totalRemaining: evRemaining.length,
+          blockedByLimit: evaluation.blockedByLimit,
+        });
+        if (!evaluation.blockedByLimit && evPreferred.length === 0 && evAcceptable.length === 0 && evFallback.length === 0 && evRemaining.length > 0) {
           noAllowedCandidatesDetected = true;
         }
 
         return {
           index,
-          preferred: evaluation.preferred,
-          acceptable: evaluation.acceptable,
-          fallback: evaluation.fallback,
+          preferred: evPreferred,
+          acceptable: evAcceptable,
+          fallback: evFallback,
         };
       });
 
@@ -441,7 +453,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   const target = TARGET_BUDGET_BY_SIZE[size] || TARGET_BUDGET_BY_SIZE.Mellan;
   const useExactTarget = Number.isFinite(targetBudget);
   const exactTarget = useExactTarget ? Number(targetBudget) : null;
-  let adjustedRows = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+  let adjustedRows = ticketRows.map((race) => ({ ...race, horses: [...(race.horses || [])] }));
   let stopReason = 'loop-complete';
   let reachedIterationLimit = true;
 
