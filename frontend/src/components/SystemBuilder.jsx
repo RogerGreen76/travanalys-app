@@ -381,7 +381,7 @@ const expandTicketOneStep = (ticketRows, size) => {
           raceStopReason = topReason.includes('below floor') ? 'candidateRejectedLowFinalScore' : 'candidateRejectedExpansionRule';
         }
 
-        console.debug('[SystemBuilder][RaceDiagnostic]', {
+        console.log('[SystemBuilder][RaceDiagnostic]', {
           raceId: race.label,
           strategy: race.strategy,
           selected: (race.horses || []).map((h) => h?.number),
@@ -469,14 +469,12 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   let stopReason = 'loop-complete';
   let reachedIterationLimit = true;
 
-  if (useExactTarget) {
-    console.debug('[SystemBuilder][BudgetLoop] start', {
-      sliderBudget: targetBudget,
-      targetBudget: exactTarget,
-      currentCost: calculateCost(adjustedRows, rowPrice),
-      size,
-    });
-  }
+  const initialCost = calculateCost(adjustedRows, rowPrice);
+  console.log('SYSTEM BUILDER START', {
+    targetBudget,
+    initialCost,
+    size,
+  });
 
   // Hard iteration cap prevents infinite loops if no more valid adjustments exist.
   for (let i = 0; i < MAX_BUDGET_ADJUST_ITERATIONS; i += 1) {
@@ -498,11 +496,46 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       }
 
       const expansion = expandTicketOneStep(adjustedRows, size);
+
       if (!expansion.changed) {
         stopReason = expansion.reason || 'no more expandable races';
         reachedIterationLimit = false;
+
+        // Log each blocked race
+        adjustedRows.forEach((race) => {
+          const ev = evaluateExpansionCandidates(race, size);
+          const evRem = ev.diagnostics?.remaining || [];
+          const evFb = ev.fallback || [];
+          const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, (Array.isArray(race?.ranked) ? race.ranked : []).length);
+          let reason = 'expandable';
+          if (ev.blockedByLimit) reason = 'maxHorsesReached';
+          else if (evRem.length === 0) reason = 'noRemainingCandidates';
+          else if ((ev.preferred || []).length === 0 && (ev.acceptable || []).length === 0 && evFb.length === 0) reason = 'noFallbackCandidates';
+          if (reason !== 'expandable') {
+            console.log('RACE BLOCKED', {
+              raceId: race.label,
+              reason,
+              selected: (race.horses || []).map((h) => h?.number),
+              remainingCandidates: evRem.length,
+              fallbackCandidates: evFb.length,
+              maxAllowed,
+            });
+          }
+        });
+
         break;
       }
+
+      // Log the expand step
+      const expandedRace = expansion.ticketRows.find((r, idx) =>
+        (r.horses || []).length !== (adjustedRows[idx]?.horses || []).length
+      );
+      console.log('EXPAND STEP', {
+        currentCost: totalCost,
+        targetBudget,
+        raceId: expandedRace?.label,
+        reason: expansion.reason,
+      });
 
       const expandedCost = calculateCost(expansion.ticketRows, rowPrice);
       if (expandedCost > exactTarget * EXACT_BUDGET_MAX_OVERSHOOT_FACTOR) {
@@ -545,15 +578,17 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
     stopReason = 'iteration safety limit hit';
   }
 
+  const finalCost = calculateCost(adjustedRows, rowPrice);
+
   if (useExactTarget) {
-    const ranked = (race) => Array.isArray(race?.ranked) ? race.ranked : [];
+    const rankedOf = (race) => Array.isArray(race?.ranked) ? race.ranked : [];
     const finalEvals = adjustedRows.map((race) => {
       const ev = evaluateExpansionCandidates(race, size);
       const evPref = ev.preferred || [];
       const evAcc = ev.acceptable || [];
       const evFb = ev.fallback || [];
       const evRem = ev.diagnostics?.remaining || [];
-      const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked(race).length);
+      const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, rankedOf(race).length);
 
       let raceStopReason = 'expandable';
       if (ev.blockedByLimit) raceStopReason = 'maxHorsesReached';
@@ -578,10 +613,10 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       };
     });
 
-    console.debug('[SystemBuilder][BudgetLoop] STOP SUMMARY', {
-      targetBudget: exactTarget,
-      currentCost: calculateCost(adjustedRows, rowPrice),
-      stopReasonGlobal: stopReason,
+    console.log('SYSTEM BUILDER STOP', {
+      currentCost: finalCost,
+      targetBudget,
+      stopReason,
       rows: calculateRows(adjustedRows),
       size,
       raceDiagnostics: finalEvals,
