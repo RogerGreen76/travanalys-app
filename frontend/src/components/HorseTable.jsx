@@ -368,6 +368,22 @@ const HorseTable = ({
     return getStrategySuggestion(raceConfidence.tillit, fullRaceHorses);
   }, [fullRaceHorses, raceConfidence.tillit, raceStrategySuggestion]);
 
+  const tillitBadgeClassName =
+    raceConfidence.tillit === 'Hög'
+      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+      : raceConfidence.tillit === 'Medel'
+      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+      : 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+
+  const strategyBadgeClassName =
+    strategySuggestion === 'Spik-kandidat'
+      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+      : strategySuggestion === 'Försiktig spik / 2 hästar'
+      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+      : strategySuggestion === 'Lås / 2-3 hästar'
+      ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+      : 'bg-rose-500/15 text-rose-300 border-rose-500/30';
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -610,21 +626,29 @@ const HorseTable = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
-          <div data-testid="race-confidence-indicator">
-            Tillit: {raceConfidence.tillit}
-          </div>
-          <div data-testid="race-strategy-suggestion">
-            Strategi: {strategySuggestion}
-          </div>
-        </div>
-
         {/* Loppklassificering */}
         {raceClassification && (
           <div className={`p-3 rounded-lg border ${raceClassification.color}`} data-testid="race-classification">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg">{raceClassification.type}</span>
-              <span className="text-sm opacity-80">• {raceClassification.description}</span>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <span className="font-bold text-lg">{raceClassification.type}</span>
+                <span className="text-sm opacity-80"> • {raceClassification.description}</span>
+              </div>
+
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap ${tillitBadgeClassName}`}
+                  data-testid="race-confidence-indicator"
+                >
+                  Tillit: {raceConfidence.tillit}
+                </span>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold whitespace-nowrap ${strategyBadgeClassName}`}
+                  data-testid="race-strategy-suggestion"
+                >
+                  Strategi: {strategySuggestion}
+                </span>
+              </div>
             </div>
           </div>
         )}
