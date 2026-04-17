@@ -662,7 +662,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
   const [systemTab, setSystemTab] = useState('auto'); // 'auto' or 'value'
   const [size, setSize] = useState(null); // 'Liten' | 'Mellan' | 'Stor'
-  const [sliderBudget, setSliderBudget] = useState(null);
+  const [budget, setBudget] = useState(DEFAULT_BUDGET_BY_SIZE.Mellan);
   const [isExpanded, setIsExpanded] = useState(false);
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -881,9 +881,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const normalizedGameType = gameType?.toUpperCase().split('-')[0];
   const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
   const selectedSize = size || 'Mellan';
-  const presetBudget = DEFAULT_BUDGET_BY_SIZE[selectedSize] ?? 400;
-  const targetBudget = sliderBudget != null ? sliderBudget : presetBudget;
-  const estimatedRows = Math.max(1, Math.round(targetBudget / rowPrice));
+  const targetBudget = budget;
+  const estimatedRows = Math.max(1, Math.round(budget / rowPrice));
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoTicket = useMemo(() => {
@@ -978,8 +977,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       };
     });
 
-    console.log('BUDGET SOURCE', {
-      sliderBudget,
+    console.log('BUDGET STATE', {
+      budgetUsedBySlider: budget,
+      budgetUsedByBuilder: budget,
       selectedSize,
       finalTargetBudget: targetBudget,
     });
@@ -991,7 +991,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       strategy: race.strategy,
       horses: race.horses,
     }));
-  }, [allRaces, horses, gameType, selectedSize, rowPrice, sliderBudget, targetBudget]);
+  }, [allRaces, horses, gameType, selectedSize, rowPrice, budget, targetBudget]);
 
   const totalRows = useMemo(() => {
     return calculateRows(autoTicket);
@@ -1104,6 +1104,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                   data-testid={`size-${s.toLowerCase()}`}
                   onClick={() => {
                     setSize(s);
+                    setBudget(DEFAULT_BUDGET_BY_SIZE[s] ?? DEFAULT_BUDGET_BY_SIZE.Mellan);
                     setIsExpanded(true);
                   }}
                   variant={size === s ? 'default' : 'outline'}
@@ -1120,18 +1121,18 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-gray-400">Budget</span>
-              <span className="text-sm font-semibold text-white">{targetBudget.toLocaleString('sv-SE')} kr</span>
+              <span className="text-sm font-semibold text-white">{budget.toLocaleString('sv-SE')} kr</span>
             </div>
             <Slider
               data-testid="budget-slider"
               min={50}
               max={10000}
               step={100}
-              value={[targetBudget]}
+              value={[budget]}
               onValueChange={(value) => {
                 const next = Number(value?.[0]);
                 if (Number.isFinite(next)) {
-                  setSliderBudget(next);
+                  setBudget(next);
                   console.log('SLIDER UPDATED', { sliderBudget: next });
                   setIsExpanded(true);
                 }
