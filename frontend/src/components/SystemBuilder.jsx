@@ -661,7 +661,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
   const [systemTab, setSystemTab] = useState('auto'); // 'auto' or 'value'
   const [size, setSize] = useState(null); // 'Liten' | 'Mellan' | 'Stor'
-  const [budget, setBudget] = useState(DEFAULT_BUDGET_BY_SIZE.Mellan);
+  const [budget, setBudget] = useState(400);
   const [isExpanded, setIsExpanded] = useState(false);
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -976,7 +976,10 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       };
     });
 
-    console.log('BUDGET STATE', budget);
+    console.log('FINAL BUDGET USED', {
+      budget,
+      targetBudget,
+    });
 
     const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, targetBudget);
 
@@ -1098,7 +1101,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                   data-testid={`size-${s.toLowerCase()}`}
                   onClick={() => {
                     setSize(s);
-                    setBudget(DEFAULT_BUDGET_BY_SIZE[s] ?? DEFAULT_BUDGET_BY_SIZE.Mellan);
+                    if (s === 'Liten') setBudget(200);
+                    if (s === 'Mellan') setBudget(400);
+                    if (s === 'Stor') setBudget(1000);
                     setIsExpanded(true);
                   }}
                   variant={size === s ? 'default' : 'outline'}
