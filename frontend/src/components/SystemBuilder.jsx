@@ -380,19 +380,6 @@ const expandTicketOneStep = (ticketRows, size) => {
           raceStopReason = topReason.includes('below floor') ? 'candidateRejectedLowFinalScore' : 'candidateRejectedExpansionRule';
         }
 
-        console.log('[SystemBuilder][RaceDiagnostic]', {
-          raceId: race.label,
-          strategy: race.strategy,
-          selected: (race.horses || []).map((h) => h?.number),
-          remainingCandidates: evRemaining.length,
-          preferredCandidates: evPreferred.length,
-          acceptableCandidates: evAcceptable.length,
-          fallbackCandidates: evFallback.length,
-          rejectedCandidates: (evaluation.diagnostics?.rejected || []).map((r) => ({ number: r.number, reason: r.reason, finalScore: r.finalScore })),
-          maxAllowed,
-          expandable: raceStopReason === 'expandable',
-          stopReason: raceStopReason,
-        });
 
         if (evaluation.blockedByLimit) {
           blockedByLimitsDetected = true;
@@ -469,11 +456,6 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   let reachedIterationLimit = true;
 
   const initialCost = calculateCost(adjustedRows, rowPrice);
-  console.log('SYSTEM BUILDER START', {
-    targetBudget,
-    initialCost,
-    size,
-  });
 
   // Hard iteration cap prevents infinite loops if no more valid adjustments exist.
   for (let i = 0; i < MAX_BUDGET_ADJUST_ITERATIONS; i += 1) {
@@ -511,14 +493,6 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
           else if (evRem.length === 0) reason = 'noRemainingCandidates';
           else if ((ev.preferred || []).length === 0 && (ev.acceptable || []).length === 0 && evFb.length === 0) reason = 'noFallbackCandidates';
           if (reason !== 'expandable') {
-            console.log('RACE BLOCKED', {
-              raceId: race.label,
-              reason,
-              selected: (race.horses || []).map((h) => h?.number),
-              remainingCandidates: evRem.length,
-              fallbackCandidates: evFb.length,
-              maxAllowed,
-            });
           }
         });
 
@@ -529,12 +503,6 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       const expandedRace = expansion.ticketRows.find((r, idx) =>
         (r.horses || []).length !== (adjustedRows[idx]?.horses || []).length
       );
-      console.log('EXPAND STEP', {
-        currentCost: totalCost,
-        targetBudget,
-        raceId: expandedRace?.label,
-        reason: expansion.reason,
-      });
 
       const expandedCost = calculateCost(expansion.ticketRows, rowPrice);
       if (expandedCost > exactTarget * EXACT_BUDGET_MAX_OVERSHOOT_FACTOR) {
@@ -612,16 +580,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       };
     });
 
-    console.log('SYSTEM BUILDER STOP', {
-      currentCost: finalCost,
-      targetBudget,
-      stopReason,
-      rows: calculateRows(adjustedRows),
-      size,
-      raceDiagnostics: finalEvals,
-      expandableRaces: finalEvals.filter((r) => r.expandable).length,
-      blockedRaces: finalEvals.filter((r) => !r.expandable).length,
-    });
+
   }
 
   return adjustedRows;
@@ -976,9 +935,11 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       };
     });
 
-    console.log('FINAL BUDGET USED', {
+    console.log('BUDGET SYNC CHECK', {
       budget,
-      targetBudget,
+      sliderValue: budget,
+      displayedBudget: budget,
+      targetBudget: budget,
     });
 
     const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, targetBudget);
@@ -1120,7 +1081,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-gray-400">Budget</span>
-              <div className="text-sm font-semibold text-white">{budget.toLocaleString('sv-SE')} kr</div>
+              <div className="text-sm font-semibold text-white">{budget} kr</div>
             </div>
             <input
               data-testid="budget-slider"
@@ -1130,9 +1091,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
               step={50}
               value={budget}
               onChange={(e) => {
-                const newBudget = Number(e.target.value);
-                setBudget(newBudget);
-                console.log('SLIDER CHANGE', newBudget);
+                setBudget(Number(e.target.value));
                 setIsExpanded(true);
               }}
               className="w-full h-2 rounded-lg accent-purple-500"
