@@ -70,6 +70,7 @@ const TARGET_BUDGET_BY_SIZE = {
 };
 
 const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
+const isStarkFavorit = (horse) => horse?.winnerStrengthLabel === 'Stark favorit';
 
 const isStrongPlay = (play) => play === 'Stark play' || play === 'Möjlig play';
 
@@ -96,20 +97,42 @@ const getTicketHorseCount = ({ strategySuggestion, size, tillit, scoreGap, topHo
   return Math.min(count, horseCount);
 };
 
-const getSpikPriorityScore = ({ tillit, strategySuggestion, topHorsePlay, scoreGap }) => {
-  const tillitScore = (TILLIT_PRIORITY[tillit] ?? 1) * 1000;
-  const strategyScore = strategySuggestion === 'Spik-kandidat' ? 700 : 0;
-  const gapScore = Math.max(Number(scoreGap) || 0, 0) * 25;
-  const playScore = isStrongPlay(topHorsePlay) ? 120 : 0;
-  const clearMarginScore = (Number(scoreGap) || 0) >= CLEAR_MARGIN_GAP ? 160 : 0;
-  return tillitScore + strategyScore + gapScore + playScore + clearMarginScore;
+const compareSpikPriority = (a, b) => {
+  // 1) Dominance first: highest finalScore gap should win.
+  if (b.dominanceScore !== a.dominanceScore) {
+    return b.dominanceScore - a.dominanceScore;
+  }
+
+  // 2) Then trust level.
+  const tillitDiff = (TILLIT_PRIORITY[b.tillit] ?? 1) - (TILLIT_PRIORITY[a.tillit] ?? 1);
+  if (tillitDiff !== 0) {
+    return tillitDiff;
+  }
+
+  // 3) Then whether top horse is a strong favorite.
+  if (b.topHorseIsStarkFavorit !== a.topHorseIsStarkFavorit) {
+    return Number(b.topHorseIsStarkFavorit) - Number(a.topHorseIsStarkFavorit);
+  }
+
+  // 4) Only after dominance/favorite confidence, consider play signal.
+  const playDiff = (PLAY_PRIORITY[b.topHorsePlay] ?? 0) - (PLAY_PRIORITY[a.topHorsePlay] ?? 0);
+  if (playDiff !== 0) {
+    return playDiff;
+  }
+
+  // 5) Keep explicit spik suggestions as a late tiebreak.
+  if (b.strategy !== a.strategy) {
+    return b.strategy === 'Spik-kandidat' ? 1 : -1;
+  }
+
+  return 0;
 };
 
-const isStrongSpikCandidate = ({ tillit, strategy, scoreGap, topHorsePlay }) => (
+const isStrongSpikCandidate = ({ tillit, strategy, dominanceScore, topHorseIsStarkFavorit }) => (
   tillit === 'Hög'
   && strategy === 'Spik-kandidat'
-  && isStrongPlay(topHorsePlay)
-  && (Number(scoreGap) || 0) >= CLEAR_MARGIN_GAP
+  && topHorseIsStarkFavorit
+  && (Number(dominanceScore) || 0) >= CLEAR_MARGIN_GAP
 );
 
 const getRaceConfidenceScore = ({ tillit, scoreGap, topHorsePlay }) => {
@@ -507,11 +530,12 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         || raceHorses[0]?.strategySuggestion
         || 'Gardera brett';
       const tillit = raceItem.race?.tillit || 'Medel';
-      const scoreGap = Number(
-        raceItem.race?.scoreGap
-        ?? ((getEffectiveFinalScore(ranked[0]) || 0) - (getEffectiveFinalScore(ranked[1]) || 0))
-      ) || 0;
-      const topHorsePlay = getHorsePlay(ranked[0]);
+      const topHorse = ranked[0];
+      const secondHorse = ranked[1];
+      const dominanceScore = (getEffectiveFinalScore(topHorse) || 0) - (getEffectiveFinalScore(secondHorse) || 0);
+      const scoreGap = Number(raceItem.race?.scoreGap ?? dominanceScore) || 0;
+      const topHorsePlay = getHorsePlay(topHorse);
+      const topHorseIsStarkFavorit = isStarkFavorit(topHorse);
       const label = `${gameType}-${raceItem.race?.number || index + 1}`;
 
       return {
@@ -522,7 +546,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         strategy,
         tillit,
         scoreGap,
+        dominanceScore,
         topHorsePlay,
+        topHorseIsStarkFavorit,
       };
     });
 
@@ -530,7 +556,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
     // All sizes use the same spik priority order with fallback to best races.
     const spikSelectionPool = [...raceMeta].sort(
-      (a, b) => getSpikPriorityScore(b) - getSpikPriorityScore(a)
+      compareSpikPriority
     );
 
     const forcedSpikIndexes = new Set(
