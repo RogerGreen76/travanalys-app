@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardDescription, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { Slider } from './ui/slider';
 import { Sparkles, Target, Lock, Shield, Shuffle, Zap, ChevronRight, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -937,9 +938,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
     console.log('BUDGET SYNC CHECK', {
       budget,
-      sliderValue: budget,
-      displayedBudget: budget,
-      targetBudget: budget,
+      targetBudget,
     });
 
     const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, targetBudget);
@@ -1083,18 +1082,20 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
               <span className="text-sm text-gray-400">Budget</span>
               <div className="text-sm font-semibold text-white">{budget} kr</div>
             </div>
-            <input
+            <Slider
               data-testid="budget-slider"
-              type="range"
               min={50}
               max={10000}
               step={50}
-              value={budget}
-              onChange={(e) => {
-                setBudget(Number(e.target.value));
+              value={[budget]}
+              onValueChange={(value) => {
+                const newBudget = Number(value?.[0]);
+                if (!Number.isFinite(newBudget)) return;
+                setBudget(newBudget);
+                console.log('SLIDER CHANGE', newBudget);
                 setIsExpanded(true);
               }}
-              className="w-full h-2 rounded-lg accent-purple-500"
+              className="w-full"
             />
             <p className="text-xs text-gray-500">
               Estimerat: cirka {estimatedRows.toLocaleString('sv-SE')} rader ({formattedRowPrice} kr / rad)
