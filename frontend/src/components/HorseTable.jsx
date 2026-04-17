@@ -191,7 +191,13 @@ const getDisplayPlayLabel = (horse) => {
   return horse?.play || 'No play';
 };
 
-const HorseTable = ({ horses }) => {
+const getConfidenceFromGap = (scoreGap) => {
+  if (scoreGap >= 10) return 'Hög';
+  if (scoreGap >= 6) return 'Medel';
+  return 'Låg';
+};
+
+const HorseTable = ({ horses, raceTillit = null, raceScoreGap = null }) => {
   const fullRaceHorses = useMemo(
     () => (Array.isArray(horses) ? horses : []),
     [horses]
@@ -296,6 +302,35 @@ const HorseTable = ({ horses }) => {
   };
 
   const raceClassification = getRaceClassification();
+
+  const raceConfidence = useMemo(() => {
+    const parsedGap = Number(raceScoreGap);
+    if (Number.isFinite(parsedGap)) {
+      return {
+        tillit: raceTillit || getConfidenceFromGap(parsedGap),
+        scoreGap: parsedGap
+      };
+    }
+
+    if (fullRaceHorses.length < 2) {
+      return {
+        tillit: raceTillit || 'Låg',
+        scoreGap: 0
+      };
+    }
+
+    const rankedByFinalScore = [...fullRaceHorses]
+      .sort((a, b) => (Number(b?.finalScore) || 0) - (Number(a?.finalScore) || 0));
+
+    const topScore = Number(rankedByFinalScore[0]?.finalScore) || 0;
+    const secondScore = Number(rankedByFinalScore[1]?.finalScore) || 0;
+    const scoreGap = topScore - secondScore;
+
+    return {
+      tillit: raceTillit || getConfidenceFromGap(scoreGap),
+      scoreGap
+    };
+  }, [fullRaceHorses, raceScoreGap, raceTillit]);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -539,6 +574,10 @@ const HorseTable = ({ horses }) => {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="text-sm text-gray-300" data-testid="race-confidence-indicator">
+          Tillit: {raceConfidence.tillit}
+        </div>
+
         {/* Loppklassificering */}
         {raceClassification && (
           <div className={`p-3 rounded-lg border ${raceClassification.color}`} data-testid="race-classification">

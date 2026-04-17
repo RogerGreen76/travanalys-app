@@ -165,7 +165,9 @@ const RaceAnalyzer = () => {
           track: race.track || '',
           date: race.date || new Date().toISOString().split('T')[0],
           distance: race.distance || null,
-          startMethod: race.startMethod || null
+          startMethod: race.startMethod || null,
+          tillit: race.tillit || null,
+          scoreGap: Number.isFinite(Number(race.scoreGap)) ? Number(race.scoreGap) : null
         },
         horses: race.horses || []
       }));
@@ -245,7 +247,9 @@ const RaceAnalyzer = () => {
             name: `${gameType}-${index + 1}`,
             track: track,
             date: date,
-            distance: race.distance
+            distance: race.distance,
+            tillit: race.tillit || null,
+            scoreGap: Number.isFinite(Number(race.scoreGap)) ? Number(race.scoreGap) : null
           },
           horses: race.horses
         };
@@ -768,7 +772,11 @@ const RaceAnalyzer = () => {
         {/* Horse Table */}
         {currentRace && (
           <div className={`space-y-12 race-content ${isRaceSwitching ? 'loading' : ''}`}>
-            <HorseTable horses={analyzedHorses || []} />
+            <HorseTable
+              horses={analyzedHorses || []}
+              raceTillit={currentRace.race?.tillit}
+              raceScoreGap={currentRace.race?.scoreGap}
+            />
             <SystemBuilder 
               horses={analyzedHorses || []} 
               gameType={selectedGameType}

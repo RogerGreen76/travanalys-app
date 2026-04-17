@@ -30,11 +30,14 @@ export const analyzeRaceData = (normalizedData) => {
 
       // Analyze horses in this race
       const analyzedHorses = analyzeHorses(race.horses, raceContext, raceShape);
+      const confidenceIndicator = getRaceConfidenceIndicator(analyzedHorses);
 
       return {
         ...race,
         horses: analyzedHorses,
-        raceShape
+        raceShape,
+        tillit: confidenceIndicator.tillit,
+        scoreGap: confidenceIndicator.scoreGap
       };
     });
 
@@ -1087,5 +1090,33 @@ const getCalibrationWeights = (raceType) => {
   return {
     modelWeight,
     marketWeight
+  };
+};
+
+const getRaceConfidenceIndicator = (horses = []) => {
+  if (!Array.isArray(horses) || horses.length < 2) {
+    return {
+      tillit: 'Låg',
+      scoreGap: 0
+    };
+  }
+
+  const rankedByFinalScore = [...horses]
+    .sort((a, b) => (Number(b?.finalScore) || 0) - (Number(a?.finalScore) || 0));
+
+  const topScore = Number(rankedByFinalScore[0]?.finalScore) || 0;
+  const secondScore = Number(rankedByFinalScore[1]?.finalScore) || 0;
+  const scoreGap = topScore - secondScore;
+
+  let tillit = 'Låg';
+  if (scoreGap >= 10) {
+    tillit = 'Hög';
+  } else if (scoreGap >= 6) {
+    tillit = 'Medel';
+  }
+
+  return {
+    tillit,
+    scoreGap
   };
 };
