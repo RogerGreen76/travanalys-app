@@ -428,21 +428,11 @@ const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
   if (safeLength === 0) return 0;
 
   if (strategy === 'Gardera brett') {
-    const maxBySize = {
-      Liten: 5,
-      Mellan: 6,
-      Stor: 8,
-    };
-    return Math.min(maxBySize[size] ?? 6, safeLength);
+    return Math.min(8, safeLength);
   }
 
   if (strategy === 'Lås / 2-3 hästar') {
-    const maxBySize = {
-      Liten: 3,
-      Mellan: 4,
-      Stor: 4,
-    };
-    return Math.min(maxBySize[size] ?? 4, safeLength);
+    return Math.min(3, safeLength);
   }
 
   if (strategy === 'Spik-kandidat') {
@@ -486,7 +476,7 @@ const reduceTicketOneStep = (ticketRows) => {
 
 const expandTicketOneStep = (ticketRows, size) => {
   const expanded = ticketRows.map((race) => ({ ...race, horses: [...(race.horses || [])] }));
-  const strategyOrder = ['Gardera brett', 'Lås / 2-3 hästar'];
+  const strategyOrder = ['Gardera brett', 'Lås / 2-3 hästar', 'Försiktig spik / 2 hästar'];
   let blockedByLimitsDetected = false;
 
   for (const strategy of strategyOrder) {
@@ -503,6 +493,7 @@ const expandTicketOneStep = (ticketRows, size) => {
         const evRemaining = evaluation.diagnostics?.remaining || [];
         const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
         const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
+        const selectedCount = (race.horses || []).length;
 
         let raceStopReason = 'expandable';
         if (evaluation.blockedByLimit) {
@@ -527,11 +518,18 @@ const expandTicketOneStep = (ticketRows, size) => {
           fallback: evFallback.length,
           emergency: evEmergency.length,
         });
+        console.log('RACE LIMIT CHECK', {
+          raceId: race.label,
+          strategy: race.strategy,
+          selectedCount,
+          maxAllowed,
+          expandable: raceStopReason === 'expandable',
+        });
 
         return {
           index,
           racePriority: Number(race?.uncertaintyScore) || 0,
-          selectedCount: (race.horses || []).length,
+          selectedCount,
           preferred: evPreferred,
           acceptable: evAcceptable,
           fallback: evFallback,
@@ -843,6 +841,13 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const [size, setSize] = useState(null); // 'Liten' | 'Mellan' | 'Stor'
   const [budget, setBudget] = useState(400);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const updateBudget = (nextBudget) => {
+    const parsed = Number(nextBudget);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = Math.max(50, Math.min(10000, parsed));
+    setBudget(clamped);
+  };
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -1060,8 +1065,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const normalizedGameType = gameType?.toUpperCase().split('-')[0];
   const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
   const selectedSize = size || 'Mellan';
-  const targetBudget = budget;
-  const estimatedRows = Math.max(1, Math.round(budget / rowPrice));
+  const targetBudget = Number.isFinite(Number(budget)) ? Number(budget) : 400;
+  const estimatedRows = Math.max(1, Math.round(targetBudget / rowPrice));
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoTicket = useMemo(() => {
@@ -1295,9 +1300,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                   data-testid={`size-${s.toLowerCase()}`}
                   onClick={() => {
                     setSize(s);
-                    if (s === 'Liten') setBudget(200);
-                    if (s === 'Mellan') setBudget(400);
-                    if (s === 'Stor') setBudget(1000);
+                    if (s === 'Liten') updateBudget(200);
+                    if (s === 'Mellan') updateBudget(400);
+                    if (s === 'Stor') updateBudget(1000);
                     setIsExpanded(true);
                   }}
                   variant={size === s ? 'default' : 'outline'}
@@ -1314,20 +1319,25 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-gray-400">Budget</span>
-              <div className="text-sm font-semibold text-white">{budget} kr</div>
+              <div className="text-sm font-semibold text-white">{targetBudget} kr</div>
             </div>
             <Slider
               data-testid="budget-slider"
               min={50}
               max={10000}
               step={50}
-              value={[budget]}
+              value={[targetBudget]}
               onValueChange={(value) => {
                 const newBudget = Number(value?.[0]);
                 if (!Number.isFinite(newBudget)) return;
-                setBudget(newBudget);
+                updateBudget(newBudget);
                 console.log('SLIDER CHANGE', newBudget);
                 setIsExpanded(true);
+              }}
+              onValueCommit={(value) => {
+                const newBudget = Number(value?.[0]);
+                if (!Number.isFinite(newBudget)) return;
+                updateBudget(newBudget);
               }}
               className="w-full"
             />
