@@ -881,8 +881,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
             <Slider
               data-testid="budget-slider"
               min={50}
-              max={3000}
-              step={50}
+              max={10000}
+              step={100}
               value={[budget]}
               onValueChange={(value) => {
                 const next = Number(value?.[0]);
