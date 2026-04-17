@@ -95,10 +95,6 @@ code {
     min-height: 500px;
 }
 
-.system-builder-card {
-    min-height: 360px;
-}
-
 @layer base {
     * {
         @apply border-border;

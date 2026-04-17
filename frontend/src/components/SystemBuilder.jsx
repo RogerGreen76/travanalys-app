@@ -365,7 +365,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   );
 
   return (
-    <Card className="bg-[#151923] border-gray-800 system-builder-card" data-testid="system-builder-card">
+    <Card className="bg-[#151923] border-gray-800 overflow-hidden" data-testid="system-builder-card">
       <div className="p-6">
         <button
           type="button"
