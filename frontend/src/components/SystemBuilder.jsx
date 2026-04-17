@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardDescription, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Sparkles, Target, Lock, Shield, Shuffle, Zap, ChevronRight, ChevronDown } from 'lucide-react';
@@ -366,7 +366,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
   return (
     <Card className="bg-[#151923] border-gray-800 system-builder-card" data-testid="system-builder-card">
-      <CardHeader>
+      <div className="p-6">
         <button
           type="button"
           onClick={() => setIsExpanded(prev => !prev)}
@@ -388,11 +388,11 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
             </div>
           </div>
         </button>
-      </CardHeader>
+      </div>
 
       {isExpanded && (
-        <div className="transition-all duration-300 ease-in-out overflow-hidden max-h-[2200px] opacity-100 animate-in fade-in-0">
-          <CardContent className="space-y-6 pt-0 md:pt-0">
+        <div className="px-6 pb-6">
+          <div className="space-y-6 transition-all duration-300 ease-in-out">
 
           {/* Top-level mode tabs */}
           <div className="flex flex-wrap gap-2">
@@ -739,7 +739,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           </>
         )}
 
-          </CardContent>
+          </div>
         </div>
       )}
     </Card>
