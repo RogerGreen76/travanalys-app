@@ -662,7 +662,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const [mode, setMode] = useState('auto'); // 'auto' or 'manual'
   const [systemTab, setSystemTab] = useState('auto'); // 'auto' or 'value'
   const [size, setSize] = useState(null); // 'Liten' | 'Mellan' | 'Stor'
-  const [customBudget, setCustomBudget] = useState(null);
+  const [sliderBudget, setSliderBudget] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
   
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -882,7 +882,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
   const selectedSize = size || 'Mellan';
   const presetBudget = DEFAULT_BUDGET_BY_SIZE[selectedSize] ?? 400;
-  const targetBudget = Number.isFinite(customBudget) ? customBudget : presetBudget;
+  const targetBudget = sliderBudget != null ? sliderBudget : presetBudget;
   const estimatedRows = Math.max(1, Math.round(targetBudget / rowPrice));
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
@@ -979,7 +979,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
     });
 
     console.log('BUDGET SOURCE', {
-      sliderBudget: customBudget,
+      sliderBudget,
       selectedSize,
       finalTargetBudget: targetBudget,
     });
@@ -991,7 +991,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       strategy: race.strategy,
       horses: race.horses,
     }));
-  }, [allRaces, horses, gameType, selectedSize, rowPrice, customBudget, targetBudget]);
+  }, [allRaces, horses, gameType, selectedSize, rowPrice, sliderBudget, targetBudget]);
 
   const totalRows = useMemo(() => {
     return calculateRows(autoTicket);
@@ -1104,7 +1104,6 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                   data-testid={`size-${s.toLowerCase()}`}
                   onClick={() => {
                     setSize(s);
-                    setCustomBudget(null);
                     setIsExpanded(true);
                   }}
                   variant={size === s ? 'default' : 'outline'}
@@ -1132,7 +1131,8 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
               onValueChange={(value) => {
                 const next = Number(value?.[0]);
                 if (Number.isFinite(next)) {
-                  setCustomBudget(next);
+                  setSliderBudget(next);
+                  console.log('SLIDER UPDATED', { sliderBudget: next });
                   setIsExpanded(true);
                 }
               }}
