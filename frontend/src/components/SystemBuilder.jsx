@@ -79,6 +79,8 @@ const DEFAULT_BUDGET_BY_SIZE = {
 const SOFT_MAX_ROWS = 50000;
 const EXACT_BUDGET_MAX_OVERSHOOT_FACTOR = 1.1;
 const MAX_BUDGET_ADJUST_ITERATIONS = 20000;
+const TIER1_FINAL_SCORE_MIN = 70;
+const TIER2_FINAL_SCORE_MIN = 55;
 
 const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
 const isStarkFavorit = (horse) => horse?.winnerStrengthLabel === 'Stark favorit';
@@ -181,31 +183,98 @@ const calculateRows = (ticketRows) => {
 
 const calculateCost = (ticketRows, rowPrice) => calculateRows(ticketRows) * rowPrice;
 
-const getExpandableCandidates = (ticketRows, size) => {
-  const candidates = ticketRows
-    .map((race, index) => {
-      if (!race?.ranked || !Array.isArray(race.horses)) return null;
-      if (race.strategy !== 'Gardera brett' && race.strategy !== 'Lås / 2-3 hästar') return null;
+const evaluateExpansionCandidates = (race, size) => {
+  const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
+  const selectedNumbers = new Set((race?.horses || []).map((horse) => Number(horse?.number)));
+  const remaining = ranked.filter((horse) => !selectedNumbers.has(Number(horse?.number)));
+  const maxHorses = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
+  const blockedByLimit = (race?.horses?.length || 0) >= maxHorses;
 
-      const maxHorses = getMaxHorsesForStrategy(size, race.strategy, race.ranked.length);
-      const canGrowByLimit = race.horses.length < maxHorses;
-      const hasMoreRanked = race.horses.length < race.ranked.length;
+  const diagnostics = {
+    remaining: remaining.map((horse) => ({
+      number: horse?.number,
+      name: horse?.name,
+      play: getHorsePlay(horse),
+      valueStatus: horse?.valueStatus,
+      finalScore: Number(getEffectiveFinalScore(horse).toFixed(2)),
+    })),
+    rejected: [],
+    preferred: [],
+    acceptable: [],
+  };
 
-      return {
-        index,
-        strategy: race.strategy,
-        canGrowByLimit,
-        hasMoreRanked,
-      };
-    })
-    .filter(Boolean);
+  if (blockedByLimit) {
+    diagnostics.rejected = remaining.map((horse) => ({
+      number: horse?.number,
+      reason: 'expansion rule blocked',
+    }));
+    return {
+      blockedByLimit,
+      preferred: [],
+      acceptable: [],
+      diagnostics,
+    };
+  }
 
-  const hasExpandable = candidates.some((c) => c.canGrowByLimit && c.hasMoreRanked);
-  const hasMoreRankedButBlockedByLimits = candidates.some((c) => c.hasMoreRanked && !c.canGrowByLimit);
+  remaining.forEach((horse) => {
+    const play = getHorsePlay(horse);
+    const finalScore = getEffectiveFinalScore(horse);
+    const reasons = [];
+
+    if (play === 'No play') {
+      reasons.push('No play');
+    }
+    if (horse?.valueStatus === 'Överspelad') {
+      reasons.push('Överspelad');
+    }
+    if (finalScore < TIER2_FINAL_SCORE_MIN) {
+      reasons.push('below finalScore threshold');
+    }
+
+    const preferred =
+      (play === 'Stark play' || play === 'Möjlig play' || finalScore >= TIER1_FINAL_SCORE_MIN)
+      && reasons.length === 0;
+
+    const acceptable =
+      !preferred
+      && finalScore >= TIER2_FINAL_SCORE_MIN
+      && play !== 'No play'
+      && horse?.valueStatus !== 'Överspelad';
+
+    if (preferred) {
+      diagnostics.preferred.push({
+        number: horse?.number,
+        finalScore: Number(finalScore.toFixed(2)),
+      });
+      return;
+    }
+
+    if (acceptable) {
+      diagnostics.acceptable.push({
+        number: horse?.number,
+        finalScore: Number(finalScore.toFixed(2)),
+      });
+      return;
+    }
+
+    diagnostics.rejected.push({
+      number: horse?.number,
+      reason: reasons.join(', ') || 'noAllowedCandidates',
+    });
+  });
+
+  const preferred = remaining.filter((horse) =>
+    diagnostics.preferred.some((candidate) => Number(candidate.number) === Number(horse?.number))
+  );
+  const acceptable = [...remaining]
+    .filter((horse) => diagnostics.acceptable.some((candidate) => Number(candidate.number) === Number(horse?.number)))
+    .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a));
 
   return {
-    hasExpandable,
-    hasMoreRankedButBlockedByLimits,
+    blockedByLimit,
+    preferred,
+    acceptable,
+    diagnostics,
   };
 };
 
@@ -272,38 +341,75 @@ const reduceTicketOneStep = (ticketRows) => {
 
 const expandTicketOneStep = (ticketRows, size) => {
   const expanded = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+  const strategyOrder = ['Gardera brett', 'Lås / 2-3 hästar'];
+  let blockedByLimitsDetected = false;
+  let noAllowedCandidatesDetected = false;
 
-  // Expand wide spreads first by adding next ranked horse.
-  const wideIndex = expanded
-    .map((race, index) => ({ index, race }))
-    .filter(({ race }) => {
-      if (race.strategy !== 'Gardera brett') return false;
-      const maxHorses = getMaxHorsesForStrategy(size, race.strategy, race.ranked.length);
-      return race.horses.length < maxHorses;
-    })[0]?.index;
+  for (const strategy of strategyOrder) {
+    const raceCandidates = expanded
+      .map((race, index) => ({ race, index }))
+      .filter(({ race }) => race.strategy === strategy)
+      .map(({ race, index }) => {
+        const evaluation = evaluateExpansionCandidates(race, size);
 
-  if (wideIndex !== undefined) {
-    const race = expanded[wideIndex];
-    race.horses.push(race.ranked[race.horses.length]);
-    return { changed: true, ticketRows: expanded };
+        console.debug('[SystemBuilder][ExpandCandidates]', {
+          race: race.label,
+          strategy: race.strategy,
+          remainingCandidates: evaluation.diagnostics.remaining,
+          preferredCandidates: evaluation.diagnostics.preferred,
+          acceptableCandidates: evaluation.diagnostics.acceptable,
+          rejectedCandidates: evaluation.diagnostics.rejected,
+        });
+
+        if (evaluation.blockedByLimit) {
+          blockedByLimitsDetected = true;
+        }
+        if (!evaluation.blockedByLimit && evaluation.preferred.length === 0 && evaluation.acceptable.length === 0 && evaluation.diagnostics.remaining.length > 0) {
+          noAllowedCandidatesDetected = true;
+        }
+
+        return {
+          index,
+          preferred: evaluation.preferred,
+          acceptable: evaluation.acceptable,
+        };
+      });
+
+    const preferredPick = raceCandidates
+      .filter((candidate) => candidate.preferred.length > 0)
+      .map((candidate) => ({
+        ...candidate,
+        horse: candidate.preferred[0],
+      }))
+      .sort((a, b) => getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse))[0];
+
+    if (preferredPick) {
+      expanded[preferredPick.index].horses.push(preferredPick.horse);
+      return { changed: true, ticketRows: expanded, reason: 'expandedPreferred' };
+    }
+
+    const acceptablePick = raceCandidates
+      .filter((candidate) => candidate.acceptable.length > 0)
+      .map((candidate) => ({
+        ...candidate,
+        horse: candidate.acceptable[0],
+      }))
+      .sort((a, b) => getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse))[0];
+
+    if (acceptablePick) {
+      expanded[acceptablePick.index].horses.push(acceptablePick.horse);
+      return { changed: true, ticketRows: expanded, reason: 'expandedAcceptable' };
+    }
   }
 
-  // Then expand Lås from 2 to 3 when possible.
-  const lasIndex = expanded
-    .map((race, index) => ({ index, race }))
-    .filter(({ race }) => {
-      if (race.strategy !== 'Lås / 2-3 hästar') return false;
-      const maxHorses = getMaxHorsesForStrategy(size, race.strategy, race.ranked.length);
-      return race.horses.length < maxHorses;
-    })[0]?.index;
-
-  if (lasIndex !== undefined) {
-    const race = expanded[lasIndex];
-    race.horses.push(race.ranked[2]);
-    return { changed: true, ticketRows: expanded };
+  if (noAllowedCandidatesDetected) {
+    return { changed: false, ticketRows: expanded, reason: 'noAllowedCandidates' };
+  }
+  if (blockedByLimitsDetected) {
+    return { changed: false, ticketRows: expanded, reason: 'max horse limits hit' };
   }
 
-  return { changed: false, ticketRows: expanded };
+  return { changed: false, ticketRows: expanded, reason: 'no more expandable races' };
 };
 
 const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) => {
@@ -344,10 +450,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
 
       const expansion = expandTicketOneStep(adjustedRows, size);
       if (!expansion.changed) {
-        const expansionState = getExpandableCandidates(adjustedRows, size);
-        stopReason = expansionState.hasMoreRankedButBlockedByLimits
-          ? 'max horse limits hit'
-          : 'no more expandable races';
+        stopReason = expansion.reason || 'no more expandable races';
         reachedIterationLimit = false;
         break;
       }
@@ -383,7 +486,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
     const expansion = expandTicketOneStep(adjustedRows, size);
     adjustedRows = expansion.ticketRows;
     if (!expansion.changed) {
-      stopReason = 'no more expandable races';
+      stopReason = expansion.reason || 'no more expandable races';
       reachedIterationLimit = false;
       break;
     }
