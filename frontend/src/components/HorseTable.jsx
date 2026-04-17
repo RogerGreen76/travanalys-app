@@ -336,14 +336,14 @@ const HorseTable = ({
     const parsedGap = Number(raceScoreGap);
     if (Number.isFinite(parsedGap)) {
       return {
-        tillit: raceTillit || getConfidenceFromGap(parsedGap),
+        tillit: getConfidenceFromGap(parsedGap),
         scoreGap: parsedGap
       };
     }
 
     if (fullRaceHorses.length < 2) {
       return {
-        tillit: raceTillit || 'Låg',
+        tillit: 'Låg',
         scoreGap: 0
       };
     }
@@ -356,10 +356,10 @@ const HorseTable = ({
     const scoreGap = topScore - secondScore;
 
     return {
-      tillit: raceTillit || getConfidenceFromGap(scoreGap),
+      tillit: getConfidenceFromGap(scoreGap),
       scoreGap
     };
-  }, [fullRaceHorses, raceScoreGap, raceTillit]);
+  }, [fullRaceHorses, raceScoreGap]);
 
   const strategySuggestion = useMemo(() => {
     if (raceStrategySuggestion) {

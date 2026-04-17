@@ -269,7 +269,7 @@ export const fetchGameData = async (selectedGameType) => {
       horse.betDistribution !== null && horse.betDistribution !== undefined
     );
 
-    const horses = hasRealBetDistribution
+    const analyzedRace = hasRealBetDistribution
       ? analyzeRaceData({
           gameType: selectedGameType,
           races: [{
@@ -277,8 +277,10 @@ export const fetchGameData = async (selectedGameType) => {
             distance: fullRace?.distance || null,
             horses: normalizedHorses
           }]
-        }).races[0].horses
-      : normalizedHorses;
+        }).races[0]
+      : null;
+
+    const horses = analyzedRace?.horses || normalizedHorses;
 
     const actualRaceNumber = Number(String(raceId).split('_').pop()) || null;
     const v85Index = v85RaceIds.indexOf(raceId);
@@ -295,6 +297,9 @@ export const fetchGameData = async (selectedGameType) => {
       date: fullRace?.startTime?.split('T')[0] || gameDate,
       distance: fullRace?.distance || null,
       startMethod: fullRace?.startMethod || null,
+      tillit: analyzedRace?.tillit || null,
+      scoreGap: Number.isFinite(Number(analyzedRace?.scoreGap)) ? Number(analyzedRace.scoreGap) : null,
+      strategySuggestion: analyzedRace?.strategySuggestion || null,
       horses
     };
   });
