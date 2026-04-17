@@ -390,10 +390,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         </button>
       </CardHeader>
 
-      <div
-        className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[2200px] opacity-100' : 'max-h-0 opacity-0'}`}
-      >
-        <CardContent className="space-y-6 pt-0 md:pt-0">
+      {isExpanded && (
+        <div className="transition-all duration-300 ease-in-out overflow-hidden max-h-[2200px] opacity-100 animate-in fade-in-0">
+          <CardContent className="space-y-6 pt-0 md:pt-0">
 
           {/* Top-level mode tabs */}
           <div className="flex flex-wrap gap-2">
@@ -740,8 +739,9 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           </>
         )}
 
-        </CardContent>
-      </div>
+          </CardContent>
+        </div>
+      )}
     </Card>
   );
 };
