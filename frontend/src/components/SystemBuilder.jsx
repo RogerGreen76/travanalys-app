@@ -56,10 +56,11 @@ const TICKET_COUNTS = {
   },
 };
 
-const MAX_GARDERA_BY_SIZE = {
-  Liten: 2,
-  Mellan: 3,
-  Stor: Number.POSITIVE_INFINITY,
+const RACE_UNCERTAINTY_COUNT_BANDS = {
+  strong: { min: 1, max: 2 },
+  semiOpen: { min: 2, max: 3 },
+  open: { min: 3, max: 5 },
+  chaotic: { min: 4, max: 8 },
 };
 
 const CLEAR_MARGIN_GAP = 5;
@@ -98,7 +99,48 @@ const rankHorsesForTicket = (raceHorses) => {
   });
 };
 
-const getTicketHorseCount = ({ strategySuggestion, size, tillit, scoreGap, topHorsePlay, horseCount }) => {
+const getTicketHorseCount = ({
+  strategySuggestion,
+  size,
+  tillit,
+  scoreGap,
+  topHorsePlay,
+  horseCount,
+  raceType,
+  topHorseIsStarkFavorit,
+  viableCandidateCount,
+}) => {
+  const uncertainty = getRaceUncertaintyProfile({
+    tillit,
+    scoreGap,
+    topHorsePlay,
+    raceType,
+    topHorseIsStarkFavorit,
+    viableCandidateCount,
+    horseCount,
+  });
+
+  if (uncertainty?.band) {
+    const band = RACE_UNCERTAINTY_COUNT_BANDS[uncertainty.band] || RACE_UNCERTAINTY_COUNT_BANDS.open;
+    const bySizeCap = {
+      Liten: { strong: 2, semiOpen: 3, open: 4, chaotic: 6 },
+      Mellan: { strong: 2, semiOpen: 3, open: 5, chaotic: 7 },
+      Stor: { strong: 2, semiOpen: 4, open: 6, chaotic: 8 },
+    };
+    const sizeCaps = bySizeCap[size] || bySizeCap.Mellan;
+    const capForBand = sizeCaps[uncertainty.band] ?? sizeCaps.open;
+    const desiredMax = Math.min(band.max, capForBand, horseCount);
+    const desiredMin = Math.min(band.min, desiredMax);
+    const baseline = desiredMin;
+
+    if (uncertainty.band === 'strong') {
+      const canSpik = tillit === 'Hög' && (Number(scoreGap) || 0) >= CLEAR_MARGIN_GAP;
+      return Math.max(1, Math.min(canSpik ? 1 : baseline, horseCount));
+    }
+
+    return Math.max(1, Math.min(baseline, horseCount));
+  }
+
   const counts = TICKET_COUNTS[size] || TICKET_COUNTS['Mellan'];
   let count = counts[strategySuggestion] ?? counts['Gardera brett'];
 
@@ -109,6 +151,83 @@ const getTicketHorseCount = ({ strategySuggestion, size, tillit, scoreGap, topHo
   }
 
   return Math.min(count, horseCount);
+};
+
+const normalizeLabel = (value) => String(value || '').trim().toLowerCase();
+
+const getRaceUncertaintyBandFromRaceType = (raceType) => {
+  const normalized = normalizeLabel(raceType);
+  if (!normalized) return null;
+  if (normalized.includes('rörigt') || normalized.includes('värdelopp') || normalized.includes('chaos') || normalized.includes('skräll')) {
+    return 'chaotic';
+  }
+  if (normalized.includes('öppet') || normalized.includes('oppet')) {
+    return 'open';
+  }
+  if (normalized.includes('favorit')) {
+    return 'strong';
+  }
+  return null;
+};
+
+const getRaceUncertaintyProfile = ({
+  tillit,
+  scoreGap,
+  raceType,
+  topHorseIsStarkFavorit,
+  topHorsePlay,
+  viableCandidateCount,
+  horseCount,
+}) => {
+  const gap = Math.max(Number(scoreGap) || 0, 0);
+  const candidates = Number.isFinite(Number(viableCandidateCount))
+    ? Number(viableCandidateCount)
+    : Math.max(Number(horseCount) || 0, 0);
+
+  const raceTypeBand = getRaceUncertaintyBandFromRaceType(raceType);
+  if (raceTypeBand) {
+    return { band: raceTypeBand, uncertaintyScore: 1000 + candidates };
+  }
+
+  let uncertaintyScore = 0;
+  if (tillit === 'Låg') uncertaintyScore += 4;
+  else if (tillit === 'Medel') uncertaintyScore += 2;
+
+  if (gap <= 2) uncertaintyScore += 4;
+  else if (gap <= 4) uncertaintyScore += 3;
+  else if (gap <= 6) uncertaintyScore += 2;
+  else if (gap <= 8) uncertaintyScore += 1;
+
+  if (!topHorseIsStarkFavorit) uncertaintyScore += 2;
+  if (!isStrongPlay(topHorsePlay)) uncertaintyScore += 1;
+
+  if (candidates >= 8) uncertaintyScore += 4;
+  else if (candidates >= 6) uncertaintyScore += 3;
+  else if (candidates >= 4) uncertaintyScore += 2;
+  else if (candidates >= 3) uncertaintyScore += 1;
+
+  if (tillit === 'Hög' && gap >= 8 && topHorseIsStarkFavorit) {
+    return { band: 'strong', uncertaintyScore };
+  }
+  if (uncertaintyScore >= 11) {
+    return { band: 'chaotic', uncertaintyScore };
+  }
+  if (uncertaintyScore >= 7) {
+    return { band: 'open', uncertaintyScore };
+  }
+  if (uncertaintyScore >= 4) {
+    return { band: 'semiOpen', uncertaintyScore };
+  }
+  return { band: 'strong', uncertaintyScore };
+};
+
+const getRaceViableCandidateCount = (ranked) => {
+  const list = Array.isArray(ranked) ? ranked : [];
+  return list.filter((horse) => {
+    const play = getHorsePlay(horse);
+    const score = getEffectiveFinalScore(horse);
+    return isStrongPlay(play) || score >= TIER2_FINAL_SCORE_MIN || horse?.valueStatus === 'Spelvärd';
+  }).length;
 };
 
 const compareSpikPriority = (a, b) => {
@@ -175,7 +294,15 @@ const getForcedSpikCount = (size, raceMeta) => {
   return Math.min(1, raceCount);
 };
 
-const getMaxGarderaRaces = (size) => MAX_GARDERA_BY_SIZE[size] ?? MAX_GARDERA_BY_SIZE.Mellan;
+const getStrategyForUncertaintyBand = (band, fallbackStrategy) => {
+  if (band === 'strong') {
+    return fallbackStrategy === 'Spik-kandidat' ? 'Spik-kandidat' : 'Försiktig spik / 2 hästar';
+  }
+  if (band === 'semiOpen') {
+    return 'Lås / 2-3 hästar';
+  }
+  return 'Gardera brett';
+};
 
 const calculateRows = (ticketRows) => {
   if (!Array.isArray(ticketRows) || ticketRows.length === 0) return 0;
@@ -296,7 +423,7 @@ const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
     const maxBySize = {
       Liten: 5,
       Mellan: 6,
-      Stor: safeLength,
+      Stor: 8,
     };
     return Math.min(maxBySize[size] ?? 6, safeLength);
   }
@@ -305,7 +432,7 @@ const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
     const maxBySize = {
       Liten: 3,
       Mellan: 4,
-      Stor: 5,
+      Stor: 4,
     };
     return Math.min(maxBySize[size] ?? 4, safeLength);
   }
@@ -391,6 +518,8 @@ const expandTicketOneStep = (ticketRows, size) => {
 
         return {
           index,
+          racePriority: Number(race?.uncertaintyScore) || 0,
+          selectedCount: (race.horses || []).length,
           preferred: evPreferred,
           acceptable: evAcceptable,
           fallback: evFallback,
@@ -403,7 +532,11 @@ const expandTicketOneStep = (ticketRows, size) => {
         ...candidate,
         horse: candidate.preferred[0],
       }))
-      .sort((a, b) => getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse))[0];
+      .sort((a, b) => {
+        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
+        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
+        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
+      })[0];
 
     if (preferredPick) {
       expanded[preferredPick.index].horses.push(preferredPick.horse);
@@ -416,7 +549,11 @@ const expandTicketOneStep = (ticketRows, size) => {
         ...candidate,
         horse: candidate.acceptable[0],
       }))
-      .sort((a, b) => getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse))[0];
+      .sort((a, b) => {
+        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
+        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
+        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
+      })[0];
 
     if (acceptablePick) {
       expanded[acceptablePick.index].horses.push(acceptablePick.horse);
@@ -430,7 +567,11 @@ const expandTicketOneStep = (ticketRows, size) => {
         ...candidate,
         horse: candidate.fallback[0],
       }))
-      .sort((a, b) => getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse))[0];
+      .sort((a, b) => {
+        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
+        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
+        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
+      })[0];
 
     if (fallbackPick) {
       expanded[fallbackPick.index].horses.push(fallbackPick.horse);
@@ -642,6 +783,9 @@ const getTicketHorsesForRace = (raceHorses, strategySuggestion, size, raceContex
     tillit: raceContext.tillit,
     scoreGap: raceContext.scoreGap,
     topHorsePlay: raceContext.topHorsePlay,
+    raceType: raceContext.raceType,
+    topHorseIsStarkFavorit: raceContext.topHorseIsStarkFavorit,
+    viableCandidateCount: raceContext.viableCandidateCount,
     horseCount: ranked.length,
   });
 
@@ -919,6 +1063,21 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       const scoreGap = Number(raceItem.race?.scoreGap ?? dominanceScore) || 0;
       const topHorsePlay = getHorsePlay(topHorse);
       const topHorseIsStarkFavorit = isStarkFavorit(topHorse);
+      const raceType = raceItem.race?.raceType
+        || raceItem.race?.type
+        || raceItem.race?.raceShape?.type
+        || raceHorses[0]?.raceType
+        || null;
+      const viableCandidateCount = getRaceViableCandidateCount(ranked);
+      const uncertaintyProfile = getRaceUncertaintyProfile({
+        tillit,
+        scoreGap,
+        raceType,
+        topHorseIsStarkFavorit,
+        topHorsePlay,
+        viableCandidateCount,
+        horseCount: ranked.length,
+      });
       const label = `${gameType}-${raceItem.race?.number || index + 1}`;
 
       return {
@@ -932,6 +1091,10 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         dominanceScore,
         topHorsePlay,
         topHorseIsStarkFavorit,
+        raceType,
+        viableCandidateCount,
+        uncertaintyBand: uncertaintyProfile.band,
+        uncertaintyScore: uncertaintyProfile.uncertaintyScore,
       };
     });
 
@@ -946,31 +1109,18 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       spikSelectionPool.slice(0, forcedSpikCount).map((race) => race.index)
     );
 
-    const wideRaces = raceMeta.filter(
-      (race) => race.strategy === 'Gardera brett' && !forcedSpikIndexes.has(race.index)
-    );
-
-    const maxWide = getMaxGarderaRaces(selectedSize);
-    const downgradeWideCount = Math.max(0, wideRaces.length - maxWide);
-    const downgradedWideIndexes = new Set(
-      wideRaces
-        // Downgrade the most confident "wide" races first.
-        .sort((a, b) => getRaceConfidenceScore(b) - getRaceConfidenceScore(a))
-        .slice(0, downgradeWideCount)
-        .map((race) => race.index)
-    );
-
     const initialTicket = raceMeta.map((race) => {
       const strategy = forcedSpikIndexes.has(race.index)
         ? 'Spik-kandidat'
-        : downgradedWideIndexes.has(race.index)
-          ? 'Lås / 2-3 hästar'
-          : race.strategy;
+        : getStrategyForUncertaintyBand(race.uncertaintyBand, race.strategy);
 
       const picked = getTicketHorsesForRace(race.raceHorses, strategy, selectedSize, {
         tillit: race.tillit,
         scoreGap: race.scoreGap,
         topHorsePlay: race.topHorsePlay,
+        raceType: race.raceType,
+        topHorseIsStarkFavorit: race.topHorseIsStarkFavorit,
+        viableCandidateCount: race.viableCandidateCount,
       });
 
       return {
@@ -978,6 +1128,14 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         strategy,
         horses: picked,
         ranked: race.ranked,
+        tillit: race.tillit,
+        scoreGap: race.scoreGap,
+        topHorsePlay: race.topHorsePlay,
+        topHorseIsStarkFavorit: race.topHorseIsStarkFavorit,
+        raceType: race.raceType,
+        viableCandidateCount: race.viableCandidateCount,
+        uncertaintyBand: race.uncertaintyBand,
+        uncertaintyScore: race.uncertaintyScore,
       };
     });
 
