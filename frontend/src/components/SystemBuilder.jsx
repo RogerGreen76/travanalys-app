@@ -315,6 +315,8 @@ const evaluateExpansionCandidates = (race, size) => {
   const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
   const selectedNumbers = new Set((race?.horses || []).map((horse) => Number(horse?.number)));
   const remaining = ranked.filter((horse) => !selectedNumbers.has(Number(horse?.number)));
+  const emergencyRemaining = (Array.isArray(race?.ranked) ? race.ranked : [])
+    .filter((horse) => !selectedNumbers.has(Number(horse?.number)));
   const maxHorses = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
   const blockedByLimit = (race?.horses?.length || 0) >= maxHorses;
 
@@ -330,6 +332,7 @@ const evaluateExpansionCandidates = (race, size) => {
     preferred: [],
     acceptable: [],
     fallback: [],
+    emergency: [],
   };
 
   if (blockedByLimit) {
@@ -342,6 +345,7 @@ const evaluateExpansionCandidates = (race, size) => {
       preferred: [],
       acceptable: [],
       fallback: [],
+      emergency: [],
       diagnostics,
     };
   }
@@ -361,12 +365,6 @@ const evaluateExpansionCandidates = (race, size) => {
       && play !== 'No play'
       && horse?.valueStatus !== 'Överspelad';
 
-    // Fallback: any horse with acceptable score, even "No play" or "Överspelad"
-    const isFallback =
-      !isPreferred
-      && !isAcceptable
-      && finalScore >= TIER3_FALLBACK_SCORE_MIN;
-
     if (isPreferred) {
       diagnostics.preferred.push({
         number: horse?.number,
@@ -379,17 +377,10 @@ const evaluateExpansionCandidates = (race, size) => {
         finalScore: Number(finalScore.toFixed(2)),
         play,
       });
-    } else if (isFallback) {
-      diagnostics.fallback.push({
-        number: horse?.number,
-        finalScore: Number(finalScore.toFixed(2)),
-        play,
-        valueStatus: horse?.valueStatus,
-      });
     } else {
       diagnostics.rejected.push({
         number: horse?.number,
-        reason: `finalScore ${Number(finalScore.toFixed(1))} below floor`,
+        reason: 'not preferred by value/edge rules',
         finalScore: Number(finalScore.toFixed(2)),
         play,
       });
@@ -403,14 +394,31 @@ const evaluateExpansionCandidates = (race, size) => {
     .filter((horse) => diagnostics.acceptable.some((c) => Number(c.number) === Number(horse?.number)))
     .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a));
   const fallback = [...remaining]
-    .filter((horse) => diagnostics.fallback.some((c) => Number(c.number) === Number(horse?.number)))
+    .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a));
+  const emergency = [...emergencyRemaining]
+    .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a));
+
+  diagnostics.fallback = fallback.map((horse) => ({
+    number: horse?.number,
+    finalScore: Number(getEffectiveFinalScore(horse).toFixed(2)),
+    play: getHorsePlay(horse),
+    valueStatus: horse?.valueStatus,
+  }));
+  diagnostics.emergency = emergency.map((horse) => ({
+    number: horse?.number,
+    finalScore: Number(getEffectiveFinalScore(horse).toFixed(2)),
+    play: getHorsePlay(horse),
+  }));
+
+  const preferredPool = [...preferred, ...acceptable]
     .sort((a, b) => getEffectiveFinalScore(b) - getEffectiveFinalScore(a));
 
   return {
     blockedByLimit,
-    preferred,
+    preferred: preferredPool,
     acceptable,
     fallback,
+    emergency,
     diagnostics,
   };
 };
@@ -480,7 +488,6 @@ const expandTicketOneStep = (ticketRows, size) => {
   const expanded = ticketRows.map((race) => ({ ...race, horses: [...(race.horses || [])] }));
   const strategyOrder = ['Gardera brett', 'Lås / 2-3 hästar'];
   let blockedByLimitsDetected = false;
-  let noAllowedCandidatesDetected = false;
 
   for (const strategy of strategyOrder) {
     const raceCandidates = expanded
@@ -492,6 +499,7 @@ const expandTicketOneStep = (ticketRows, size) => {
         const evPreferred = evaluation.preferred || [];
         const evAcceptable = evaluation.acceptable || [];
         const evFallback = evaluation.fallback || [];
+        const evEmergency = evaluation.emergency || [];
         const evRemaining = evaluation.diagnostics?.remaining || [];
         const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
         const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
@@ -512,9 +520,13 @@ const expandTicketOneStep = (ticketRows, size) => {
         if (evaluation.blockedByLimit) {
           blockedByLimitsDetected = true;
         }
-        if (!evaluation.blockedByLimit && evPreferred.length === 0 && evAcceptable.length === 0 && evFallback.length === 0 && evRemaining.length > 0) {
-          noAllowedCandidatesDetected = true;
-        }
+
+        console.log('EXPAND MODE:', {
+          raceId: race.label,
+          preferred: evPreferred.length,
+          fallback: evFallback.length,
+          emergency: evEmergency.length,
+        });
 
         return {
           index,
@@ -523,6 +535,7 @@ const expandTicketOneStep = (ticketRows, size) => {
           preferred: evPreferred,
           acceptable: evAcceptable,
           fallback: evFallback,
+          emergency: evEmergency,
         };
       });
 
@@ -577,11 +590,25 @@ const expandTicketOneStep = (ticketRows, size) => {
       expanded[fallbackPick.index].horses.push(fallbackPick.horse);
       return { changed: true, ticketRows: expanded, reason: 'expandedFallback' };
     }
+
+    const emergencyPick = raceCandidates
+      .filter((candidate) => candidate.emergency.length > 0)
+      .map((candidate) => ({
+        ...candidate,
+        horse: candidate.emergency[0],
+      }))
+      .sort((a, b) => {
+        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
+        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
+        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
+      })[0];
+
+    if (emergencyPick) {
+      expanded[emergencyPick.index].horses.push(emergencyPick.horse);
+      return { changed: true, ticketRows: expanded, reason: 'expandedEmergency' };
+    }
   }
 
-  if (noAllowedCandidatesDetected) {
-    return { changed: false, ticketRows: expanded, reason: 'noAllowedCandidates' };
-  }
   if (blockedByLimitsDetected) {
     return { changed: false, ticketRows: expanded, reason: 'max horse limits hit' };
   }
@@ -655,12 +682,13 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
           const ev = evaluateExpansionCandidates(race, size);
           const evRem = ev.diagnostics?.remaining || [];
           const evFb = ev.fallback || [];
+          const evEm = ev.emergency || [];
           const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
           const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
           let raceStop = 'expandable';
           if (ev.blockedByLimit) raceStop = 'maxHorsesReached';
           else if (evRem.length === 0) raceStop = 'noRemainingCandidates';
-          else if ((ev.preferred || []).length === 0 && (ev.acceptable || []).length === 0 && evFb.length === 0) raceStop = 'noFallbackCandidates';
+          else if ((ev.preferred || []).length === 0 && evFb.length === 0 && evEm.length === 0) raceStop = 'noEmergencyCandidates';
           return {
             raceId: race.label,
             strategy: race.strategy,
@@ -668,6 +696,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
             maxAllowed,
             remainingCandidates: evRem.length,
             fallbackCandidates: evFb.length,
+            emergencyCandidates: evEm.length,
             expandable: raceStop === 'expandable',
             stopReason: raceStop,
           };
@@ -741,13 +770,14 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       const evPref = ev.preferred || [];
       const evAcc = ev.acceptable || [];
       const evFb = ev.fallback || [];
+      const evEm = ev.emergency || [];
       const evRem = ev.diagnostics?.remaining || [];
       const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, rankedOf(race).length);
 
       let raceStopReason = 'expandable';
       if (ev.blockedByLimit) raceStopReason = 'maxHorsesReached';
       else if (evRem.length === 0) raceStopReason = 'noRemainingCandidates';
-      else if (evPref.length === 0 && evAcc.length === 0 && evFb.length === 0) {
+      else if (evPref.length === 0 && evFb.length === 0 && evEm.length === 0) {
         const reasons = (ev.diagnostics?.rejected || []).map((r) => r.reason || 'unknown');
         const topReason = reasons.length > 0 ? reasons[0] : 'candidateRejectedLowFinalScore';
         raceStopReason = topReason.includes('below floor') ? 'candidateRejectedLowFinalScore' : 'candidateRejectedExpansionRule';
@@ -761,6 +791,7 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
         preferredCandidates: evPref.length,
         acceptableCandidates: evAcc.length,
         fallbackCandidates: evFb.length,
+        emergencyCandidates: evEm.length,
         maxAllowed,
         expandable: raceStopReason === 'expandable',
         stopReason: raceStopReason,
