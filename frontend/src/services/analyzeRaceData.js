@@ -32,6 +32,7 @@ export const analyzeRaceData = (normalizedData) => {
       const analyzedHorses = analyzeHorses(race.horses, raceContext, raceShape);
       const confidenceIndicator = getRaceConfidenceIndicator(analyzedHorses);
       const strategySuggestion = getRaceStrategySuggestion(confidenceIndicator.tillit, analyzedHorses);
+      const ticketSuggestion = getRaceTicketSuggestion(strategySuggestion, analyzedHorses);
 
       return {
         ...race,
@@ -39,7 +40,8 @@ export const analyzeRaceData = (normalizedData) => {
         raceShape,
         tillit: confidenceIndicator.tillit,
         scoreGap: confidenceIndicator.scoreGap,
-        strategySuggestion
+        strategySuggestion,
+        ticketSuggestion
       };
     });
 
@@ -1146,4 +1148,43 @@ const getRaceStrategySuggestion = (tillit, horses = []) => {
   }
 
   return 'Gardera brett';
+};
+
+/**
+ * Returns an ordered array of horse numbers suggested for a betting ticket,
+ * derived purely from strategySuggestion and existing play/finalScore fields.
+ * Does NOT modify any score or play decision.
+ */
+const getRaceTicketSuggestion = (strategySuggestion, horses = []) => {
+  if (!Array.isArray(horses) || horses.length === 0) {
+    return [];
+  }
+
+  const PLAY_PRIORITY = {
+    'Stark play': 3,
+    'Möjlig play': 2,
+    'Låg edge favorit': 1,
+    'No play': 0,
+  };
+
+  const ranked = [...horses].sort((a, b) => {
+    const playA = PLAY_PRIORITY[a?.play] ?? 0;
+    const playB = PLAY_PRIORITY[b?.play] ?? 0;
+    if (playB !== playA) return playB - playA;
+    return (Number(b?.finalScore) || 0) - (Number(a?.finalScore) || 0);
+  });
+
+  let count;
+  if (strategySuggestion === 'Spik-kandidat') {
+    count = 1;
+  } else if (strategySuggestion === 'Försiktig spik / 2 hästar') {
+    count = 2;
+  } else if (strategySuggestion === 'Lås / 2-3 hästar') {
+    count = Math.min(3, horses.length);
+  } else {
+    // 'Gardera brett'
+    count = Math.min(6, Math.max(4, horses.length));
+  }
+
+  return ranked.slice(0, count).map(h => h.number);
 };

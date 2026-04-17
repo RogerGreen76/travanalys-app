@@ -300,6 +300,7 @@ export const fetchGameData = async (selectedGameType) => {
       tillit: analyzedRace?.tillit || null,
       scoreGap: Number.isFinite(Number(analyzedRace?.scoreGap)) ? Number(analyzedRace.scoreGap) : null,
       strategySuggestion: analyzedRace?.strategySuggestion || null,
+      ticketSuggestion: Array.isArray(analyzedRace?.ticketSuggestion) ? analyzedRace.ticketSuggestion : [],
       horses
     };
   });
