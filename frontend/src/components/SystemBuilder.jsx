@@ -27,6 +27,12 @@ const PLAY_PRIORITY = {
   'No play': 0,
 };
 
+const TILLIT_PRIORITY = {
+  'Hög': 3,
+  'Medel': 2,
+  'Låg': 1,
+};
+
 // How many horses to pick per strategy and size
 const TICKET_COUNTS = {
   Liten: {
@@ -42,25 +48,104 @@ const TICKET_COUNTS = {
     'Gardera brett': 4,
   },
   Stor: {
-    'Spik-kandidat': 2,
+    'Spik-kandidat': 1,
     'Försiktig spik / 2 hästar': 2,
     'Lås / 2-3 hästar': 4,
-    'Gardera brett': 6,
+    'Gardera brett': 5,
   },
 };
 
-const getTicketHorsesForRace = (raceHorses, strategySuggestion, size) => {
-  if (!Array.isArray(raceHorses) || raceHorses.length === 0) return [];
+const MAX_GARDERA_BY_SIZE = {
+  Liten: 2,
+  Mellan: 3,
+  Stor: Number.POSITIVE_INFINITY,
+};
 
+const TARGET_SPIK_BY_SIZE = {
+  Liten: 2,
+  Mellan: 2,
+  Stor: 1,
+};
+
+const CLEAR_MARGIN_GAP = 5;
+
+const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
+
+const isStrongPlay = (play) => play === 'Stark play' || play === 'Möjlig play';
+
+const rankHorsesForTicket = (raceHorses) => {
+  if (!Array.isArray(raceHorses)) return [];
+  return [...raceHorses].sort((a, b) => {
+    const pa = PLAY_PRIORITY[getHorsePlay(a)] ?? 0;
+    const pb = PLAY_PRIORITY[getHorsePlay(b)] ?? 0;
+    if (pb !== pa) return pb - pa;
+    return getEffectiveFinalScore(b) - getEffectiveFinalScore(a);
+  });
+};
+
+const getTicketHorseCount = ({ strategySuggestion, size, tillit, scoreGap, topHorsePlay, horseCount }) => {
   const counts = TICKET_COUNTS[size] || TICKET_COUNTS['Mellan'];
   let count = counts[strategySuggestion] ?? counts['Gardera brett'];
-  count = Math.min(count, raceHorses.length);
 
-  const ranked = [...raceHorses].sort((a, b) => {
-    const pa = PLAY_PRIORITY[a?.play] ?? 0;
-    const pb = PLAY_PRIORITY[b?.play] ?? 0;
-    if (pb !== pa) return pb - pa;
-    return (Number(b?.finalScore) || 0) - (Number(a?.finalScore) || 0);
+  // Stor can be 3-4 horses for Lås depending on confidence in the race.
+  if (size === 'Stor' && strategySuggestion === 'Lås / 2-3 hästar') {
+    const highConfidence = tillit === 'Hög' || scoreGap >= 6 || isStrongPlay(topHorsePlay);
+    count = highConfidence ? 3 : 4;
+  }
+
+  return Math.min(count, horseCount);
+};
+
+const getSpikPriorityScore = ({ tillit, strategySuggestion, topHorsePlay, scoreGap }) => {
+  const tillitScore = (TILLIT_PRIORITY[tillit] ?? 1) * 1000;
+  const strategyScore = strategySuggestion === 'Spik-kandidat' ? 700 : 0;
+  const gapScore = Math.max(Number(scoreGap) || 0, 0) * 25;
+  const playScore = isStrongPlay(topHorsePlay) ? 120 : 0;
+  const clearMarginScore = (Number(scoreGap) || 0) >= CLEAR_MARGIN_GAP ? 160 : 0;
+  return tillitScore + strategyScore + gapScore + playScore + clearMarginScore;
+};
+
+const isStrongSpikCandidate = ({ tillit, strategy, scoreGap, topHorsePlay }) => (
+  tillit === 'Hög'
+  && strategy === 'Spik-kandidat'
+  && isStrongPlay(topHorsePlay)
+  && (Number(scoreGap) || 0) >= CLEAR_MARGIN_GAP
+);
+
+const getLitenForcedSpikCount = (raceMeta) => {
+  const strongCandidateCount = raceMeta.filter((race) => isStrongSpikCandidate(race)).length;
+  const target = strongCandidateCount >= 3 ? 3 : 2;
+  return Math.min(target, raceMeta.length);
+};
+
+const getRaceConfidenceScore = ({ tillit, scoreGap, topHorsePlay }) => {
+  const tillitScore = (TILLIT_PRIORITY[tillit] ?? 1) * 100;
+  const gapScore = Math.max(Number(scoreGap) || 0, 0) * 10;
+  const playScore = isStrongPlay(topHorsePlay) ? 40 : 0;
+  return tillitScore + gapScore + playScore;
+};
+
+const getTargetSpikCount = (size, availableSpikCandidates, raceCount) => {
+  if (size === 'Liten') {
+    return Math.min(TARGET_SPIK_BY_SIZE.Liten, raceCount);
+  }
+  const target = TARGET_SPIK_BY_SIZE[size] ?? TARGET_SPIK_BY_SIZE.Mellan;
+  return Math.min(target, availableSpikCandidates);
+};
+
+const getMaxGarderaRaces = (size) => MAX_GARDERA_BY_SIZE[size] ?? MAX_GARDERA_BY_SIZE.Mellan;
+
+const getTicketHorsesForRace = (raceHorses, strategySuggestion, size, raceContext = {}) => {
+  if (!Array.isArray(raceHorses) || raceHorses.length === 0) return [];
+
+  const ranked = rankHorsesForTicket(raceHorses);
+  const count = getTicketHorseCount({
+    strategySuggestion,
+    size,
+    tillit: raceContext.tillit,
+    scoreGap: raceContext.scoreGap,
+    topHorsePlay: raceContext.topHorsePlay,
+    horseCount: ranked.length,
   });
 
   return ranked.slice(0, count);
@@ -302,23 +387,97 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoTicket = useMemo(() => {
+    const selectedSize = size || 'Mellan';
     const races = Array.isArray(allRaces) && allRaces.length > 0 ? allRaces : null;
+
     if (!races) {
       // Single-race fallback: use current horses + a default strategy
       if (!Array.isArray(horses) || horses.length === 0) return [];
       const strategy = horses[0]?.strategySuggestion || 'Gardera brett';
-      const picked = getTicketHorsesForRace(horses, strategy, size);
+      const ranked = rankHorsesForTicket(horses);
+      const topHorsePlay = getHorsePlay(ranked[0]);
+      const picked = getTicketHorsesForRace(horses, strategy, selectedSize, {
+        tillit: 'Medel',
+        scoreGap: 0,
+        topHorsePlay,
+      });
       return [{ label: `${gameType}-1`, strategy, horses: picked }];
     }
 
-    return races.map((raceItem, index) => {
+    const raceMeta = races.map((raceItem, index) => {
       const raceHorses = raceItem.horses || [];
+      const ranked = rankHorsesForTicket(raceHorses);
       const strategy = raceItem.race?.strategySuggestion
         || raceHorses[0]?.strategySuggestion
         || 'Gardera brett';
+      const tillit = raceItem.race?.tillit || 'Medel';
+      const scoreGap = Number(
+        raceItem.race?.scoreGap
+        ?? ((getEffectiveFinalScore(ranked[0]) || 0) - (getEffectiveFinalScore(ranked[1]) || 0))
+      ) || 0;
+      const topHorsePlay = getHorsePlay(ranked[0]);
       const label = `${gameType}-${raceItem.race?.number || index + 1}`;
-      const picked = getTicketHorsesForRace(raceHorses, strategy, size || 'Mellan');
-      return { label, strategy, horses: picked };
+
+      return {
+        index,
+        label,
+        raceHorses,
+        ranked,
+        strategy,
+        tillit,
+        scoreGap,
+        topHorsePlay,
+      };
+    });
+
+    const spikCandidates = raceMeta
+      .filter((race) => race.strategy === 'Spik-kandidat')
+      .sort((a, b) => getSpikPriorityScore(b) - getSpikPriorityScore(a));
+
+    const forcedSpikCount = selectedSize === 'Liten'
+      ? getLitenForcedSpikCount(raceMeta)
+      : getTargetSpikCount(selectedSize, spikCandidates.length, raceMeta.length);
+
+    const spikSelectionPool = selectedSize === 'Liten'
+      ? [...raceMeta].sort((a, b) => getSpikPriorityScore(b) - getSpikPriorityScore(a))
+      : spikCandidates;
+
+    const forcedSpikIndexes = new Set(
+      spikSelectionPool.slice(0, forcedSpikCount).map((race) => race.index)
+    );
+
+    const wideRaces = raceMeta.filter(
+      (race) => race.strategy === 'Gardera brett' && !forcedSpikIndexes.has(race.index)
+    );
+
+    const maxWide = getMaxGarderaRaces(selectedSize);
+    const downgradeWideCount = Math.max(0, wideRaces.length - maxWide);
+    const downgradedWideIndexes = new Set(
+      wideRaces
+        // Downgrade the most confident "wide" races first.
+        .sort((a, b) => getRaceConfidenceScore(b) - getRaceConfidenceScore(a))
+        .slice(0, downgradeWideCount)
+        .map((race) => race.index)
+    );
+
+    return raceMeta.map((race) => {
+      const strategy = forcedSpikIndexes.has(race.index)
+        ? 'Spik-kandidat'
+        : downgradedWideIndexes.has(race.index)
+          ? 'Lås / 2-3 hästar'
+          : race.strategy;
+
+      const picked = getTicketHorsesForRace(race.raceHorses, strategy, selectedSize, {
+        tillit: race.tillit,
+        scoreGap: race.scoreGap,
+        topHorsePlay: race.topHorsePlay,
+      });
+
+      return {
+        label: race.label,
+        strategy,
+        horses: picked,
+      };
     });
   }, [allRaces, horses, gameType, size]);
 
