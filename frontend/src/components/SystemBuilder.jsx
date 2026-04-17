@@ -77,6 +77,7 @@ const DEFAULT_BUDGET_BY_SIZE = {
 };
 
 const SOFT_MAX_ROWS = 50000;
+const EXACT_BUDGET_MAX_OVERSHOOT_FACTOR = 1.1;
 
 const getHorsePlay = (horse) => horse?.play || horse?.playDecision?.finalPlay || 'No play';
 const isStarkFavorit = (horse) => horse?.winnerStrengthLabel === 'Stark favorit';
@@ -179,6 +180,34 @@ const calculateRows = (ticketRows) => {
 
 const calculateCost = (ticketRows, rowPrice) => calculateRows(ticketRows) * rowPrice;
 
+const getExpandableCandidates = (ticketRows, size) => {
+  const candidates = ticketRows
+    .map((race, index) => {
+      if (!race?.ranked || !Array.isArray(race.horses)) return null;
+      if (race.strategy !== 'Gardera brett' && race.strategy !== 'Lås / 2-3 hästar') return null;
+
+      const maxHorses = getMaxHorsesForStrategy(size, race.strategy, race.ranked.length);
+      const canGrowByLimit = race.horses.length < maxHorses;
+      const hasMoreRanked = race.horses.length < race.ranked.length;
+
+      return {
+        index,
+        strategy: race.strategy,
+        canGrowByLimit,
+        hasMoreRanked,
+      };
+    })
+    .filter(Boolean);
+
+  const hasExpandable = candidates.some((c) => c.canGrowByLimit && c.hasMoreRanked);
+  const hasMoreRankedButBlockedByLimits = candidates.some((c) => c.hasMoreRanked && !c.canGrowByLimit);
+
+  return {
+    hasExpandable,
+    hasMoreRankedButBlockedByLimits,
+  };
+};
+
 const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
   const safeLength = Math.max(Number(rankedLength) || 0, 0);
   if (safeLength === 0) return 0;
@@ -186,8 +215,8 @@ const getMaxHorsesForStrategy = (size, strategy, rankedLength) => {
   if (strategy === 'Gardera brett') {
     const maxBySize = {
       Liten: 3,
-      Mellan: 4,
-      Stor: 6,
+      Mellan: 5,
+      Stor: safeLength,
     };
     return Math.min(maxBySize[size] ?? 4, safeLength);
   }
@@ -281,6 +310,15 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   const useExactTarget = Number.isFinite(targetBudget);
   const exactTarget = useExactTarget ? Number(targetBudget) : null;
   let adjustedRows = ticketRows.map((race) => ({ ...race, horses: [...race.horses] }));
+  let stopReason = 'loop-complete';
+
+  if (useExactTarget) {
+    console.debug('[SystemBuilder][BudgetLoop] start', {
+      targetBudget: exactTarget,
+      currentCost: calculateCost(adjustedRows, rowPrice),
+      size,
+    });
+  }
 
   // Hard iteration cap prevents infinite loops if no more valid adjustments exist.
   for (let i = 0; i < 500; i += 1) {
@@ -288,35 +326,66 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
     const totalRows = calculateRows(adjustedRows);
 
     if (totalRows >= SOFT_MAX_ROWS) {
+      stopReason = 'max horse limits hit';
       break;
     }
 
     if (useExactTarget) {
       // In slider mode, continue expansion until budget target is reached.
       if (totalCost >= exactTarget) {
+        stopReason = 'budget reached';
         break;
       }
 
       const expansion = expandTicketOneStep(adjustedRows, size);
-      if (!expansion.changed) break;
+      if (!expansion.changed) {
+        const expansionState = getExpandableCandidates(adjustedRows, size);
+        stopReason = expansionState.hasMoreRankedButBlockedByLimits
+          ? 'max horse limits hit'
+          : 'no more expandable races';
+        break;
+      }
+
+      const expandedCost = calculateCost(expansion.ticketRows, rowPrice);
+      if (expandedCost > exactTarget * EXACT_BUDGET_MAX_OVERSHOOT_FACTOR) {
+        stopReason = 'budget reached';
+        break;
+      }
+
       adjustedRows = expansion.ticketRows;
       continue;
     }
 
     if (totalCost >= target.min && totalCost <= target.max) {
+      stopReason = 'budget reached';
       break;
     }
 
     if (totalCost > target.max) {
       const reduction = reduceTicketOneStep(adjustedRows);
       adjustedRows = reduction.ticketRows;
-      if (!reduction.changed) break;
+      if (!reduction.changed) {
+        stopReason = 'no more expandable races';
+        break;
+      }
       continue;
     }
 
     const expansion = expandTicketOneStep(adjustedRows, size);
     adjustedRows = expansion.ticketRows;
-    if (!expansion.changed) break;
+    if (!expansion.changed) {
+      stopReason = 'no more expandable races';
+      break;
+    }
+  }
+
+  if (useExactTarget) {
+    console.debug('[SystemBuilder][BudgetLoop] stop', {
+      targetBudget: exactTarget,
+      currentCost: calculateCost(adjustedRows, rowPrice),
+      stopReason,
+      rows: calculateRows(adjustedRows),
+    });
   }
 
   return adjustedRows;
