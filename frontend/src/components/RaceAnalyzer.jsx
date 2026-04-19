@@ -15,6 +15,7 @@ import { fetchGameData, parseManualImport } from '../services/atgApi';
 import { normalizeRaceData } from '../services/normalizeRaceData';
 import { analyzeRaceData } from '../services/analyzeRaceData';
 import { saveRacePrediction } from '../services/performanceTracker';
+import { saveModelPredictions } from '../services/performanceTracker';
 
 /**
  * Filter races for a specific game type based on horse pools
@@ -173,6 +174,65 @@ const RaceAnalyzer = () => {
         },
         horses: race.horses || []
       }));
+
+      const resolvedGameId = races?.[0]?.gameId || null;
+      if (resolvedGameId) {
+        const saveKey = `model_predictions_saved_${resolvedGameId}`;
+        const alreadySaved = localStorage.getItem(saveKey) === '1';
+
+        if (!alreadySaved) {
+          const predictions = parsedRaces.flatMap((raceItem) => {
+            const raceId = raceItem?.race?.id;
+            const horses = Array.isArray(raceItem?.horses) ? raceItem.horses : [];
+            if (!raceId || horses.length === 0) {
+              return [];
+            }
+
+            const sortedByScore = [...horses].sort((a, b) => {
+              const scoreA = Number(a?.score ?? a?.calibratedFinalScore ?? a?.finalScore ?? -Infinity);
+              const scoreB = Number(b?.score ?? b?.calibratedFinalScore ?? b?.finalScore ?? -Infinity);
+              return scoreB - scoreA;
+            });
+
+            const computedRankByHorseNumber = new Map(
+              sortedByScore.map((horse, idx) => [Number(horse?.number), idx + 1])
+            );
+
+            return horses
+              .map((horse) => {
+                const horseNumber = Number(horse?.number);
+                const modelRank = Number.isFinite(Number(horse?.modelRank))
+                  ? Number(horse.modelRank)
+                  : computedRankByHorseNumber.get(horseNumber);
+                const modelScore = Number(horse?.score ?? horse?.calibratedFinalScore ?? horse?.finalScore);
+
+                if (!Number.isFinite(horseNumber) || !Number.isFinite(modelRank) || !Number.isFinite(modelScore)) {
+                  return null;
+                }
+
+                return {
+                  raceId: String(raceId),
+                  horseNumber,
+                  modelRank,
+                  modelScore,
+                };
+              })
+              .filter(Boolean);
+          });
+
+          if (predictions.length > 0) {
+            try {
+              await saveModelPredictions({
+                gameId: resolvedGameId,
+                predictions,
+              });
+              localStorage.setItem(saveKey, '1');
+            } catch (predictionSaveError) {
+              console.warn('[RaceAnalyzer] Could not save model predictions:', predictionSaveError);
+            }
+          }
+        }
+      }
 
       setAllRaces(parsedRaces);
       setSelectedRaceIndex(0);

@@ -452,3 +452,48 @@ export const getPerformanceStats = () => {
     averageWinnerFinalScore
   };
 };
+
+export const saveModelPredictions = async (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const gameId = String(payload?.gameId || '').trim();
+  const predictions = Array.isArray(payload?.predictions) ? payload.predictions : [];
+  if (!gameId || predictions.length === 0) {
+    return null;
+  }
+
+  console.log('SAVING MODEL PREDICTIONS', payload);
+
+  const response = await fetch('/api/model/predictions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gameId, predictions }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`saveModelPredictions failed (${response.status}): ${text.slice(0, 200)}`);
+  }
+
+  return response.json();
+};
+
+export const fetchModelPredictionsForGame = async (gameId) => {
+  const resolvedGameId = String(gameId || '').trim();
+  if (!resolvedGameId) {
+    return [];
+  }
+
+  const response = await fetch(`/api/model/predictions?gameId=${encodeURIComponent(resolvedGameId)}`, {
+    headers: { accept: 'application/json' }
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return Array.isArray(data?.predictions) ? data.predictions : [];
+};

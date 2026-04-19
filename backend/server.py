@@ -82,6 +82,18 @@ class StatusCheckCreate(BaseModel):
     client_name: str
 
 
+class ModelPredictionRow(BaseModel):
+    raceId: str
+    horseNumber: int
+    modelRank: int
+    modelScore: float
+
+
+class ModelPredictionsCreate(BaseModel):
+    gameId: str
+    predictions: List[ModelPredictionRow]
+
+
 EMPTY_TEMPO_METRICS = {
     "sampleSize": 0,
     "averageFirst200ms": None,
@@ -1123,6 +1135,68 @@ async def get_status_checks():
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     
     return status_checks
+
+
+@api_router.post("/model/predictions")
+async def save_model_predictions(payload: ModelPredictionsCreate):
+    game_id = str(payload.gameId or "").strip()
+    if not game_id:
+        return JSONResponse(status_code=400, content={"error": "gameId is required"})
+
+    rows = payload.predictions or []
+    if len(rows) == 0:
+        return {"gameId": game_id, "saved": 0, "timestamp": datetime.now(timezone.utc).isoformat()}
+
+    created_at = datetime.now(timezone.utc)
+    race_ids = sorted({str(row.raceId or "").strip() for row in rows if str(row.raceId or "").strip()})
+
+    # Overwrite existing predictions for these races in this game.
+    if race_ids:
+        await db.model_predictions.delete_many({"gameId": game_id, "raceId": {"$in": race_ids}})
+
+    docs = [
+        {
+            "gameId": game_id,
+            "raceId": str(row.raceId or "").strip(),
+            "horseNumber": int(row.horseNumber),
+            "modelRank": int(row.modelRank),
+            "modelScore": float(row.modelScore),
+            "createdAt": created_at.isoformat(),
+        }
+        for row in rows
+        if str(row.raceId or "").strip()
+    ]
+
+    if docs:
+        await db.model_predictions.insert_many(docs)
+
+    return {
+        "gameId": game_id,
+        "saved": len(docs),
+        "timestamp": created_at.isoformat(),
+        "races": race_ids,
+    }
+
+
+@api_router.get("/model/predictions")
+async def get_model_predictions(
+    gameId: str = Query(..., description="ATG game ID"),
+    raceId: str | None = Query(None, description="Optional race ID"),
+):
+    game_id = str(gameId or "").strip()
+    if not game_id:
+        return JSONResponse(status_code=400, content={"error": "gameId is required"})
+
+    query: dict = {"gameId": game_id}
+    if raceId:
+        query["raceId"] = str(raceId).strip()
+
+    docs = await db.model_predictions.find(query, {"_id": 0}).to_list(5000)
+    return {
+        "gameId": game_id,
+        "count": len(docs),
+        "predictions": docs,
+    }
 
 @api_router.get("/atg/calendar")
 def atg_calendar(date: str = Query(..., description="Date in YYYY-MM-DD format")):

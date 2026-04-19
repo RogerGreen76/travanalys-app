@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -6,7 +6,8 @@ import {
   getPerformanceHistory,
   hasMissingGameIds,
   saveRaceResult,
-  syncMissingResults
+  syncMissingResults,
+  fetchModelPredictionsForGame
 } from '../services/performanceTracker';
 
 const formatMetric = (value) => {
@@ -55,8 +56,55 @@ const PerformanceDashboard = () => {
   const [resultFilter, setResultFilter] = useState('all');
   const [onlyValueWinners, setOnlyValueWinners] = useState(false);
   const [onlyStarkPlayWinners, setOnlyStarkPlayWinners] = useState(false);
+  const [savedPredictionLookup, setSavedPredictionLookup] = useState({});
 
   const history = useMemo(() => getPerformanceHistory(), [refreshKey]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadSavedPredictions = async () => {
+      const gameIds = [...new Set(
+        (Array.isArray(history) ? history : [])
+          .map(item => String(item?.gameId || '').trim())
+          .filter(Boolean)
+      )];
+
+      if (gameIds.length === 0) {
+        if (!isCancelled) {
+          setSavedPredictionLookup({});
+        }
+        return;
+      }
+
+      const nextLookup = {};
+      for (const gameId of gameIds) {
+        try {
+          const rows = await fetchModelPredictionsForGame(gameId);
+          rows.forEach((row) => {
+            const key = `${String(row?.gameId || '')}__${String(row?.raceId || '')}__${Number(row?.horseNumber)}`;
+            if (!Number.isFinite(Number(row?.horseNumber))) return;
+            nextLookup[key] = {
+              modelRank: Number(row?.modelRank),
+              modelScore: Number(row?.modelScore),
+            };
+          });
+        } catch (error) {
+          console.warn('[PerformanceDashboard] Could not fetch saved model predictions for gameId:', gameId, error);
+        }
+      }
+
+      if (!isCancelled) {
+        setSavedPredictionLookup(nextLookup);
+      }
+    };
+
+    loadSavedPredictions();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [history]);
 
   // Show all entries that have at least a prediction (result optional)
   const allPredictionRows = useMemo(
@@ -617,6 +665,17 @@ const PerformanceDashboard = () => {
                     const rowKey = item.raceId || item.raceLabel;
                     const isEditing = editingId === rowKey;
                     const hasResult = item.result?.winnerNumber != null;
+                    const winnerNumber = Number(item?.result?.winnerNumber);
+                    const predictionLookupKey = `${String(item?.gameId || '')}__${String(item?.raceId || '')}__${winnerNumber}`;
+                    const savedWinnerPrediction = Number.isFinite(winnerNumber)
+                      ? savedPredictionLookup[predictionLookupKey]
+                      : null;
+                    const displayModelRank = Number.isFinite(Number(savedWinnerPrediction?.modelRank))
+                      ? Number(savedWinnerPrediction.modelRank)
+                      : 'N/A';
+                    const displayModelScore = Number.isFinite(Number(savedWinnerPrediction?.modelScore))
+                      ? Number(savedWinnerPrediction.modelScore).toFixed(2)
+                      : 'N/A';
                     return (
                       <tr
                         key={`${item.raceId || item.raceLabel || 'race'}-${item.result?.winnerNumber || 'x'}-${index}`}
@@ -625,8 +684,8 @@ const PerformanceDashboard = () => {
                         <td className="py-3 pr-4 text-gray-500">{item.date || '-'}</td>
                         <td className="py-3 pr-4 text-gray-200">{item.raceLabel || item.raceId || '-'}</td>
                         <td className="py-3 pr-4 text-gray-200 tabular-nums">{item.result?.winnerNumber ?? '-'}</td>
-                        <td className="py-3 pr-4 text-gray-200 tabular-nums">{item.winnerModelRank ?? '-'}</td>
-                        <td className="py-3 pr-4 text-gray-200 tabular-nums">{formatMetric(getEffectiveFinalScore(winner))}</td>
+                        <td className="py-3 pr-4 text-gray-200 tabular-nums">{displayModelRank}</td>
+                        <td className="py-3 pr-4 text-gray-200 tabular-nums">{displayModelScore}</td>
                         <td className="py-3 pr-4 text-gray-400">{winner?.play || '-'}</td>
                         <td className="py-2 pr-3">
                           {isEditing ? (
