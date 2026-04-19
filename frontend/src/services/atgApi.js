@@ -144,15 +144,18 @@ export const findGameInCalendar = async (gameType, date = null) => {
 export const fetchGameData = async (selectedGameType) => {
   const isDD = selectedGameType?.toUpperCase() === 'DD';
   const today = getSwedenDate();
+  const CALENDAR_LOOKAHEAD_DAYS = 8;
 
   // Step 1: Calendar – resolve game key, race IDs, and master game ID.
-  // Try today first; if this game type is not scheduled today, look ahead up to 6 days.
+  // Try today first; if this game type is not scheduled today, look further ahead.
+  // Prefer the next upcoming card that actually has race IDs.
   let games = {};
   let matchedKey = null;
   let rawGame = null;
   let gameDate = today;
+  let fallbackGame = null;
 
-  for (let offset = 0; offset <= 6; offset++) {
+  for (let offset = 0; offset <= CALENDAR_LOOKAHEAD_DAYS; offset++) {
     const candidateDate = offset === 0 ? today : getSwedenDateOffset(offset);
     try {
       const calRes = await fetch(`/api/atg/calendar?date=${candidateDate}`);
@@ -166,16 +169,36 @@ export const fetchGameData = async (selectedGameType) => {
         const entry = candidateGames[candidateKey];
         const game = Array.isArray(entry) ? entry[0] : entry;
         if (game) {
-          games = candidateGames;
-          matchedKey = candidateKey;
-          rawGame = game;
-          gameDate = candidateDate;
-          break;
+          const candidateRaceIds = Array.isArray(game.races) ? game.races : [];
+
+          if (!fallbackGame) {
+            fallbackGame = {
+              games: candidateGames,
+              matchedKey: candidateKey,
+              rawGame: game,
+              gameDate: candidateDate,
+            };
+          }
+
+          if (candidateRaceIds.length > 0) {
+            games = candidateGames;
+            matchedKey = candidateKey;
+            rawGame = game;
+            gameDate = candidateDate;
+            break;
+          }
         }
       }
     } catch (e) {
       console.warn(`[ATG] Calendar fetch failed for ${candidateDate}:`, e.message);
     }
+  }
+
+  if (!rawGame && fallbackGame) {
+    games = fallbackGame.games;
+    matchedKey = fallbackGame.matchedKey;
+    rawGame = fallbackGame.rawGame;
+    gameDate = fallbackGame.gameDate;
   }
 
   if (!rawGame) return { races: [], gameDate: today, isToday: true };

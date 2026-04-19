@@ -1196,6 +1196,34 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
   const autoSystemResult = useMemo(() => {
     const races = Array.isArray(allRaces) && allRaces.length > 0 ? allRaces : null;
+    const currentTargetBudget = Number.isFinite(Number(liveBudget)) ? Number(liveBudget) : 400;
+
+    // Strict minimum mode: if budget equals exactly one row cost, force one horse per race.
+    if (races && currentTargetBudget <= rowPrice) {
+      const minimumTicketRows = races.map((raceItem, index) => {
+        const raceHorses = Array.isArray(raceItem?.horses) ? raceItem.horses : [];
+        const ranked = rankHorsesForTicket(raceHorses);
+        const topHorse = ranked[0];
+
+        return {
+          label: `${gameType}-${raceItem?.race?.number || index + 1}`,
+          strategy: 'Spik-kandidat',
+          horses: topHorse ? [topHorse] : [],
+        };
+      });
+
+      return {
+        ticketRows: minimumTicketRows,
+        targetBudget: rowPrice,
+        finalCost: rowPrice,
+        stopReason: 'minimumBudgetOneRow',
+        usedExactTarget: true,
+        reachedTarget: true,
+        fullyExpandedRaces: 0,
+        racesHitMaxAllowed: 0,
+        raceDiagnostics: [],
+      };
+    }
 
     if (!races) {
       // Single-race fallback: use current horses + a default strategy
@@ -1309,9 +1337,6 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         uncertaintyScore: race.uncertaintyScore,
       };
     });
-
-    // Compute targetBudget INSIDE the memo so the closure always sees the current liveBudget.
-    const currentTargetBudget = Number.isFinite(Number(liveBudget)) ? Number(liveBudget) : 400;
 
     console.log('CALL PATH CHECK', {
       liveBudgetInComponent: liveBudget,
