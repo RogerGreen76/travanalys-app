@@ -57,7 +57,7 @@ const PerformanceDashboard = () => {
   const [onlyValueWinners, setOnlyValueWinners] = useState(false);
   const [onlyStarkPlayWinners, setOnlyStarkPlayWinners] = useState(false);
   const [savedPredictionLookup, setSavedPredictionLookup] = useState({});
-  const fetchedGameIdsRef = useRef(new Set());
+  const processedGameIdsRef = useRef(new Set());
   const predictionRowsCacheRef = useRef({});
 
   const history = useMemo(() => getPerformanceHistory(), [refreshKey]);
@@ -77,44 +77,59 @@ const PerformanceDashboard = () => {
   useEffect(() => {
     let isCancelled = false;
 
+    if (!Array.isArray(predictionGameIds)) {
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    // Full reset only when dataset is cleared.
+    if (predictionGameIds.length === 0) {
+      processedGameIdsRef.current.clear();
+      predictionRowsCacheRef.current = {};
+      setSavedPredictionLookup({});
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    const newIds = predictionGameIds.filter(
+      (gameId) => !processedGameIdsRef.current.has(gameId)
+    );
+
+    if (newIds.length === 0) {
+      return () => {
+        isCancelled = true;
+      };
+    }
+
     const loadSavedPredictions = async () => {
-      if (predictionGameIds.length === 0) {
-        if (!isCancelled) {
-          setSavedPredictionLookup({});
-        }
-        return;
-      }
-
-      const nextLookup = {};
-      const missingGameIds = predictionGameIds.filter((gameId) => !fetchedGameIdsRef.current.has(gameId));
-
-      for (const gameId of missingGameIds) {
+      for (const gameId of newIds) {
+        processedGameIdsRef.current.add(gameId);
         try {
           const rows = await fetchModelPredictionsForGame(gameId);
-          predictionRowsCacheRef.current[gameId] = Array.isArray(rows) ? rows : [];
-          fetchedGameIdsRef.current.add(gameId);
+          const safeRows = Array.isArray(rows) ? rows : [];
+          predictionRowsCacheRef.current[gameId] = safeRows;
+
+          if (isCancelled) {
+            return;
+          }
+
+          setSavedPredictionLookup((prev) => {
+            const next = { ...prev };
+            safeRows.forEach((row) => {
+              const key = `${String(row?.gameId || '')}__${String(row?.raceId || '')}__${Number(row?.horseNumber)}`;
+              if (!Number.isFinite(Number(row?.horseNumber))) return;
+              next[key] = {
+                modelRank: Number(row?.modelRank),
+                modelScore: Number(row?.modelScore),
+              };
+            });
+            return next;
+          });
         } catch (error) {
           console.warn('[PerformanceDashboard] Could not fetch saved model predictions for gameId:', gameId, error);
         }
-      }
-
-      predictionGameIds.forEach((gameId) => {
-        const rows = Array.isArray(predictionRowsCacheRef.current[gameId])
-          ? predictionRowsCacheRef.current[gameId]
-          : [];
-
-        rows.forEach((row) => {
-          const key = `${String(row?.gameId || '')}__${String(row?.raceId || '')}__${Number(row?.horseNumber)}`;
-          if (!Number.isFinite(Number(row?.horseNumber))) return;
-          nextLookup[key] = {
-            modelRank: Number(row?.modelRank),
-            modelScore: Number(row?.modelScore),
-          };
-        });
-      });
-
-      if (!isCancelled) {
-        setSavedPredictionLookup(nextLookup);
       }
     };
 
