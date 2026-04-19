@@ -1183,20 +1183,42 @@ async def get_model_predictions(
     gameId: str = Query(..., description="ATG game ID"),
     raceId: str | None = Query(None, description="Optional race ID"),
 ):
-    game_id = str(gameId or "").strip()
-    if not game_id:
-        return JSONResponse(status_code=400, content={"error": "gameId is required"})
+    try:
+        game_id = str(gameId or "").strip()
+        if not game_id:
+            return []
 
-    query: dict = {"gameId": game_id}
-    if raceId:
-        query["raceId"] = str(raceId).strip()
+        query: dict = {"gameId": game_id}
+        race_id = str(raceId or "").strip()
+        if race_id:
+            query["raceId"] = race_id
 
-    docs = await db.model_predictions.find(query, {"_id": 0}).to_list(5000)
-    return {
-        "gameId": game_id,
-        "count": len(docs),
-        "predictions": docs,
-    }
+        docs = await db.model_predictions.find(query, {"_id": 0}).to_list(5000)
+        if not isinstance(docs, list):
+            return []
+
+        # Defensive normalization so malformed rows do not break consumers.
+        safe_rows = []
+        for row in docs:
+            if not isinstance(row, dict):
+                continue
+            try:
+                safe_rows.append({
+                    "gameId": str(row.get("gameId") or "").strip(),
+                    "raceId": str(row.get("raceId") or "").strip(),
+                    "horseNumber": int(row.get("horseNumber")),
+                    "modelRank": int(row.get("modelRank")),
+                    "modelScore": float(row.get("modelScore")),
+                    "createdAt": row.get("createdAt"),
+                })
+            except Exception:
+                # Skip malformed document, never fail whole request.
+                continue
+
+        return safe_rows
+    except Exception:
+        logger.exception("Failed to load model predictions gameId=%s raceId=%s", gameId, raceId)
+        return []
 
 @api_router.get("/atg/calendar")
 def atg_calendar(date: str = Query(..., description="Date in YYYY-MM-DD format")):

@@ -486,14 +486,22 @@ export const fetchModelPredictionsForGame = async (gameId) => {
     return [];
   }
 
-  const response = await fetch(`/api/model/predictions?gameId=${encodeURIComponent(resolvedGameId)}`, {
-    headers: { accept: 'application/json' }
-  });
+  try {
+    const response = await fetch(`/api/model/predictions?gameId=${encodeURIComponent(resolvedGameId)}`, {
+      headers: { accept: 'application/json' }
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return Array.isArray(data?.predictions) ? data.predictions : [];
+  } catch (error) {
+    console.warn('[PerformanceTracker] fetchModelPredictionsForGame failed:', error);
     return [];
   }
-
-  const data = await response.json();
-  return Array.isArray(data?.predictions) ? data.predictions : [];
 };
