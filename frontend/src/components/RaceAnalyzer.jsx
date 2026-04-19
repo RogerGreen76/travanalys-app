@@ -228,12 +228,13 @@ const RaceAnalyzer = () => {
 
               try {
                 console.log('POST START', { gameId: resolvedGameId, count: predictions.length });
+                console.log('POST URL', 'http://localhost:8000/api/model/predictions');
 
                 const controller = new AbortController();
                 const timeout = setTimeout(() => {
-                  console.warn('POST TIMEOUT: Aborting after 5 seconds');
+                  console.warn('POST TIMEOUT: Aborting after 15 seconds');
                   controller.abort();
-                }, 5000);
+                }, 15000);
 
                 try {
                   const res = await fetch('http://localhost:8000/api/model/predictions', {
