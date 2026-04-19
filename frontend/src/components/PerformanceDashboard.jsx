@@ -61,18 +61,24 @@ const PerformanceDashboard = () => {
   const predictionRowsCacheRef = useRef({});
 
   const history = useMemo(() => getPerformanceHistory(), [refreshKey]);
+  const predictionGameIds = useMemo(() => {
+    return [...new Set(
+      (Array.isArray(history) ? history : [])
+        .map(item => String(item?.gameId || '').trim())
+        .filter(Boolean)
+    )].sort();
+  }, [history]);
+
+  const predictionGameIdsKey = useMemo(
+    () => predictionGameIds.join('|'),
+    [predictionGameIds]
+  );
 
   useEffect(() => {
     let isCancelled = false;
 
     const loadSavedPredictions = async () => {
-      const gameIds = [...new Set(
-        (Array.isArray(history) ? history : [])
-          .map(item => String(item?.gameId || '').trim())
-          .filter(Boolean)
-      )];
-
-      if (gameIds.length === 0) {
+      if (predictionGameIds.length === 0) {
         if (!isCancelled) {
           setSavedPredictionLookup({});
         }
@@ -80,7 +86,7 @@ const PerformanceDashboard = () => {
       }
 
       const nextLookup = {};
-      const missingGameIds = gameIds.filter((gameId) => !fetchedGameIdsRef.current.has(gameId));
+      const missingGameIds = predictionGameIds.filter((gameId) => !fetchedGameIdsRef.current.has(gameId));
 
       for (const gameId of missingGameIds) {
         try {
@@ -92,7 +98,7 @@ const PerformanceDashboard = () => {
         }
       }
 
-      gameIds.forEach((gameId) => {
+      predictionGameIds.forEach((gameId) => {
         const rows = Array.isArray(predictionRowsCacheRef.current[gameId])
           ? predictionRowsCacheRef.current[gameId]
           : [];
@@ -117,7 +123,7 @@ const PerformanceDashboard = () => {
     return () => {
       isCancelled = true;
     };
-  }, [history]);
+  }, [predictionGameIdsKey]);
 
   // Show all entries that have at least a prediction (result optional)
   const allPredictionRows = useMemo(
