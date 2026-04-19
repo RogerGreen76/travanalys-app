@@ -459,25 +459,51 @@ export const saveModelPredictions = async (payload) => {
   }
 
   const gameId = String(payload?.gameId || '').trim();
-  const predictions = Array.isArray(payload?.predictions) ? payload.predictions : [];
+  const rawPredictions = Array.isArray(payload?.predictions) ? payload.predictions : [];
+  const predictions = rawPredictions
+    .map((row) => {
+      const raceId = String(row?.raceId || '').trim();
+      const horseNumber = Number(row?.horseNumber);
+      const modelRank = Number(row?.modelRank);
+      const modelScore = Number(row?.modelScore);
+      if (!raceId || !Number.isFinite(horseNumber) || !Number.isFinite(modelRank) || !Number.isFinite(modelScore)) {
+        return null;
+      }
+      return { raceId, horseNumber, modelRank, modelScore };
+    })
+    .filter(Boolean);
+
   if (!gameId || predictions.length === 0) {
     return null;
   }
 
   console.log('SAVING MODEL PREDICTIONS', payload);
 
-  const response = await fetch('/api/model/predictions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gameId, predictions }),
-  });
+  try {
+    console.log('POST START', gameId, predictions.length);
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`saveModelPredictions failed (${response.status}): ${text.slice(0, 200)}`);
+    const response = await fetch('/api/model/predictions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        gameId,
+        predictions
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`saveModelPredictions failed (${response.status}): ${text.slice(0, 200)}`);
+    }
+
+    console.log('POST SUCCESS');
+    return response.json();
+  } catch (err) {
+    console.error('POST ERROR', err);
+    throw err;
   }
-
-  return response.json();
 };
 
 export const fetchModelPredictionsForGame = async (gameId) => {
