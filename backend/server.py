@@ -10,6 +10,7 @@ import httpx
 import json
 import re
 import asyncio
+import time
 from urllib.parse import unquote
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
@@ -1138,18 +1139,32 @@ async def get_status_checks():
 
 
 @api_router.post("/model/predictions")
-async def save_model_predictions(payload: ModelPredictionsCreate):
+async def save_model_predictions(request: Request):
     try:
+        # Temporary early return isolation test.
+        early_return_test = os.environ.get("MODEL_PREDICTIONS_EARLY_RETURN", "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if early_return_test:
+            logger.info("POST HIT - TEST RETURN")
+            return {"ok": True, "test": "early return"}
+
         logger.info("POST /api/model/predictions HIT")
-        logger.info("Step 1: parsing request")
-        game_id = str(payload.gameId or "").strip()
+        logger.info("STEP 1: start")
+        logger.info("STEP 2: before parsing body")
+        data = await request.json()
+        logger.info("STEP 3: body parsed")
+
+        game_id = str((data or {}).get("gameId") or "").strip()
         if not game_id:
             logger.warning("Missing gameId")
             return JSONResponse(status_code=400, content={"ok": False, "error": "gameId is required"})
 
-        logger.info("Step 2: extracting predictions")
-        predictions = payload.predictions or []
-        logger.info(f"Predictions count: {len(predictions)}")
+        predictions = (data or {}).get("predictions") or []
+        logger.info(f"STEP 4: predictions count = {len(predictions)}")
         
         if len(predictions) == 0:
             logger.info("No predictions to save, returning early")
@@ -1161,20 +1176,21 @@ async def save_model_predictions(payload: ModelPredictionsCreate):
             })
 
         created_at = datetime.now(timezone.utc)
-        race_ids = sorted({str(row.raceId or "").strip() for row in predictions if str(row.raceId or "").strip()})
+        race_ids = sorted({str((row or {}).get("raceId") or "").strip() for row in predictions if str((row or {}).get("raceId") or "").strip()})
 
         docs = [
             {
                 "gameId": game_id,
-                "raceId": str(row.raceId or "").strip(),
-                "horseNumber": int(row.horseNumber),
-                "modelRank": int(row.modelRank),
-                "modelScore": float(row.modelScore),
+                "raceId": str((row or {}).get("raceId") or "").strip(),
+                "horseNumber": int((row or {}).get("horseNumber", 0)),
+                "modelRank": int((row or {}).get("modelRank", 0)),
+                "modelScore": float((row or {}).get("modelScore", 0.0)),
                 "createdAt": created_at.isoformat(),
             }
             for row in predictions
-            if str(row.raceId or "").strip()
+            if str((row or {}).get("raceId") or "").strip()
         ]
+        logger.info("STEP 5: docs built")
         
         if len(docs) == 0:
             logger.info("No valid documents after filtering, returning early")
@@ -1188,18 +1204,17 @@ async def save_model_predictions(payload: ModelPredictionsCreate):
         collection = db.model_predictions
 
         # Temporary isolation mode: skip DB writes to verify endpoint returns quickly.
-        skip_db_insert = os.environ.get("MODEL_PREDICTIONS_SKIP_DB", "false").strip().lower() in {
+        skip_db_insert = os.environ.get("MODEL_PREDICTIONS_SKIP_DB", "true").strip().lower() in {
             "1",
             "true",
             "yes",
             "on",
         }
 
-        logger.info("Step 3: inserting into DB")
+        logger.info("STEP 6: before DB insert")
         if skip_db_insert:
-            logger.info("MODEL_PREDICTIONS_SKIP_DB is enabled; skipping DB write")
-            logger.info("Step 4: insert complete")
-            logger.info("Step 5: returning response")
+            # result = await collection.insert_many(docs, ordered=False)
+            logger.info("STEP 6: SKIPPED DB INSERT")
             return JSONResponse(
                 status_code=200,
                 content={
@@ -1212,19 +1227,16 @@ async def save_model_predictions(payload: ModelPredictionsCreate):
                 },
             )
 
-        if race_ids:
-            delete_result = await collection.delete_many({
-                "gameId": game_id,
-                "raceId": {"$in": race_ids}
-            })
-            logger.info(f"Deleted: {delete_result.deleted_count} old predictions")
-        else:
-            logger.warning("No valid race IDs after filtering")
-
-        insert_result = await collection.insert_many(docs, ordered=False)
+        start = time.time()
+        insert_result = await collection.insert_many(
+            docs,
+            ordered=False,
+            bypass_document_validation=True,
+        )
+        logger.info(f"DB insert took {time.time() - start:.2f}s")
         logger.info(f"Inserted: {len(insert_result.inserted_ids)} predictions")
-        logger.info("Step 4: insert complete")
-        logger.info("Step 5: returning response")
+        logger.info("STEP 4: insert complete")
+        logger.info("STEP 5: returning response")
         response = {
             "ok": True,
             "gameId": game_id,
