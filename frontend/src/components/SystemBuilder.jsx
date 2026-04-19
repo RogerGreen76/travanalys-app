@@ -482,21 +482,25 @@ const getExpansionStrategyRank = (strategy) => {
   return 4;
 };
 
-const pickBestExpansion = (candidates, currentRows) => {
+const pickBestExpansion = (candidates) => {
   return candidates.sort((a, b) => {
+    if (a.priorityScore !== b.priorityScore) return a.priorityScore - b.priorityScore;
     if (a.strategyRank !== b.strategyRank) return a.strategyRank - b.strategyRank;
-    if (a.costIncrease !== b.costIncrease) return a.costIncrease - b.costIncrease;
     if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
     if (a.selectedCount !== b.selectedCount) return a.selectedCount - b.selectedCount;
     return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
   })[0];
 };
 
-const expandTicketOneStep = (ticketRows, size) => {
+const expandTicketOneStep = (ticketRows, size, context = {}) => {
   const expanded = ticketRows.map((race) => ({ ...race, horses: [...(race.horses || [])] }));
-  const currentRows = Math.max(calculateRows(ticketRows), 1);
+  const currentCost = Number(context?.currentCost) || 0;
+  const targetBudget = Number(context?.targetBudget) || 0;
+  const budgetProgress = targetBudget > 0 ? currentCost / targetBudget : 0;
   let blockedByLimitsDetected = false;
   let spikBreakAvailable = false;
+  let nonSpikExpandableExists = false;
+  let allNonSpikAtMaxAllowed = true;
 
   const raceCandidates = expanded
     .map((race, index) => ({ race, index }))
@@ -512,6 +516,12 @@ const expandTicketOneStep = (ticketRows, size) => {
       const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
       const selectedCount = (race.horses || []).length;
       const strategyRank = getExpansionStrategyRank(race?.strategy);
+      const nextFrom = selectedCount;
+      const nextTo = selectedCount + 1;
+      const costMultiplier = nextFrom > 0 ? nextTo / nextFrom : Number.POSITIVE_INFINITY;
+      const isSpikBreak = race?.strategy === 'Spik-kandidat' && nextFrom === 1 && nextTo === 2;
+      const penaltyFactor = isSpikBreak ? 3.0 : (nextFrom === 2 && nextTo === 3 ? 1.5 : 1.0);
+      const priorityScore = costMultiplier * penaltyFactor;
 
       let raceStopReason = 'expandable';
       if (evaluation.blockedByLimit) {
@@ -531,6 +541,15 @@ const expandTicketOneStep = (ticketRows, size) => {
       const canBreakSpik = race?.strategy === 'Spik-kandidat' && ranked.length > selectedCount;
       if (canBreakSpik) {
         spikBreakAvailable = true;
+      }
+      const hasAnyCandidates = evPreferred.length > 0 || evAcceptable.length > 0 || evFallback.length > 0 || evEmergency.length > 0;
+      if (race?.strategy !== 'Spik-kandidat') {
+        if (!evaluation.blockedByLimit) {
+          allNonSpikAtMaxAllowed = false;
+        }
+        if (!evaluation.blockedByLimit && hasAnyCandidates) {
+          nonSpikExpandableExists = true;
+        }
       }
 
       console.log('EXPAND MODE:', {
@@ -553,7 +572,11 @@ const expandTicketOneStep = (ticketRows, size) => {
         strategyRank,
         racePriority: Number(race?.uncertaintyScore) || 0,
         selectedCount,
-        costIncrease: selectedCount > 0 ? currentRows / selectedCount : Number.POSITIVE_INFINITY,
+        from: nextFrom,
+        to: nextTo,
+        costMultiplier,
+        penaltyFactor,
+        priorityScore,
         preferred: evPreferred,
         acceptable: evAcceptable,
         fallback: evFallback,
@@ -562,89 +585,111 @@ const expandTicketOneStep = (ticketRows, size) => {
     });
 
   const nonSpikRaceCandidates = raceCandidates.filter((candidate) => candidate.strategy !== 'Spik-kandidat');
+  const spikRaceCandidates = raceCandidates.filter((candidate) => candidate.strategy === 'Spik-kandidat');
 
-  const preferredPick = pickBestExpansion(
-    nonSpikRaceCandidates
-      .filter((candidate) => candidate.preferred.length > 0)
+  const buildPool = (candidates, tier) => {
+    return candidates
+      .filter((candidate) => (candidate[tier] || []).length > 0)
       .map((candidate) => ({
         ...candidate,
-        horse: candidate.preferred[0],
-      })),
-    currentRows
+        horse: candidate[tier][0],
+      }));
+  };
+
+  const preferredPick = pickBestExpansion(
+    buildPool(nonSpikRaceCandidates, 'preferred')
   );
 
   if (preferredPick) {
-    console.log('NEXT EXPANSION OPTIONS', {
+    console.log('EXPANSION CHOICE', {
       raceId: expanded[preferredPick.index]?.label,
-      strategy: preferredPick.strategy,
-      estimatedCostJumpRows: preferredPick.costIncrease,
-      racePriority: preferredPick.racePriority,
+      from: preferredPick.from,
+      to: preferredPick.to,
+      costMultiplier: preferredPick.costMultiplier,
+      penaltyFactor: preferredPick.penaltyFactor,
+      priorityScore: preferredPick.priorityScore,
     });
     expanded[preferredPick.index].horses.push(preferredPick.horse);
     return { changed: true, ticketRows: expanded, reason: 'expandedPreferred' };
   }
 
   const acceptablePick = pickBestExpansion(
-    nonSpikRaceCandidates
-      .filter((candidate) => candidate.acceptable.length > 0)
-      .map((candidate) => ({
-        ...candidate,
-        horse: candidate.acceptable[0],
-      })),
-    currentRows
+    buildPool(nonSpikRaceCandidates, 'acceptable')
   );
 
   if (acceptablePick) {
-    console.log('NEXT EXPANSION OPTIONS', {
+    console.log('EXPANSION CHOICE', {
       raceId: expanded[acceptablePick.index]?.label,
-      strategy: acceptablePick.strategy,
-      estimatedCostJumpRows: acceptablePick.costIncrease,
-      racePriority: acceptablePick.racePriority,
+      from: acceptablePick.from,
+      to: acceptablePick.to,
+      costMultiplier: acceptablePick.costMultiplier,
+      penaltyFactor: acceptablePick.penaltyFactor,
+      priorityScore: acceptablePick.priorityScore,
     });
     expanded[acceptablePick.index].horses.push(acceptablePick.horse);
     return { changed: true, ticketRows: expanded, reason: 'expandedAcceptable' };
   }
 
   const fallbackPick = pickBestExpansion(
-    nonSpikRaceCandidates
-      .filter((candidate) => candidate.fallback.length > 0)
-      .map((candidate) => ({
-        ...candidate,
-        horse: candidate.fallback[0],
-      })),
-    currentRows
+    buildPool(nonSpikRaceCandidates, 'fallback')
   );
 
   if (fallbackPick) {
-    console.log('NEXT EXPANSION OPTIONS', {
+    console.log('EXPANSION CHOICE', {
       raceId: expanded[fallbackPick.index]?.label,
-      strategy: fallbackPick.strategy,
-      estimatedCostJumpRows: fallbackPick.costIncrease,
-      racePriority: fallbackPick.racePriority,
+      from: fallbackPick.from,
+      to: fallbackPick.to,
+      costMultiplier: fallbackPick.costMultiplier,
+      penaltyFactor: fallbackPick.penaltyFactor,
+      priorityScore: fallbackPick.priorityScore,
     });
     expanded[fallbackPick.index].horses.push(fallbackPick.horse);
     return { changed: true, ticketRows: expanded, reason: 'expandedFallback' };
   }
 
   const emergencyPick = pickBestExpansion(
-    nonSpikRaceCandidates
-      .filter((candidate) => candidate.emergency.length > 0)
-      .map((candidate) => ({
-        ...candidate,
-        horse: candidate.emergency[0],
-      })),
-    currentRows
+    buildPool(nonSpikRaceCandidates, 'emergency')
   );
 
   if (emergencyPick) {
-    console.log('NEXT EXPANSION OPTIONS', {
+    console.log('EXPANSION CHOICE', {
       raceId: expanded[emergencyPick.index]?.label,
-      strategy: emergencyPick.strategy,
-      estimatedCostJumpRows: emergencyPick.costIncrease,
-      racePriority: emergencyPick.racePriority,
+      from: emergencyPick.from,
+      to: emergencyPick.to,
+      costMultiplier: emergencyPick.costMultiplier,
+      penaltyFactor: emergencyPick.penaltyFactor,
+      priorityScore: emergencyPick.priorityScore,
     });
     expanded[emergencyPick.index].horses.push(emergencyPick.horse);
     return { changed: true, ticketRows: expanded, reason: 'expandedEmergency' };
+  }
+
+  // Hard rule: never break a spik while non-spik races are still expandable.
+  if (nonSpikExpandableExists) {
+    return { changed: false, ticketRows: expanded, reason: 'nextExpansionRequiresBreakingSpik' };
+  }
+
+  const allowSpikBreak = spikBreakAvailable && (allNonSpikAtMaxAllowed || budgetProgress >= 0.7);
+
+  if (allowSpikBreak) {
+    const spikPick =
+      pickBestExpansion(buildPool(spikRaceCandidates, 'preferred'))
+      || pickBestExpansion(buildPool(spikRaceCandidates, 'acceptable'))
+      || pickBestExpansion(buildPool(spikRaceCandidates, 'fallback'))
+      || pickBestExpansion(buildPool(spikRaceCandidates, 'emergency'));
+
+    if (spikPick) {
+      console.log('EXPANSION CHOICE', {
+        raceId: expanded[spikPick.index]?.label,
+        from: spikPick.from,
+        to: spikPick.to,
+        costMultiplier: spikPick.costMultiplier,
+        penaltyFactor: spikPick.penaltyFactor,
+        priorityScore: spikPick.priorityScore,
+      });
+      expanded[spikPick.index].horses.push(spikPick.horse);
+      return { changed: true, ticketRows: expanded, reason: 'expandedSpikBreak' };
+    }
   }
 
   if (spikBreakAvailable) {
@@ -714,7 +759,10 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
         break;
       }
 
-      const expansion = expandTicketOneStep(adjustedRows, size);
+      const expansion = expandTicketOneStep(adjustedRows, size, {
+        currentCost: totalCost,
+        targetBudget: exactTarget,
+      });
 
       if (!expansion.changed) {
         stopReason = expansion.reason || 'no more expandable races';
@@ -791,7 +839,10 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
       continue;
     }
 
-    const expansion = expandTicketOneStep(adjustedRows, size);
+    const expansion = expandTicketOneStep(adjustedRows, size, {
+      currentCost: totalCost,
+      targetBudget: target.max,
+    });
     adjustedRows = expansion.ticketRows;
     if (!expansion.changed) {
       stopReason = expansion.reason || 'no more expandable races';
