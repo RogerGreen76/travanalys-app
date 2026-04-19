@@ -1139,43 +1139,103 @@ async def get_status_checks():
 
 @api_router.post("/model/predictions")
 async def save_model_predictions(payload: ModelPredictionsCreate):
-    game_id = str(payload.gameId or "").strip()
-    if not game_id:
-        return JSONResponse(status_code=400, content={"error": "gameId is required"})
+    try:
+        logger.info("=== POST /model/predictions START ===")
+        
+        # Step 1: Parse and validate gameId
+        logger.info("Step 1: Parsing request")
+        game_id = str(payload.gameId or "").strip()
+        if not game_id:
+            logger.warning("Missing gameId")
+            return JSONResponse(status_code=400, content={"ok": False, "error": "gameId is required"})
 
-    rows = payload.predictions or []
-    if len(rows) == 0:
-        return {"gameId": game_id, "saved": 0, "timestamp": datetime.now(timezone.utc).isoformat()}
+        # Step 2: Extract and count prediction rows
+        logger.info("Step 2: Extract predictions")
+        rows = payload.predictions or []
+        logger.info(f"Number of predictions received: {len(rows)}")
+        
+        if len(rows) == 0:
+            logger.info("No predictions to save, returning early")
+            return JSONResponse(status_code=200, content={
+                "ok": True,
+                "gameId": game_id,
+                "inserted": 0,
+                "message": "No predictions to save"
+            })
 
-    created_at = datetime.now(timezone.utc)
-    race_ids = sorted({str(row.raceId or "").strip() for row in rows if str(row.raceId or "").strip()})
+        # Step 3: Prepare metadata
+        logger.info("Step 3: Preparing metadata")
+        created_at = datetime.now(timezone.utc)
+        race_ids = sorted({str(row.raceId or "").strip() for row in rows if str(row.raceId or "").strip()})
+        logger.info(f"Race IDs to upsert: {race_ids}")
 
-    # Overwrite existing predictions for these races in this game.
-    if race_ids:
-        await db.model_predictions.delete_many({"gameId": game_id, "raceId": {"$in": race_ids}})
+        # Step 4: Build documents
+        logger.info("Step 4: Building documents")
+        docs = [
+            {
+                "gameId": game_id,
+                "raceId": str(row.raceId or "").strip(),
+                "horseNumber": int(row.horseNumber),
+                "modelRank": int(row.modelRank),
+                "modelScore": float(row.modelScore),
+                "createdAt": created_at.isoformat(),
+            }
+            for row in rows
+            if str(row.raceId or "").strip()
+        ]
+        logger.info(f"Documents built: {len(docs)}")
+        
+        if len(docs) == 0:
+            logger.info("No valid documents after filtering, returning early")
+            return JSONResponse(status_code=200, content={
+                "ok": True,
+                "gameId": game_id,
+                "inserted": 0,
+                "message": "No valid documents after filtering"
+            })
 
-    docs = [
-        {
+        # Step 5: Delete old predictions for these races
+        logger.info("Step 5: Deleting old predictions")
+        if race_ids:
+            logger.info(f"Deleting predictions for gameId={game_id}, race_ids={race_ids}")
+            delete_result = await db.model_predictions.delete_many({
+                "gameId": game_id,
+                "raceId": {"$in": race_ids}
+            })
+            logger.info(f"Deleted: {delete_result.deleted_count} old predictions")
+        else:
+            logger.warning("No valid race IDs after filtering")
+
+        # Step 6: Insert new predictions
+        logger.info("Step 6: Inserting new predictions")
+        logger.info(f"Inserting {len(docs)} documents into model_predictions")
+        insert_result = await db.model_predictions.insert_many(docs, ordered=False)
+        logger.info(f"Inserted: {len(insert_result.inserted_ids)} predictions")
+
+        # Step 7: Return response
+        logger.info("Step 7: Returning response")
+        response = {
+            "ok": True,
             "gameId": game_id,
-            "raceId": str(row.raceId or "").strip(),
-            "horseNumber": int(row.horseNumber),
-            "modelRank": int(row.modelRank),
-            "modelScore": float(row.modelScore),
-            "createdAt": created_at.isoformat(),
+            "inserted": len(docs),
+            "races": race_ids,
+            "timestamp": created_at.isoformat(),
         }
-        for row in rows
-        if str(row.raceId or "").strip()
-    ]
+        logger.info(f"POST /model/predictions SUCCESS: {response}")
+        return JSONResponse(status_code=201, content=response)
 
-    if docs:
-        await db.model_predictions.insert_many(docs)
-
-    return {
-        "gameId": game_id,
-        "saved": len(docs),
-        "timestamp": created_at.isoformat(),
-        "races": race_ids,
-    }
+    except Exception as exc:
+        logger.exception("POST /model/predictions FAILED with exception")
+        logger.error(f"Exception type: {type(exc).__name__}")
+        logger.error(f"Exception message: {str(exc)}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": "Internal server error",
+                "details": str(exc)
+            }
+        )
 
 
 @api_router.get("/model/predictions")
