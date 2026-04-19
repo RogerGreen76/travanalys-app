@@ -15,7 +15,6 @@ import { fetchGameData, parseManualImport } from '../services/atgApi';
 import { normalizeRaceData } from '../services/normalizeRaceData';
 import { analyzeRaceData } from '../services/analyzeRaceData';
 import { saveRacePrediction } from '../services/performanceTracker';
-import { saveModelPredictions } from '../services/performanceTracker';
 
 /**
  * Filter races for a specific game type based on horse pools
@@ -222,10 +221,33 @@ const RaceAnalyzer = () => {
 
           if (predictions.length > 0) {
             try {
-              await saveModelPredictions({
+              console.log('SAVING MODEL PREDICTIONS', {
                 gameId: resolvedGameId,
                 predictions,
               });
+
+              try {
+                console.log('POST START', { gameId: resolvedGameId, count: predictions.length });
+
+                const res = await fetch('/api/model/predictions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    gameId: resolvedGameId,
+                    predictions
+                  })
+                });
+
+                const data = await res.json();
+
+                console.log('POST SUCCESS', data);
+              } catch (err) {
+                console.error('POST ERROR', err);
+                throw err;
+              }
+
               localStorage.setItem(saveKey, '1');
             } catch (predictionSaveError) {
               console.warn('[RaceAnalyzer] Could not save model predictions:', predictionSaveError);
