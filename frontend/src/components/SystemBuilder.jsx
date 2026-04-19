@@ -615,6 +615,7 @@ const expandTicketOneStep = (ticketRows, size) => {
 };
 
 const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) => {
+  console.log('INSIDE adjustTicketToBudget', { receivedTargetBudget: targetBudget });
   const target = TARGET_BUDGET_BY_SIZE[size] || TARGET_BUDGET_BY_SIZE.Mellan;
   const useExactTarget = Number.isFinite(targetBudget);
   const exactTarget = useExactTarget ? Number(targetBudget) : null;
@@ -1177,6 +1178,11 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
     // Compute targetBudget INSIDE the memo so the closure always sees the current liveBudget.
     const currentTargetBudget = Number.isFinite(Number(liveBudget)) ? Number(liveBudget) : 400;
+
+    console.log('CALL PATH CHECK', {
+      liveBudgetInComponent: liveBudget,
+      targetBudgetPassedToBuilder: currentTargetBudget,
+    });
 
     console.log('RECALCULATING SYSTEM', {
       liveBudget,
