@@ -474,137 +474,181 @@ const reduceTicketOneStep = (ticketRows) => {
   return { changed: false, ticketRows: reduced };
 };
 
+const getExpansionStrategyRank = (strategy) => {
+  if (strategy === 'Gardera brett') return 0;
+  if (strategy === 'Lås / 2-3 hästar') return 1;
+  if (strategy === 'Försiktig spik / 2 hästar') return 2;
+  if (strategy === 'Spik-kandidat') return 3;
+  return 4;
+};
+
+const pickBestExpansion = (candidates, currentRows) => {
+  return candidates.sort((a, b) => {
+    if (a.strategyRank !== b.strategyRank) return a.strategyRank - b.strategyRank;
+    if (a.costIncrease !== b.costIncrease) return a.costIncrease - b.costIncrease;
+    if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
+    if (a.selectedCount !== b.selectedCount) return a.selectedCount - b.selectedCount;
+    return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
+  })[0];
+};
+
 const expandTicketOneStep = (ticketRows, size) => {
   const expanded = ticketRows.map((race) => ({ ...race, horses: [...(race.horses || [])] }));
-  const strategyOrder = ['Gardera brett', 'Lås / 2-3 hästar', 'Försiktig spik / 2 hästar'];
+  const currentRows = Math.max(calculateRows(ticketRows), 1);
   let blockedByLimitsDetected = false;
+  let spikBreakAvailable = false;
 
-  for (const strategy of strategyOrder) {
-    const raceCandidates = expanded
-      .map((race, index) => ({ race, index }))
-      .filter(({ race }) => race.strategy === strategy)
-      .map(({ race, index }) => {
-        const evaluation = evaluateExpansionCandidates(race, size);
+  const raceCandidates = expanded
+    .map((race, index) => ({ race, index }))
+    .map(({ race, index }) => {
+      const evaluation = evaluateExpansionCandidates(race, size);
 
-        const evPreferred = evaluation.preferred || [];
-        const evAcceptable = evaluation.acceptable || [];
-        const evFallback = evaluation.fallback || [];
-        const evEmergency = evaluation.emergency || [];
-        const evRemaining = evaluation.diagnostics?.remaining || [];
-        const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
-        const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
-        const selectedCount = (race.horses || []).length;
+      const evPreferred = evaluation.preferred || [];
+      const evAcceptable = evaluation.acceptable || [];
+      const evFallback = evaluation.fallback || [];
+      const evEmergency = evaluation.emergency || [];
+      const evRemaining = evaluation.diagnostics?.remaining || [];
+      const ranked = Array.isArray(race?.ranked) ? race.ranked : [];
+      const maxAllowed = getMaxHorsesForStrategy(size, race?.strategy, ranked.length);
+      const selectedCount = (race.horses || []).length;
+      const strategyRank = getExpansionStrategyRank(race?.strategy);
 
-        let raceStopReason = 'expandable';
-        if (evaluation.blockedByLimit) {
-          raceStopReason = 'maxHorsesReached';
-        } else if (evRemaining.length === 0) {
-          raceStopReason = 'noRemainingCandidates';
-        } else if (evPreferred.length === 0 && evAcceptable.length === 0 && evFallback.length === 0) {
-          // horses remain but all were rejected — find most common rejection reason
-          const reasons = (evaluation.diagnostics?.rejected || []).map((r) => r.reason || 'unknown');
-          const topReason = reasons.length > 0 ? reasons[0] : 'candidateRejectedLowFinalScore';
-          raceStopReason = topReason.includes('below floor') ? 'candidateRejectedLowFinalScore' : 'candidateRejectedExpansionRule';
-        }
+      let raceStopReason = 'expandable';
+      if (evaluation.blockedByLimit) {
+        raceStopReason = 'maxHorsesReached';
+      } else if (evRemaining.length === 0) {
+        raceStopReason = 'noRemainingCandidates';
+      } else if (evPreferred.length === 0 && evAcceptable.length === 0 && evFallback.length === 0) {
+        const reasons = (evaluation.diagnostics?.rejected || []).map((r) => r.reason || 'unknown');
+        const topReason = reasons.length > 0 ? reasons[0] : 'candidateRejectedLowFinalScore';
+        raceStopReason = topReason.includes('below floor') ? 'candidateRejectedLowFinalScore' : 'candidateRejectedExpansionRule';
+      }
 
+      if (evaluation.blockedByLimit) {
+        blockedByLimitsDetected = true;
+      }
 
-        if (evaluation.blockedByLimit) {
-          blockedByLimitsDetected = true;
-        }
+      const canBreakSpik = race?.strategy === 'Spik-kandidat' && ranked.length > selectedCount;
+      if (canBreakSpik) {
+        spikBreakAvailable = true;
+      }
 
-        console.log('EXPAND MODE:', {
-          raceId: race.label,
-          preferred: evPreferred.length,
-          fallback: evFallback.length,
-          emergency: evEmergency.length,
-        });
-        console.log('RACE LIMIT CHECK', {
-          raceId: race.label,
-          strategy: race.strategy,
-          selectedCount,
-          maxAllowed,
-          expandable: raceStopReason === 'expandable',
-        });
-
-        return {
-          index,
-          racePriority: Number(race?.uncertaintyScore) || 0,
-          selectedCount,
-          preferred: evPreferred,
-          acceptable: evAcceptable,
-          fallback: evFallback,
-          emergency: evEmergency,
-        };
+      console.log('EXPAND MODE:', {
+        raceId: race.label,
+        preferred: evPreferred.length,
+        fallback: evFallback.length,
+        emergency: evEmergency.length,
+      });
+      console.log('RACE LIMIT CHECK', {
+        raceId: race.label,
+        strategy: race.strategy,
+        selectedCount,
+        maxAllowed,
+        expandable: raceStopReason === 'expandable',
       });
 
-    const preferredPick = raceCandidates
+      return {
+        index,
+        strategy: race.strategy,
+        strategyRank,
+        racePriority: Number(race?.uncertaintyScore) || 0,
+        selectedCount,
+        costIncrease: selectedCount > 0 ? currentRows / selectedCount : Number.POSITIVE_INFINITY,
+        preferred: evPreferred,
+        acceptable: evAcceptable,
+        fallback: evFallback,
+        emergency: evEmergency,
+      };
+    });
+
+  const nonSpikRaceCandidates = raceCandidates.filter((candidate) => candidate.strategy !== 'Spik-kandidat');
+
+  const preferredPick = pickBestExpansion(
+    nonSpikRaceCandidates
       .filter((candidate) => candidate.preferred.length > 0)
       .map((candidate) => ({
         ...candidate,
         horse: candidate.preferred[0],
-      }))
-      .sort((a, b) => {
-        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
-        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
-        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
-      })[0];
+      })),
+    currentRows
+  );
 
-    if (preferredPick) {
-      expanded[preferredPick.index].horses.push(preferredPick.horse);
-      return { changed: true, ticketRows: expanded, reason: 'expandedPreferred' };
-    }
+  if (preferredPick) {
+    console.log('NEXT EXPANSION OPTIONS', {
+      raceId: expanded[preferredPick.index]?.label,
+      strategy: preferredPick.strategy,
+      estimatedCostJumpRows: preferredPick.costIncrease,
+      racePriority: preferredPick.racePriority,
+    });
+    expanded[preferredPick.index].horses.push(preferredPick.horse);
+    return { changed: true, ticketRows: expanded, reason: 'expandedPreferred' };
+  }
 
-    const acceptablePick = raceCandidates
+  const acceptablePick = pickBestExpansion(
+    nonSpikRaceCandidates
       .filter((candidate) => candidate.acceptable.length > 0)
       .map((candidate) => ({
         ...candidate,
         horse: candidate.acceptable[0],
-      }))
-      .sort((a, b) => {
-        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
-        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
-        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
-      })[0];
+      })),
+    currentRows
+  );
 
-    if (acceptablePick) {
-      expanded[acceptablePick.index].horses.push(acceptablePick.horse);
-      return { changed: true, ticketRows: expanded, reason: 'expandedAcceptable' };
-    }
+  if (acceptablePick) {
+    console.log('NEXT EXPANSION OPTIONS', {
+      raceId: expanded[acceptablePick.index]?.label,
+      strategy: acceptablePick.strategy,
+      estimatedCostJumpRows: acceptablePick.costIncrease,
+      racePriority: acceptablePick.racePriority,
+    });
+    expanded[acceptablePick.index].horses.push(acceptablePick.horse);
+    return { changed: true, ticketRows: expanded, reason: 'expandedAcceptable' };
+  }
 
-    // Fallback tier: less restrictive, allows No play / Överspelad if finalScore >= TIER3_FALLBACK_SCORE_MIN
-    const fallbackPick = raceCandidates
+  const fallbackPick = pickBestExpansion(
+    nonSpikRaceCandidates
       .filter((candidate) => candidate.fallback.length > 0)
       .map((candidate) => ({
         ...candidate,
         horse: candidate.fallback[0],
-      }))
-      .sort((a, b) => {
-        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
-        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
-        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
-      })[0];
+      })),
+    currentRows
+  );
 
-    if (fallbackPick) {
-      expanded[fallbackPick.index].horses.push(fallbackPick.horse);
-      return { changed: true, ticketRows: expanded, reason: 'expandedFallback' };
-    }
+  if (fallbackPick) {
+    console.log('NEXT EXPANSION OPTIONS', {
+      raceId: expanded[fallbackPick.index]?.label,
+      strategy: fallbackPick.strategy,
+      estimatedCostJumpRows: fallbackPick.costIncrease,
+      racePriority: fallbackPick.racePriority,
+    });
+    expanded[fallbackPick.index].horses.push(fallbackPick.horse);
+    return { changed: true, ticketRows: expanded, reason: 'expandedFallback' };
+  }
 
-    const emergencyPick = raceCandidates
+  const emergencyPick = pickBestExpansion(
+    nonSpikRaceCandidates
       .filter((candidate) => candidate.emergency.length > 0)
       .map((candidate) => ({
         ...candidate,
         horse: candidate.emergency[0],
-      }))
-      .sort((a, b) => {
-        if (b.racePriority !== a.racePriority) return b.racePriority - a.racePriority;
-        if (b.selectedCount !== a.selectedCount) return a.selectedCount - b.selectedCount;
-        return getEffectiveFinalScore(b.horse) - getEffectiveFinalScore(a.horse);
-      })[0];
+      })),
+    currentRows
+  );
 
-    if (emergencyPick) {
-      expanded[emergencyPick.index].horses.push(emergencyPick.horse);
-      return { changed: true, ticketRows: expanded, reason: 'expandedEmergency' };
-    }
+  if (emergencyPick) {
+    console.log('NEXT EXPANSION OPTIONS', {
+      raceId: expanded[emergencyPick.index]?.label,
+      strategy: emergencyPick.strategy,
+      estimatedCostJumpRows: emergencyPick.costIncrease,
+      racePriority: emergencyPick.racePriority,
+    });
+    expanded[emergencyPick.index].horses.push(emergencyPick.horse);
+    return { changed: true, ticketRows: expanded, reason: 'expandedEmergency' };
+  }
+
+  if (spikBreakAvailable) {
+    return { changed: false, ticketRows: expanded, reason: 'nextExpansionRequiresBreakingSpik' };
   }
 
   if (blockedByLimitsDetected) {
