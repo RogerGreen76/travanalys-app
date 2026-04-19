@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -57,6 +57,8 @@ const PerformanceDashboard = () => {
   const [onlyValueWinners, setOnlyValueWinners] = useState(false);
   const [onlyStarkPlayWinners, setOnlyStarkPlayWinners] = useState(false);
   const [savedPredictionLookup, setSavedPredictionLookup] = useState({});
+  const fetchedGameIdsRef = useRef(new Set());
+  const predictionRowsCacheRef = useRef({});
 
   const history = useMemo(() => getPerformanceHistory(), [refreshKey]);
 
@@ -78,21 +80,32 @@ const PerformanceDashboard = () => {
       }
 
       const nextLookup = {};
-      for (const gameId of gameIds) {
+      const missingGameIds = gameIds.filter((gameId) => !fetchedGameIdsRef.current.has(gameId));
+
+      for (const gameId of missingGameIds) {
         try {
           const rows = await fetchModelPredictionsForGame(gameId);
-          rows.forEach((row) => {
-            const key = `${String(row?.gameId || '')}__${String(row?.raceId || '')}__${Number(row?.horseNumber)}`;
-            if (!Number.isFinite(Number(row?.horseNumber))) return;
-            nextLookup[key] = {
-              modelRank: Number(row?.modelRank),
-              modelScore: Number(row?.modelScore),
-            };
-          });
+          predictionRowsCacheRef.current[gameId] = Array.isArray(rows) ? rows : [];
+          fetchedGameIdsRef.current.add(gameId);
         } catch (error) {
           console.warn('[PerformanceDashboard] Could not fetch saved model predictions for gameId:', gameId, error);
         }
       }
+
+      gameIds.forEach((gameId) => {
+        const rows = Array.isArray(predictionRowsCacheRef.current[gameId])
+          ? predictionRowsCacheRef.current[gameId]
+          : [];
+
+        rows.forEach((row) => {
+          const key = `${String(row?.gameId || '')}__${String(row?.raceId || '')}__${Number(row?.horseNumber)}`;
+          if (!Number.isFinite(Number(row?.horseNumber))) return;
+          nextLookup[key] = {
+            modelRank: Number(row?.modelRank),
+            modelScore: Number(row?.modelScore),
+          };
+        });
+      });
 
       if (!isCancelled) {
         setSavedPredictionLookup(nextLookup);
