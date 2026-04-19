@@ -1,8 +1,8 @@
 const STORAGE_KEY = 'travanalys_performance_history';
 let hasLoggedGameIdMigrationCheck = false;
-const MODEL_PREDICTIONS_CACHE_TTL_MS = 60 * 1000;
 const modelPredictionsCache = new Map();
 const modelPredictionsInflight = new Map();
+const fetchedGameIds = new Set();
 
 const canUseStorage = () => typeof window !== 'undefined' && !!window.localStorage;
 
@@ -114,6 +114,20 @@ export const clearPerformanceHistory = () => {
   }
 
   window.localStorage.removeItem(STORAGE_KEY);
+};
+
+export const clearModelPredictionsFetchCache = (gameId = null) => {
+  const resolvedGameId = String(gameId || '').trim();
+  if (resolvedGameId) {
+    modelPredictionsCache.delete(resolvedGameId);
+    modelPredictionsInflight.delete(resolvedGameId);
+    fetchedGameIds.delete(resolvedGameId);
+    return;
+  }
+
+  modelPredictionsCache.clear();
+  modelPredictionsInflight.clear();
+  fetchedGameIds.clear();
 };
 
 const computeWinnerModelData = (prediction, result) => {
@@ -522,9 +536,8 @@ export const fetchModelPredictionsForGame = async (gameId) => {
     return [];
   }
 
-  const now = Date.now();
   const cached = modelPredictionsCache.get(resolvedGameId);
-  if (cached && (now - cached.ts) < MODEL_PREDICTIONS_CACHE_TTL_MS) {
+  if (fetchedGameIds.has(resolvedGameId)) {
     return Array.isArray(cached.rows) ? cached.rows : [];
   }
 
@@ -553,9 +566,9 @@ export const fetchModelPredictionsForGame = async (gameId) => {
       const data = await response.json();
       const rows = Array.isArray(data) ? data : (Array.isArray(data?.predictions) ? data.predictions : []);
       modelPredictionsCache.set(resolvedGameId, {
-        ts: Date.now(),
         rows,
       });
+      fetchedGameIds.add(resolvedGameId);
       return rows;
     } catch (error) {
       console.warn('[PerformanceTracker] fetchModelPredictionsForGame failed:', error);
