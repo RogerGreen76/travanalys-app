@@ -54,6 +54,7 @@ KM_VERBOSE_DEBUG = os.environ.get("KM_VERBOSE_DEBUG", "false").strip().lower() i
 }
 
 _auto_kmtid_task_running = False
+_mongo_ready = False
 
 
 ROOT_DIR = Path(__file__).parent
@@ -61,7 +62,14 @@ load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
+is_local_mongo = "localhost" in mongo_url or "127.0.0.1" in mongo_url
+client = AsyncIOMotorClient(
+    mongo_url,
+    serverSelectionTimeoutMS=5000,
+    socketTimeoutMS=5000,
+    connectTimeoutMS=5000,
+    directConnection=is_local_mongo,
+)
 db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
@@ -1163,6 +1171,17 @@ async def save_model_predictions(request: Request):
             logger.warning("Missing gameId")
             return JSONResponse(status_code=400, content={"ok": False, "error": "gameId is required"})
 
+        if not _mongo_ready:
+            logger.error("MongoDB unavailable; failing fast before insert")
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "ok": False,
+                    "error": "MongoDB unavailable",
+                    "details": "Startup ping failed; start MongoDB or fix MONGO_URL",
+                },
+            )
+
         predictions = (data or {}).get("predictions") or []
         logger.info(f"STEP 4: predictions count = {len(predictions)}")
         
@@ -1204,7 +1223,7 @@ async def save_model_predictions(request: Request):
         collection = db.model_predictions
 
         # Temporary isolation mode: skip DB writes to verify endpoint returns quickly.
-        skip_db_insert = os.environ.get("MODEL_PREDICTIONS_SKIP_DB", "true").strip().lower() in {
+        skip_db_insert = os.environ.get("MODEL_PREDICTIONS_SKIP_DB", "false").strip().lower() in {
             "1",
             "true",
             "yes",
@@ -1232,6 +1251,7 @@ async def save_model_predictions(request: Request):
             docs,
             ordered=False,
             bypass_document_validation=True,
+            session=None,
         )
         logger.info(f"DB insert took {time.time() - start:.2f}s")
         logger.info(f"Inserted: {len(insert_result.inserted_ids)} predictions")
@@ -1686,6 +1706,15 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup_kmtid_bootstrap():
+    global _mongo_ready
+    try:
+        await db.command("ping")
+        _mongo_ready = True
+        logger.info("MongoDB connected successfully")
+    except Exception:
+        _mongo_ready = False
+        logger.exception("MongoDB connection failed")
+
     # Run bootstrap in background so API startup is not blocked by long backfill jobs.
     # During focused API debugging, this can be fully disabled via KMTID_AUTO_BOOTSTRAP=false.
     if not KMTID_AUTO_BOOTSTRAP:
