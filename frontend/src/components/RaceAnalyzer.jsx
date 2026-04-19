@@ -229,22 +229,48 @@ const RaceAnalyzer = () => {
               try {
                 console.log('POST START', { gameId: resolvedGameId, count: predictions.length });
 
-                const res = await fetch('/api/model/predictions', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    gameId: resolvedGameId,
-                    predictions
-                  })
-                });
+                const controller = new AbortController();
+                const timeout = setTimeout(() => {
+                  console.warn('POST TIMEOUT: Aborting after 5 seconds');
+                  controller.abort();
+                }, 5000);
 
-                const data = await res.json();
+                try {
+                  const res = await fetch('http://localhost:8000/api/model/predictions', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                      gameId: resolvedGameId,
+                      predictions
+                    }),
+                    signal: controller.signal
+                  });
 
-                console.log('POST SUCCESS', data);
+                  clearTimeout(timeout);
+
+                  console.log('POST RESPONSE STATUS', res.status);
+
+                  const text = await res.text();
+                  console.log('POST RAW RESPONSE', text);
+
+                  let data;
+                  try {
+                    data = JSON.parse(text);
+                  } catch (parseErr) {
+                    console.error('POST PARSE ERROR', parseErr);
+                    data = text;
+                  }
+
+                  console.log('POST SUCCESS', data);
+                } catch (err) {
+                  clearTimeout(timeout);
+                  console.error('POST ERROR', err.message || err);
+                  throw err;
+                }
               } catch (err) {
-                console.error('POST ERROR', err);
+                console.error('POST OUTER ERROR', err);
                 throw err;
               }
 
