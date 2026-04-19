@@ -936,6 +936,13 @@ const formatNumber = (value, decimals = 1) => {
 const getEffectiveFinalScore = (horse) =>
   Number(horse?.calibratedFinalScore ?? horse?.finalScore) || 0;
 
+const getStopReasonLabel = (stopReason) => {
+  if (stopReason === 'nextExpansionRequiresBreakingSpik') {
+    return 'Nästa steg kräver att spiken bryts';
+  }
+  return stopReason || 'okänd';
+};
+
 const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIndex = 0 }) => {
   const [autoSuggestion, setAutoSuggestion] = useState(null);
   const [manualSelection, setManualSelection] = useState({
@@ -949,10 +956,15 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const [liveBudget, setLiveBudget] = useState(400);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const normalizedGameType = gameType?.toUpperCase().split('-')[0];
+  const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
+  const sliderMinBudget = rowPrice;
+  const sliderMaxBudget = 10000;
+
   const updateLiveBudget = (nextBudget) => {
     const parsed = Number(nextBudget);
     if (!Number.isFinite(parsed)) return;
-    const clamped = Math.max(50, Math.min(10000, parsed));
+    const clamped = Math.max(sliderMinBudget, Math.min(sliderMaxBudget, parsed));
     setLiveBudget(clamped);
   };
   
@@ -970,6 +982,14 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
       setIsExpanded(true);
     }
   }, [size, systemTab]);
+
+  useEffect(() => {
+    setLiveBudget((prev) => {
+      const parsed = Number(prev);
+      if (!Number.isFinite(parsed)) return sliderMinBudget;
+      return Math.max(sliderMinBudget, Math.min(sliderMaxBudget, parsed));
+    });
+  }, [sliderMinBudget]);
 
   // Generera DD-kombinationer
   const generateDDCombinations = () => {
@@ -1169,8 +1189,6 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   };
 
   const currentSelection = mode === 'auto' ? autoSuggestion : manualSelection;
-  const normalizedGameType = gameType?.toUpperCase().split('-')[0];
-  const rowPrice = ROW_PRICE[normalizedGameType] ?? 1;
   const selectedSize = size || 'Mellan';
   const targetBudget = Number.isFinite(Number(liveBudget)) ? Number(liveBudget) : 400;
   const estimatedRows = Math.max(1, Math.round(targetBudget / rowPrice));
@@ -1461,14 +1479,14 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
           {/* Budget slider */}
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-gray-400">Budget</span>
+              <span className="text-sm text-gray-400">Budget (min {formattedRowPrice} kr)</span>
               <div>{liveBudget} kr</div>
             </div>
             <Slider
               data-testid="budget-slider"
-              min={50}
-              max={10000}
-              step={50}
+              min={sliderMinBudget}
+              max={sliderMaxBudget}
+              step={rowPrice}
               value={[liveBudget]}
               onValueChange={(value) => {
                 const newBudget = Number(value?.[0]);
@@ -1536,7 +1554,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                 • Slutkostnad: <span className="font-semibold text-white">{Number(builderFinalCost || 0).toLocaleString('sv-SE')} kr</span>
               </div>
               <div className="text-xs text-gray-400">
-                stopReason: {builderStopReason || 'okänd'}
+                stopReason: {getStopReasonLabel(builderStopReason)}
               </div>
               <div className="text-xs text-gray-400">
                 Fullt expanderade lopp: {builderFullyExpandedRaces} • Lopp vid maxAllowed: {builderRacesHitMaxAllowed}
