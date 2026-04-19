@@ -237,6 +237,13 @@ const RaceAnalyzer = () => {
                 }, 15000);
 
                 try {
+                  console.log('[PREDICTIONS CALL]', {
+                    type: 'POST',
+                    gameId: resolvedGameId,
+                    source: 'RaceAnalyzer.handleLoadGameType',
+                    time: new Date().toISOString(),
+                    stack: new Error().stack,
+                  });
                   const res = await fetch('http://localhost:8000/api/model/predictions', {
                     method: 'POST',
                     headers: {

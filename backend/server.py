@@ -1285,9 +1285,12 @@ async def get_model_predictions(
     gameId: str = Query(..., description="ATG game ID"),
     raceId: str | None = Query(None, description="Optional race ID"),
 ):
+    start = time.time()
+    logger.info("GET /model/predictions START gameId=%s raceId=%s", gameId, raceId)
     try:
         game_id = str(gameId or "").strip()
         if not game_id:
+            logger.info("GET /model/predictions END gameId=%s took %.2fs (empty gameId)", gameId, time.time() - start)
             return []
 
         query: dict = {"gameId": game_id}
@@ -1295,8 +1298,11 @@ async def get_model_predictions(
         if race_id:
             query["raceId"] = race_id
 
+        logger.info("GET /model/predictions before DB query gameId=%s query=%s", game_id, query)
         docs = await db.model_predictions.find(query, {"_id": 0}).to_list(5000)
+        logger.info("GET /model/predictions after DB query gameId=%s docs=%s", game_id, len(docs) if isinstance(docs, list) else -1)
         if not isinstance(docs, list):
+            logger.info("GET /model/predictions END gameId=%s took %.2fs (non-list docs)", game_id, time.time() - start)
             return []
 
         # Defensive normalization so malformed rows do not break consumers.
@@ -1317,9 +1323,16 @@ async def get_model_predictions(
                 # Skip malformed document, never fail whole request.
                 continue
 
+        logger.info(
+            "GET /model/predictions END gameId=%s took %.2fs returned=%s",
+            game_id,
+            time.time() - start,
+            len(safe_rows),
+        )
         return safe_rows
     except Exception:
         logger.exception("Failed to load model predictions gameId=%s raceId=%s", gameId, raceId)
+        logger.info("GET /model/predictions END gameId=%s took %.2fs (error)", gameId, time.time() - start)
         return []
 
 @api_router.get("/atg/calendar")
@@ -1711,6 +1724,9 @@ async def startup_kmtid_bootstrap():
         await db.command("ping")
         _mongo_ready = True
         logger.info("MongoDB connected successfully")
+        await db.model_predictions.create_index("gameId")
+        await db.model_predictions.create_index([("gameId", 1), ("raceId", 1)])
+        logger.info("MongoDB indexes ensured for model_predictions")
     except Exception:
         _mongo_ready = False
         logger.exception("MongoDB connection failed")

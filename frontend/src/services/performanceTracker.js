@@ -1,5 +1,8 @@
 const STORAGE_KEY = 'travanalys_performance_history';
 let hasLoggedGameIdMigrationCheck = false;
+const MODEL_PREDICTIONS_CACHE_TTL_MS = 60 * 1000;
+const modelPredictionsCache = new Map();
+const modelPredictionsInflight = new Map();
 
 const canUseStorage = () => typeof window !== 'undefined' && !!window.localStorage;
 
@@ -481,6 +484,13 @@ export const saveModelPredictions = async (payload) => {
 
   try {
     console.log('POST START', gameId, predictions.length);
+    console.log('[PREDICTIONS CALL]', {
+      type: 'POST',
+      gameId,
+      source: 'performanceTracker.saveModelPredictions',
+      time: new Date().toISOString(),
+      stack: new Error().stack,
+    });
 
     const response = await fetch('/api/model/predictions', {
       method: 'POST',
@@ -512,22 +522,49 @@ export const fetchModelPredictionsForGame = async (gameId) => {
     return [];
   }
 
-  try {
-    const response = await fetch(`/api/model/predictions?gameId=${encodeURIComponent(resolvedGameId)}`, {
-      headers: { accept: 'application/json' }
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const data = await response.json();
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return Array.isArray(data?.predictions) ? data.predictions : [];
-  } catch (error) {
-    console.warn('[PerformanceTracker] fetchModelPredictionsForGame failed:', error);
-    return [];
+  const now = Date.now();
+  const cached = modelPredictionsCache.get(resolvedGameId);
+  if (cached && (now - cached.ts) < MODEL_PREDICTIONS_CACHE_TTL_MS) {
+    return Array.isArray(cached.rows) ? cached.rows : [];
   }
+
+  const inFlightPromise = modelPredictionsInflight.get(resolvedGameId);
+  if (inFlightPromise) {
+    return inFlightPromise;
+  }
+
+  const requestPromise = (async () => {
+    try {
+      console.log('[PREDICTIONS CALL]', {
+        type: 'GET',
+        gameId: resolvedGameId,
+        source: 'performanceTracker.fetchModelPredictionsForGame',
+        time: new Date().toISOString(),
+        stack: new Error().stack,
+      });
+      const response = await fetch(`/api/model/predictions?gameId=${encodeURIComponent(resolvedGameId)}`, {
+        headers: { accept: 'application/json' }
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+      const rows = Array.isArray(data) ? data : (Array.isArray(data?.predictions) ? data.predictions : []);
+      modelPredictionsCache.set(resolvedGameId, {
+        ts: Date.now(),
+        rows,
+      });
+      return rows;
+    } catch (error) {
+      console.warn('[PerformanceTracker] fetchModelPredictionsForGame failed:', error);
+      return [];
+    } finally {
+      modelPredictionsInflight.delete(resolvedGameId);
+    }
+  })();
+
+  modelPredictionsInflight.set(resolvedGameId, requestPromise);
+  return requestPromise;
 };
