@@ -761,10 +761,11 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
   }
 
   const finalCost = calculateCost(adjustedRows, rowPrice);
+  let finalEvals = [];
 
   if (useExactTarget) {
     const rankedOf = (race) => Array.isArray(race?.ranked) ? race.ranked : [];
-    const finalEvals = adjustedRows.map((race) => {
+    finalEvals = adjustedRows.map((race) => {
       const ev = evaluateExpansionCandidates(race, size);
       const evPref = ev.preferred || [];
       const evAcc = ev.acceptable || [];
@@ -800,7 +801,17 @@ const adjustTicketToBudget = (ticketRows, size, rowPrice, targetBudget = null) =
 
   }
 
-  return adjustedRows;
+  return {
+    ticketRows: adjustedRows,
+    targetBudget: exactTarget,
+    finalCost,
+    stopReason,
+    usedExactTarget: useExactTarget,
+    reachedTarget: useExactTarget ? finalCost >= exactTarget : stopReason === 'budget reached',
+    fullyExpandedRaces: finalEvals.filter((race) => race.stopReason === 'maxHorsesReached' || race.stopReason === 'noRemainingCandidates').length,
+    racesHitMaxAllowed: finalEvals.filter((race) => race.stopReason === 'maxHorsesReached').length,
+    raceDiagnostics: finalEvals,
+  };
 };
 
 const getTicketHorsesForRace = (raceHorses, strategySuggestion, size, raceContext = {}) => {
@@ -1070,7 +1081,7 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
   const estimatedRows = Math.max(1, Math.round(targetBudget / rowPrice));
 
   // --- Auto-system: compute per-race ticket based on allRaces + strategySuggestion + size ---
-  const autoTicket = useMemo(() => {
+  const autoSystemResult = useMemo(() => {
     const races = Array.isArray(allRaces) && allRaces.length > 0 ? allRaces : null;
 
     if (!races) {
@@ -1084,7 +1095,17 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
         scoreGap: 0,
         topHorsePlay,
       });
-      return [{ label: `${gameType}-1`, strategy, horses: picked }];
+      return {
+        ticketRows: [{ label: `${gameType}-1`, strategy, horses: picked }],
+        targetBudget: Number.isFinite(Number(liveBudget)) ? Number(liveBudget) : 400,
+        finalCost: calculateCost([{ label: `${gameType}-1`, strategy, horses: picked }], rowPrice),
+        stopReason: 'single-race-fallback',
+        usedExactTarget: true,
+        reachedTarget: false,
+        fullyExpandedRaces: 0,
+        racesHitMaxAllowed: 0,
+        raceDiagnostics: [],
+      };
     }
 
     const raceMeta = races.map((raceItem, index) => {
@@ -1194,12 +1215,27 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
 
     const budgetAdjusted = adjustTicketToBudget(initialTicket, selectedSize, rowPrice, currentTargetBudget);
 
-    return budgetAdjusted.map((race) => ({
+    return {
+      ...budgetAdjusted,
+      ticketRows: (budgetAdjusted.ticketRows || []).map((race) => ({
       label: race.label,
       strategy: race.strategy,
       horses: race.horses,
-    }));
+      })),
+    };
   }, [allRaces, horses, gameType, selectedSize, rowPrice, liveBudget]);
+
+  const autoTicket = autoSystemResult?.ticketRows || [];
+  const builderTargetBudget = autoSystemResult?.targetBudget ?? targetBudget;
+  const builderFinalCost = autoSystemResult?.finalCost ?? 0;
+  const builderStopReason = autoSystemResult?.stopReason || null;
+  const builderFullyExpandedRaces = autoSystemResult?.fullyExpandedRaces ?? 0;
+  const builderRacesHitMaxAllowed = autoSystemResult?.racesHitMaxAllowed ?? 0;
+  const showBudgetStopExplanation =
+    Number.isFinite(Number(builderTargetBudget))
+    && builderFinalCost < Number(builderTargetBudget)
+    && builderStopReason
+    && builderStopReason !== 'budget reached';
 
   const totalRows = useMemo(() => {
     return calculateRows(autoTicket);
@@ -1395,6 +1431,25 @@ const SystemBuilder = ({ horses, gameType = 'V85', allRaces = [], selectedRaceIn
                     <span className="ml-auto text-[11px] text-gray-600 whitespace-nowrap">{race.strategy}</span>
                   </div>
                 ))
+              )}
+            </div>
+
+            <div className="space-y-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-3">
+              <div className="text-sm text-gray-200">
+                Budgetmål: <span className="font-semibold text-white">{Number(builderTargetBudget || 0).toLocaleString('sv-SE')} kr</span>
+                {' '}
+                • Slutkostnad: <span className="font-semibold text-white">{Number(builderFinalCost || 0).toLocaleString('sv-SE')} kr</span>
+              </div>
+              <div className="text-xs text-gray-400">
+                stopReason: {builderStopReason || 'okänd'}
+              </div>
+              <div className="text-xs text-gray-400">
+                Fullt expanderade lopp: {builderFullyExpandedRaces} • Lopp vid maxAllowed: {builderRacesHitMaxAllowed}
+              </div>
+              {showBudgetStopExplanation && (
+                <div className="text-sm text-amber-300">
+                  Systemet kunde inte fyllas till vald budget eftersom inga fler tillåtna hästar återstod enligt nuvarande regler.
+                </div>
               )}
             </div>
 
